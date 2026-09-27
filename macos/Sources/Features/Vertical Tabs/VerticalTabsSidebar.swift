@@ -77,6 +77,10 @@ enum VerticalTabsTestSupport {
                 NotificationCenter.default.post(name: showOverlay, object: nil)
             }
         }
+        if let name = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_COLOR"],
+           let color = TerminalTabColor.allCases.first(where: { $0.localizedName.lowercased() == name }) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { (controller.window as? TerminalWindow)?.tabColor = color }
+        }
         if ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_SESSION"] == "hermes" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NewSessionKind.hermes.open(from: controller) }
         }
@@ -394,6 +398,10 @@ private struct VerticalTabGroup: View {
                 .padding(.bottom, 10)
             }
         }
+        .background(colorCard)
+        // Colored tabs sit as a card inset from the sidebar edges, like Warp.
+        .padding(.horizontal, tabColor.displayColor == nil ? 0 : 6)
+        .padding(.vertical, tabColor.displayColor == nil ? 0 : 5)
         .onAppear(perform: update)
         .onReceive(VerticalTabsTicker.shared.publisher) {
             // Every tab window carries a sidebar, but only the one on screen needs
@@ -411,13 +419,10 @@ private struct VerticalTabGroup: View {
                     .foregroundColor(.secondary)
                     .rotationEffect(.degrees(45))
             }
-            if let color = tabColor.displayColor {
-                Circle().fill(Color(nsColor: color)).frame(width: 7, height: 7)
-            }
             Text(Self.cleanTitle(snapshot.title).uppercased())
                 .font(.system(size: 10.5, weight: .semibold))
                 .kerning(0.4)
-                .foregroundColor(isSelected ? .primary : .secondary)
+                .foregroundColor(isSelected ? .primary : (tabColor.displayColor == nil ? .secondary : .primary.opacity(0.85)))
                 .lineLimit(1)
                 .truncationMode(.tail)
             if snapshot.hasUnseen {
@@ -447,6 +452,19 @@ private struct VerticalTabGroup: View {
         .contentShape(Rectangle())
         .onTapGesture { select() }
         .contextMenu { contextMenu }
+    }
+
+    /// A colored tab is filled with a light, translucent tint of its color and outlined in
+    /// it, so the whole tab reads as that color while its text stays legible.
+    @ViewBuilder
+    private var colorCard: some View {
+        if let ns = tabColor.displayColor {
+            // A softened, pastel version of the color, as Warp uses.
+            let pastel = Color(nsColor: ns.usingColorSpace(.sRGB)?.blended(withFraction: 0.3, of: .white) ?? ns)
+            RoundedRectangle(cornerRadius: 9)
+                .fill(pastel.opacity(isSelected ? 0.55 : 0.44))
+                .overlay(RoundedRectangle(cornerRadius: 9).stroke(pastel.opacity(isSelected ? 0.95 : 0.7), lineWidth: 1))
+        }
     }
 
     /// Samples the tab and redraws only if something visible changed.
