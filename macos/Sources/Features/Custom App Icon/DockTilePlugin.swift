@@ -12,7 +12,10 @@ class DockTilePlugin: NSObject, NSDockTilePlugIn {
     #if DEBUG
     private let ghosttyUserDefaults = UserDefaults(suiteName: "com.mitchellh.ghostty.debug")
     #else
-    private let ghosttyUserDefaults = UserDefaults(suiteName: "com.mitchellh.ghostty")
+    // Ghostty Custom: read the defaults of the app this plugin belongs to, so a
+    // renamed build (different bundle ID) doesn't pick up official Ghostty's icon.
+    private lazy var ghosttyUserDefaults = UserDefaults(
+        suiteName: ghosttyAppURL.flatMap { Bundle(url: $0)?.bundleIdentifier } ?? "com.mitchellh.ghostty")
     #endif
 
     private var iconChangeObserver: Any?
