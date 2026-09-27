@@ -21,13 +21,64 @@ enum VerticalTabs {
     static func setNeedsRefresh() {
         NotificationCenter.default.post(name: .verticalTabsNeedRefresh, object: nil)
     }
+
+    /// Horizontal space the sidebar occupies, including its divider.
+    static var occupiedWidth: CGFloat {
+        let stored = UserDefaults.standard.object(forKey: widthKey) as? Double ?? defaultWidth
+        return CGFloat(min(max(stored, widthRange.lowerBound), widthRange.upperBound)) + 1
+    }
+
+    /// The window content size needed to give the terminal `size` with the sidebar beside it.
+    static func contentSize(forTerminal size: NSSize) -> NSSize {
+        guard UserDefaults.standard.verticalTabsVisible else { return size }
+        return NSSize(width: size.width + occupiedWidth, height: size.height)
+    }
+
+    /// Width the sidebar currently takes from the window, or 0 when hidden. Ghostty
+    /// stores this alongside the "last window frame" it uses to size new windows.
+    static var currentSidebarWidth: Double {
+        UserDefaults.standard.verticalTabsVisible ? Double(occupiedWidth) : 0
+    }
+
+    /// Converts a saved window width to one that gives the terminal the same size it had
+    /// when saved, accounting for the sidebar being shown, hidden, or resized since.
+    static func restoredWindowWidth(_ savedWidth: Double, savedSidebarWidth: Double) -> Double {
+        savedWidth - savedSidebarWidth + currentSidebarWidth
+    }
+
+    /// Widens a newly created window so the sidebar is added beside the terminal
+    /// rather than taking columns away from it.
+    static func widenNewWindow(_ window: NSWindow) {
+        guard UserDefaults.standard.verticalTabsVisible else { return }
+        resize(window, by: occupiedWidth)
+    }
+
+    /// Grows (or shrinks) the window leftward so the terminal keeps its size and
+    /// position on screen when the sidebar appears or disappears.
+    static func resize(_ window: NSWindow, by delta: CGFloat) {
+        guard !window.styleMask.contains(.fullScreen) else { return }
+        var frame = window.frame
+        frame.size.width = max(frame.size.width + delta, window.minSize.width)
+        frame.origin.x -= frame.size.width - window.frame.size.width
+        if let screen = window.screen ?? NSScreen.main {
+            let visible = screen.visibleFrame
+            if frame.minX < visible.minX { frame.origin.x = visible.minX }
+            if frame.width > visible.width { frame.size.width = visible.width }
+        }
+        window.setFrame(frame, display: true)
+    }
 }
 
 /// One entry in the sidebar. Holds the controller weakly so the sidebar never
 /// keeps a closed tab alive.
-struct VerticalTabEntry: Identifiable {
+struct VerticalTabEntry: Identifiable, Equatable {
     let id: ObjectIdentifier
     weak var controller: TerminalController?
+    let tabColor: TerminalTabColor
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.id == rhs.id && lhs.tabColor == rhs.tabColor
+    }
 }
 
 /// The ordered list of tabs in the tab group of the window that owns this sidebar.
@@ -43,18 +94,15 @@ final class VerticalTabsModel: ObservableObject {
         self.owner = owner
 
         let center = NotificationCenter.default
-        let refreshNames: [Notification.Name] = [
-            .verticalTabsNeedRefresh,
-            NSWindow.didBecomeKeyNotification,
-            NSWindow.willCloseNotification,
-        ]
-        for name in refreshNames {
-            center.publisher(for: name)
-                // Tab group membership settles one runloop tick after these events.
-                .receive(on: RunLoop.main)
-                .sink { [weak self] _ in self?.refresh() }
-                .store(in: &cancellables)
-        }
+        Publishers.Merge3(
+            center.publisher(for: .verticalTabsNeedRefresh),
+            center.publisher(for: NSWindow.didBecomeKeyNotification),
+            center.publisher(for: NSWindow.willCloseNotification))
+            // Tab group membership settles a runloop tick after these events, and
+            // bursts (e.g. closing several tabs) collapse into one refresh.
+            .debounce(for: .milliseconds(16), scheduler: RunLoop.main)
+            .sink { [weak self] _ in self?.refresh() }
+            .store(in: &cancellables)
 
         UserDefaults.standard.publisher(for: \.VerticalTabsVisible)
             .receive(on: RunLoop.main)
@@ -70,13 +118,14 @@ final class VerticalTabsModel: ObservableObject {
         let windows = window.tabGroup?.windows ?? [window]
         let newTabs = windows.compactMap { window -> VerticalTabEntry? in
             guard let controller = window.windowController as? TerminalController else { return nil }
-            return VerticalTabEntry(id: ObjectIdentifier(controller), controller: controller)
+            return VerticalTabEntry(
+                id: ObjectIdentifier(controller),
+                controller: controller,
+                tabColor: (window as? TerminalWindow)?.tabColor ?? .none)
         }
-        if newTabs.map(\.id) != tabs.map(\.id) {
+        // Only publish real changes; refresh is triggered by many window events.
+        if newTabs != tabs {
             tabs = newTabs
-        } else {
-            // Same tabs, but decoration (color, selection) may have changed.
-            objectWillChange.send()
         }
 
         syncNativeTabBar(window: window)
@@ -130,7 +179,19 @@ final class VerticalTabsMenu: NSObject {
 
     @objc func toggle(_ sender: Any?) {
         let defaults = UserDefaults.standard
-        defaults.set(!defaults.verticalTabsVisible, forKey: VerticalTabs.visibleKey)
+        let show = !defaults.verticalTabsVisible
+        let delta = show ? VerticalTabs.occupiedWidth : -VerticalTabs.occupiedWidth
+
+        // One resize per window or tab group (tabs in a group share a frame).
+        var seenGroups: Set<ObjectIdentifier> = []
+        for window in NSApp.windows where window.windowController is TerminalController && window.isVisible {
+            if let group = window.tabGroup {
+                guard seenGroups.insert(ObjectIdentifier(group)).inserted else { continue }
+            }
+            VerticalTabs.resize(window, by: delta)
+        }
+
+        defaults.set(show, forKey: VerticalTabs.visibleKey)
     }
 }
 

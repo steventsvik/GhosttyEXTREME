@@ -14,7 +14,8 @@ class LastWindowPosition {
         // e.g. adding a toolbar affects the window's frame.
         guard let window, window.isVisible else { return false }
         let frame = window.frame
-        let rect = [frame.origin.x, frame.origin.y, frame.size.width, frame.size.height]
+        let rect = [frame.origin.x, frame.origin.y, frame.size.width, frame.size.height,
+                    VerticalTabs.currentSidebarWidth]
         UserDefaults.ghostty.set(rect, forKey: positionKey)
         return true
     }
@@ -46,7 +47,10 @@ class LastWindowPosition {
         }
 
         if restoreSize, values.count >= 4 {
-            newFrame.size.width = min(values[2], visibleFrame.width)
+            let savedSidebar = values.count >= 5 ? values[4] : 0
+            newFrame.size.width = min(
+                VerticalTabs.restoredWindowWidth(values[2], savedSidebarWidth: savedSidebar),
+                visibleFrame.width)
             newFrame.size.height = min(values[3], visibleFrame.height)
         }
 

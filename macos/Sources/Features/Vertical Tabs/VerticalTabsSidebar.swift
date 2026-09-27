@@ -36,6 +36,7 @@ struct VerticalTabsLayout<Content: View>: View {
 private struct VerticalTabsResizeHandle: View {
     @Binding var width: Double
     @State private var startWidth: Double?
+    @State private var cursorPushed = false
 
     var body: some View {
         Rectangle()
@@ -46,7 +47,14 @@ private struct VerticalTabsResizeHandle: View {
                     .frame(width: 8)
                     .contentShape(Rectangle())
                     .onHover { inside in
-                        if inside { NSCursor.resizeLeftRight.push() } else { NSCursor.pop() }
+                        // Keep push/pop balanced so the cursor stack never leaks.
+                        if inside, !cursorPushed {
+                            NSCursor.resizeLeftRight.push()
+                            cursorPushed = true
+                        } else if !inside, cursorPushed {
+                            NSCursor.pop()
+                            cursorPushed = false
+                        }
                     }
                     .gesture(
                         DragGesture(minimumDistance: 1)
@@ -71,13 +79,15 @@ struct VerticalTabsSidebar: View {
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
-                VStack(spacing: 4) {
+                LazyVStack(spacing: 4) {
                     ForEach(Array(model.tabs.enumerated()), id: \.element.id) { index, entry in
                         if let controller = entry.controller {
                             VerticalTabRow(
                                 controller: controller,
+                                owner: owner,
                                 index: index + 1,
-                                isSelected: controller === owner)
+                                isSelected: controller === owner,
+                                tabColor: entry.tabColor)
                         }
                     }
                 }
@@ -114,48 +124,7 @@ struct VerticalTabsSidebar: View {
     }
 }
 
-// MARK: - Status
-
-/// The aggregate state of a pane or tab, in priority order (highest first).
-enum VerticalTabStatus: Int, Comparable {
-    case idle
-    case running
-    case attention
-    case error
-
-    static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
-
-    init(surface: Ghostty.SurfaceView) {
-        if surface.progressReport?.state == .error {
-            self = .error
-        } else if surface.bell {
-            self = .attention
-        } else if let state = surface.progressReport?.state,
-                  state == .set || state == .indeterminate || state == .pause {
-            self = .running
-        } else {
-            self = .idle
-        }
-    }
-
-    var color: Color? {
-        switch self {
-        case .idle: return nil
-        case .running: return .blue
-        case .attention: return .orange
-        case .error: return .red
-        }
-    }
-
-    var helpText: String {
-        switch self {
-        case .idle: return ""
-        case .running: return "Running"
-        case .attention: return "Needs attention"
-        case .error: return "Error"
-        }
-    }
-}
+// MARK: - Status Indicator
 
 private struct VerticalTabStatusIndicator: View {
     let status: VerticalTabStatus
@@ -166,14 +135,15 @@ private struct VerticalTabStatusIndicator: View {
             case .idle:
                 Circle().fill(Color.secondary.opacity(0.25))
             case .running:
-                ProgressView()
-                    .progressViewStyle(.circular)
-                    .controlSize(.mini)
-                    .scaleEffect(0.7)
-            case .attention, .error:
-                Circle()
-                    .fill(status.color ?? .clear)
-                    .shadow(color: (status.color ?? .clear).opacity(0.6), radius: 3)
+                // A static glyph rather than an animated spinner: an animation would
+                // redraw the sidebar every frame for as long as a command runs.
+                Image(systemName: "circle.dotted")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.blue)
+            case .attention:
+                Circle().fill(Color.orange)
+            case .error:
+                Circle().fill(Color.red)
             }
         }
         .frame(width: 8, height: 8)
@@ -185,30 +155,57 @@ private struct VerticalTabStatusIndicator: View {
 // MARK: - Tab Row
 
 private struct VerticalTabRow: View {
-    @ObservedObject var controller: TerminalController
+    let controller: TerminalController
+    /// The controller whose window hosts this sidebar.
+    let owner: TerminalController
     let index: Int
     let isSelected: Bool
+    let tabColor: TerminalTabColor
 
-    @State private var title: String = ""
+    @State private var snapshot: VerticalTabSnapshot = .empty
     @State private var hovering = false
-
-    private var surfaces: [Ghostty.SurfaceView] { Array(controller.surfaceTree) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            // Aggregate status needs to observe every pane, so it is its own view.
-            VerticalTabHeader(
-                controller: controller,
-                surfaces: surfaces,
-                title: title,
-                index: index,
-                isSelected: isSelected,
-                hovering: hovering)
+            HStack(alignment: .top, spacing: 6) {
+                VerticalTabStatusIndicator(status: snapshot.status)
+                    .padding(.top, 1)
 
-            if surfaces.count > 1 {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(snapshot.title.isEmpty ? "Terminal" : snapshot.title)
+                        .font(.system(size: 12.5, weight: isSelected ? .semibold : .regular))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+
+                    VerticalTabMetadata(pwd: snapshot.representative?.pwd, title: snapshot.title)
+                }
+
+                Spacer(minLength: 4)
+
+                if hovering {
+                    Button {
+                        controller.closeTab(nil)
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.secondary)
+                            .frame(width: 16, height: 16)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Close Tab")
+                } else if index <= 9 {
+                    Text("⌘\(index)")
+                        .font(.system(size: 10, design: .rounded))
+                        .foregroundColor(.secondary.opacity(0.7))
+                        .padding(.top, 1)
+                }
+            }
+
+            if snapshot.panes.count > 1 {
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(surfaces) { surface in
-                        VerticalTabPaneRow(surface: surface, controller: controller)
+                    ForEach(snapshot.panes) { pane in
+                        VerticalTabPaneRow(pane: pane, controller: controller)
                     }
                 }
                 .padding(.leading, 16)
@@ -221,7 +218,7 @@ private struct VerticalTabRow: View {
                 .fill(isSelected ? Color.primary.opacity(0.12) : (hovering ? Color.primary.opacity(0.06) : .clear))
         )
         .overlay(alignment: .leading) {
-            if let color = tabColor {
+            if let color = tabColor.displayColor {
                 RoundedRectangle(cornerRadius: 1.5)
                     .fill(Color(nsColor: color))
                     .frame(width: 3)
@@ -232,16 +229,19 @@ private struct VerticalTabRow: View {
         .onHover { hovering = $0 }
         .onTapGesture { select() }
         .contextMenu { contextMenu }
-        .onReceive(titlePublisher) { title = $0 }
+        .onAppear(perform: update)
+        .onReceive(VerticalTabsTicker.shared.publisher) {
+            // Every tab window carries a sidebar, but only the one on screen needs
+            // to stay current; the others refresh when their tab is selected.
+            guard owner.window?.occlusionState.contains(.visible) == true else { return }
+            update()
+        }
     }
 
-    private var tabColor: NSColor? {
-        (controller.window as? TerminalWindow)?.tabColor.displayColor
-    }
-
-    private var titlePublisher: AnyPublisher<String, Never> {
-        guard let window = controller.window else { return Just("").eraseToAnyPublisher() }
-        return window.publisher(for: \.title).eraseToAnyPublisher()
+    /// Samples the tab and redraws only if something visible changed.
+    private func update() {
+        let next = VerticalTabSnapshot(controller: controller)
+        if next != snapshot { snapshot = next }
     }
 
     private func select() {
@@ -262,7 +262,7 @@ private struct VerticalTabRow: View {
                     Button {
                         window.tabColor = color
                     } label: {
-                        if window.tabColor == color {
+                        if tabColor == color {
                             Label(color.localizedName, systemImage: "checkmark")
                         } else {
                             Text(color.localizedName)
@@ -276,80 +276,16 @@ private struct VerticalTabRow: View {
     }
 }
 
-private struct VerticalTabHeader: View {
-    let controller: TerminalController
-    let surfaces: [Ghostty.SurfaceView]
-    let title: String
-    let index: Int
-    let isSelected: Bool
-    let hovering: Bool
-
-    /// The pane whose folder and git info represent the tab.
-    private var representative: Ghostty.SurfaceView? {
-        controller.focusedSurface ?? surfaces.first
-    }
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 6) {
-            VerticalTabAggregateStatus(surfaces: surfaces)
-                .padding(.top, 1)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title.isEmpty ? "Terminal" : title)
-                    .font(.system(size: 12.5, weight: isSelected ? .semibold : .regular))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-
-                if let representative {
-                    VerticalTabMetadataObserver(surface: representative, title: title)
-                }
-            }
-
-            Spacer(minLength: 4)
-
-            if hovering {
-                Button {
-                    controller.closeTab(nil)
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(.secondary)
-                        .frame(width: 16, height: 16)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help("Close Tab")
-            } else if index <= 9 {
-                Text("⌘\(index)")
-                    .font(.system(size: 10, design: .rounded))
-                    .foregroundColor(.secondary.opacity(0.7))
-                    .padding(.top, 1)
-            }
-        }
-    }
-}
-
-/// Observes a pane's folder and re-polls git periodically so branch switches and edits
-/// made outside the shell still show up.
-private struct VerticalTabMetadataObserver: View {
-    @ObservedObject var surface: Ghostty.SurfaceView
-    let title: String
-    @ObservedObject private var git = VerticalTabsGit.shared
-
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 5)) { _ in
-            VerticalTabMetadata(pwd: surface.pwd, title: title, git: git.info(for: surface.pwd))
-        }
-    }
-}
-
 /// Folder and git line under a tab title.
 private struct VerticalTabMetadata: View {
     let pwd: String?
     let title: String
-    let git: VerticalTabsGitInfo?
+    @ObservedObject private var git = VerticalTabsGit.shared
+    @State private var trackedPwd: String?
 
     var body: some View {
+        let info = git.info(for: pwd)
+
         HStack(spacing: 6) {
             // Shells commonly title the tab with the folder already; don't repeat it.
             if let pwd, Self.abbreviate(pwd) != title {
@@ -357,22 +293,35 @@ private struct VerticalTabMetadata: View {
                     .lineLimit(1)
                     .truncationMode(.head)
             }
-            if let git {
+            if let info {
                 HStack(spacing: 2) {
                     Image(systemName: "arrow.triangle.branch")
-                    Text(git.branch).lineLimit(1)
+                    Text(info.branch).lineLimit(1)
                 }
                 .layoutPriority(1)
-                if git.added > 0 {
-                    Text("+\(git.added)").foregroundColor(.green)
+                if info.added > 0 {
+                    Text("+\(info.added)").foregroundColor(.green)
                 }
-                if git.removed > 0 {
-                    Text("−\(git.removed)").foregroundColor(.red)
+                if info.removed > 0 {
+                    Text("−\(info.removed)").foregroundColor(.red)
                 }
             }
         }
         .font(.system(size: 10.5))
         .foregroundColor(.secondary)
+        .onAppear {
+            trackedPwd = pwd
+            git.track(pwd)
+        }
+        .onDisappear {
+            git.untrack(trackedPwd)
+            trackedPwd = nil
+        }
+        .onChange(of: pwd) { newValue in
+            git.untrack(trackedPwd)
+            trackedPwd = newValue
+            git.track(newValue)
+        }
     }
 
     static func abbreviate(_ path: String) -> String {
@@ -383,61 +332,28 @@ private struct VerticalTabMetadata: View {
     }
 }
 
-/// Shows the highest-priority status among all panes in a tab.
-private struct VerticalTabAggregateStatus: View {
-    let surfaces: [Ghostty.SurfaceView]
-
-    var body: some View {
-        // Nest an observer per surface so any pane's change re-renders the indicator.
-        VerticalTabStatusObserver(surfaces: surfaces[...], worst: .idle)
-    }
-}
-
-private struct VerticalTabStatusObserver: View {
-    let surfaces: ArraySlice<Ghostty.SurfaceView>
-    let worst: VerticalTabStatus
-
-    var body: some View {
-        if let first = surfaces.first {
-            VerticalTabStatusObserverStep(surface: first, rest: surfaces.dropFirst(), worst: worst)
-        } else {
-            VerticalTabStatusIndicator(status: worst)
-        }
-    }
-}
-
-private struct VerticalTabStatusObserverStep: View {
-    @ObservedObject var surface: Ghostty.SurfaceView
-    let rest: ArraySlice<Ghostty.SurfaceView>
-    let worst: VerticalTabStatus
-
-    var body: some View {
-        VerticalTabStatusObserver(surfaces: rest, worst: max(worst, VerticalTabStatus(surface: surface)))
-    }
-}
-
 // MARK: - Pane Row
 
 private struct VerticalTabPaneRow: View {
-    @ObservedObject var surface: Ghostty.SurfaceView
+    let pane: VerticalTabPaneSnapshot
     let controller: TerminalController
 
     var body: some View {
         HStack(spacing: 5) {
-            VerticalTabStatusIndicator(status: VerticalTabStatus(surface: surface))
+            VerticalTabStatusIndicator(status: pane.status)
                 .scaleEffect(0.85)
-            Text(surface.title.isEmpty ? "Terminal" : surface.title)
+            Text(pane.title.isEmpty ? "Terminal" : pane.title)
+                .fontWeight(pane.isFocused ? .medium : .regular)
                 .lineLimit(1)
                 .truncationMode(.tail)
-                .fontWeight(controller.focusedSurface === surface ? .medium : .regular)
             Spacer(minLength: 0)
         }
         .font(.system(size: 11))
-        .foregroundColor(controller.focusedSurface === surface ? .primary : .secondary)
+        .foregroundColor(pane.isFocused ? .primary : .secondary)
         .padding(.vertical, 2)
         .contentShape(Rectangle())
         .onTapGesture {
-            guard let window = controller.window else { return }
+            guard let window = controller.window, let surface = pane.surface else { return }
             window.tabGroup?.selectedWindow = window
             window.makeKeyAndOrderFront(nil)
             Ghostty.moveFocus(to: surface)

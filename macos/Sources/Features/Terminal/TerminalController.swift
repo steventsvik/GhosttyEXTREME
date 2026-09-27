@@ -1046,7 +1046,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         // intrinsicContentSize returns the correct value immediately,
         // without waiting for @FocusedValue to propagate through the
         // SwiftUI focus chain.
-        container.initialContentSize = focusedSurface?.initialSize
+        container.initialContentSize = focusedSurface?.initialSize.map(VerticalTabs.contentSize(forTerminal:))
 
         window.contentView = container
 
@@ -1060,6 +1060,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
                     window.setFrameOrigin(frame.origin)
                 }
             }
+        } else {
+            VerticalTabs.widenNewWindow(window)
         }
 
         // In various situations, macOS automatically tabs new windows. Ghostty handles
