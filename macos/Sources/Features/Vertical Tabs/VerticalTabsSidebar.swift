@@ -207,6 +207,10 @@ struct VerticalTabsSidebar: View {
                     }
                 }
             }
+
+            // Bottom left: live usage of the user's AI subscriptions.
+            Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 1)
+            UsagePanel(palette: palette)
         }
         .background(sidebarBackground)
     }
