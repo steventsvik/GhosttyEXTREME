@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor</title>
+<link rel="stylesheet" href="codicons/codicon.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="workbench">
+  <aside id="explorer">
+    <div class="pane-title">
+      <span>EXPLORER</span>
+      <span class="pane-actions">
+        <i class="codicon codicon-refresh" id="refresh" title="Refresh Explorer"></i>
+        <i class="codicon codicon-collapse-all" id="collapse" title="Collapse Folders"></i>
+      </span>
+    </div>
+    <div class="section-title"><i class="codicon codicon-chevron-down"></i><span id="root-name">NO FOLDER</span></div>
+    <div id="tree" tabindex="0"></div>
+  </aside>
+  <div id="sash"></div>
+  <main id="editor-part">
+    <div id="tabs"></div>
+    <div id="breadcrumbs"></div>
+    <div id="editor"></div>
+    <div id="watermark">
+      <div class="watermark-inner">
+        <div class="wm-row"><span>Go to File</span><kbd>⌘</kbd><kbd>P</kbd></div>
+        <div class="wm-row"><span>Show All Commands</span><kbd>F1</kbd></div>
+        <div class="wm-row"><span>Find</span><kbd>⌘</kbd><kbd>F</kbd></div>
+        <div class="wm-row"><span>Toggle Explorer</span><kbd>⌘</kbd><kbd>B</kbd></div>
+        <div class="wm-row"><span>Close Editor Panel</span><kbd>⌃</kbd><kbd>⌘</kbd><kbd>E</kbd></div>
+      </div>
+    </div>
+  </main>
+</div>
+<footer id="statusbar">
+  <div class="left"><span id="sb-branch"></span></div>
+  <div class="right">
+    <span id="sb-position"></span><span id="sb-indent"></span><span id="sb-eol"></span><span id="sb-language"></span>
+  </div>
+</footer>
+<div id="quickopen" class="hidden">
+  <input id="qo-input" placeholder="Search files by name" spellcheck="false" autocomplete="off">
+  <div id="qo-list"></div>
+</div>
+<script src="vs/loader.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

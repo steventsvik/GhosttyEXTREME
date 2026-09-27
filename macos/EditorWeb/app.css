@@ -1,0 +1,105 @@
+/* VS Code "Dark Modern" workbench colors. */
+:root {
+  --bg-editor: #1f1f1f;
+  --bg-side: #181818;
+  --bg-tab-inactive: #181818;
+  --bg-hover: #2a2d2e;
+  --bg-selected: #37373d;
+  --bg-input: #313131;
+  --border: #2b2b2b;
+  --fg: #cccccc;
+  --fg-muted: #9d9d9d;
+  --fg-dim: #6e7681;
+  --accent: #0078d4;
+  --modified: #e2c08d;
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg-editor); color: var(--fg);
+  font: 13px/1.4 var(--font-ui); -webkit-user-select: none; user-select: none; cursor: default; }
+.hidden { display: none !important; }
+
+#workbench { position: absolute; inset: 0 0 22px 0; display: flex; }
+
+/* Explorer */
+#explorer { width: 230px; min-width: 140px; background: var(--bg-side); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; }
+#explorer.collapsed { display: none; }
+.pane-title { height: 35px; padding: 0 8px 0 20px; display: flex; align-items: center; justify-content: space-between;
+  font-size: 11px; letter-spacing: .04em; color: var(--fg-muted); }
+.pane-actions { display: flex; gap: 2px; visibility: hidden; }
+#explorer:hover .pane-actions { visibility: visible; }
+.pane-actions .codicon { padding: 3px; border-radius: 5px; font-size: 16px; }
+.pane-actions .codicon:hover { background: var(--bg-hover); }
+.section-title { height: 22px; display: flex; align-items: center; gap: 2px; padding-left: 2px;
+  font-size: 11px; font-weight: 700; letter-spacing: .02em; }
+#tree { flex: 1; overflow: auto; outline: none; padding-bottom: 12px; }
+.row { height: 22px; display: flex; align-items: center; white-space: nowrap; padding-right: 8px; }
+.row:hover { background: var(--bg-hover); }
+.row.selected { background: var(--bg-selected); }
+#tree:focus .row.selected { outline: 1px solid var(--accent); outline-offset: -1px; }
+.row .twistie { width: 16px; flex: none; text-align: center; font-size: 16px; }
+.row .icon { width: 16px; flex: none; margin-right: 6px; font-size: 15px; text-align: center; }
+.row .label { overflow: hidden; text-overflow: ellipsis; }
+.row.modified .label { color: var(--modified); }
+.row.ignored .label { color: var(--fg-dim); }
+
+#sash { width: 4px; margin-left: -2px; margin-right: -2px; cursor: ew-resize; z-index: 5; }
+#sash:hover, #sash.active { background: var(--accent); }
+
+/* Editor part */
+#editor-part { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
+#tabs { height: 35px; flex: none; display: flex; background: var(--bg-side); overflow-x: auto; overflow-y: hidden;
+  border-bottom: 1px solid var(--border); }
+#tabs::-webkit-scrollbar { height: 3px; }
+#tabs::-webkit-scrollbar-thumb { background: #79797966; }
+.tab { flex: none; height: 35px; display: flex; align-items: center; gap: 6px; padding: 0 6px 0 10px; min-width: 90px;
+  max-width: 220px; background: var(--bg-tab-inactive); color: var(--fg-muted); border-right: 1px solid var(--border);
+  border-top: 1px solid transparent; position: relative; }
+.tab.active { background: var(--bg-editor); color: #fff; border-top-color: var(--accent); border-bottom: 1px solid var(--bg-editor);
+  height: 36px; }
+.tab .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab .desc { color: var(--fg-dim); font-size: 12px; white-space: nowrap; }
+.tab .close { width: 20px; height: 20px; border-radius: 5px; display: flex; align-items: center; justify-content: center;
+  visibility: hidden; font-size: 14px; }
+.tab.active .close, .tab:hover .close, .tab.dirty .close { visibility: visible; }
+.tab .close:hover { background: #ffffff1f; }
+.tab.dirty .close::before { content: "\25CF"; font-size: 13px; }
+.tab.dirty .close:hover::before { content: ""; }
+.tab.dirty .close .codicon { display: none; }
+.tab.dirty .close:hover .codicon { display: block; }
+.tab.conflict .name { color: #f48771; }
+
+#breadcrumbs { height: 22px; flex: none; display: flex; align-items: center; gap: 2px; padding: 0 12px;
+  color: var(--fg-muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; }
+#breadcrumbs .codicon { font-size: 14px; opacity: .8; }
+#editor { flex: 1; min-height: 0; }
+
+#watermark { position: absolute; inset: 35px 0 0 0; display: flex; align-items: center; justify-content: center;
+  background: var(--bg-editor); }
+.watermark-inner { display: grid; gap: 10px; color: var(--fg-muted); }
+.wm-row { display: flex; align-items: center; gap: 4px; }
+.wm-row span { width: 170px; text-align: right; margin-right: 10px; }
+kbd { font: 11px var(--font-ui); background: #8080802b; border: 1px solid #33333399; border-bottom-color: #44444499;
+  border-radius: 3px; padding: 2px 5px; color: var(--fg); }
+
+/* Status bar */
+#statusbar { position: absolute; left: 0; right: 0; bottom: 0; height: 22px; background: var(--bg-side);
+  border-top: 1px solid var(--border); color: var(--fg-muted); font-size: 12px; display: flex; justify-content: space-between; }
+#statusbar .left, #statusbar .right { display: flex; align-items: center; }
+#statusbar span { padding: 0 8px; display: flex; align-items: center; gap: 4px; height: 22px; }
+#statusbar span:empty { display: none; }
+#statusbar span:hover { background: #ffffff1f; }
+#sb-branch .codicon { font-size: 14px; }
+
+/* Quick open */
+#quickopen { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); width: min(600px, 90%);
+  background: #222222; border: 1px solid #454545; border-radius: 8px; box-shadow: 0 8px 24px #000a; padding: 6px; z-index: 50; }
+#qo-input { width: 100%; height: 28px; background: var(--bg-input); border: 1px solid var(--accent); border-radius: 4px;
+  color: var(--fg); font: 13px var(--font-ui); padding: 0 8px; outline: none; }
+#qo-list { max-height: 360px; overflow: auto; margin-top: 6px; }
+.qo-item { height: 24px; display: flex; align-items: center; gap: 6px; padding: 0 8px; border-radius: 4px; white-space: nowrap; }
+.qo-item.active { background: #04395e; outline: 1px solid var(--accent); }
+.qo-item .name b { color: #2aaaff; font-weight: 600; }
+.qo-item .dir { color: var(--fg-dim); font-size: 12px; overflow: hidden; text-overflow: ellipsis; }

@@ -89,6 +89,8 @@ struct VerticalTabEntry: Identifiable, Equatable {
 /// every sidebar in a group shows the same list.
 final class VerticalTabsModel: ObservableObject {
     @Published private(set) var tabs: [VerticalTabEntry] = []
+    /// Whether the owning window is the visible tab of its group.
+    @Published private(set) var isSelectedTab = true
 
     private weak var owner: TerminalController?
     private var cancellables: Set<AnyCancellable> = []
@@ -135,6 +137,8 @@ final class VerticalTabsModel: ObservableObject {
         if newTabs != tabs {
             tabs = newTabs
         }
+        let selected = window.tabGroup.map { $0.selectedWindow === window } ?? true
+        if selected != isSelectedTab { isSelectedTab = selected }
 
         syncNativeTabBar(window: window)
     }
@@ -202,7 +206,8 @@ final class VerticalTabsMenu: NSObject {
         item.keyEquivalentModifierMask = [.control, .command]
         item.target = self
         viewMenu.insertItem(item, at: 0)
-        viewMenu.insertItem(.separator(), at: 1)
+        EditorPanel.installMenuItem(in: viewMenu, at: 1)
+        viewMenu.insertItem(.separator(), at: 2)
     }
 
     @objc func toggle(_ sender: Any?) {

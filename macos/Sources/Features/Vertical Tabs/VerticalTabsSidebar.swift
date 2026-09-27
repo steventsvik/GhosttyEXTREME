@@ -9,6 +9,7 @@ struct VerticalTabsLayout<Content: View>: View {
     @ObservedObject var ghostty: Ghostty.App
     @StateObject private var model: VerticalTabsModel
     @StateObject private var overlay = VerticalTabsOverlayState()
+    @ObservedObject private var editorPanel = EditorPanel.shared
     @AppStorage(VerticalTabs.visibleKey) private var visible: Bool = true
     @AppStorage(VerticalTabs.widthKey) private var width: Double = VerticalTabs.defaultWidth
     private let content: Content
@@ -29,6 +30,10 @@ struct VerticalTabsLayout<Content: View>: View {
                 VerticalTabsResizeHandle(width: $width)
             }
             content
+            // The editor's web view is shared, so only the visible tab's window hosts it.
+            if editorPanel.isVisible && model.isSelectedTab {
+                EditorPanelColumn()
+            }
         }
         .coordinateSpace(name: verticalTabsSpace)
         .overlay {
@@ -63,6 +68,12 @@ enum VerticalTabsTestSupport {
         if overlayMode != nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
                 NotificationCenter.default.post(name: showOverlay, object: nil)
+            }
+        }
+        if let file = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_EDITOR"] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                EditorPanel.shared.show(from: controller, folder: (file as NSString).deletingLastPathComponent)
+                EditorPanel.shared.webView.openFile(file, line: 20)
             }
         }
         // Report which window is the visible tab so a test can capture that one.

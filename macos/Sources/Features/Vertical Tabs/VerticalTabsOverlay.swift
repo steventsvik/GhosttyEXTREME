@@ -257,6 +257,9 @@ private struct VerticalTabsMenuPanel: View {
             item("Copy working directory", enabled: pane.pwd != nil) {
                 VerticalTabsActions.copy(pane.pwd ?? "")
             }
+            item("Open folder in code editor", enabled: pane.pwd != nil) {
+                EditorPanel.shared.show(from: controller, folder: pane.pwd)
+            }
             separator
             item("Rename tab") {
                 VerticalTabsActions.select(controller)
