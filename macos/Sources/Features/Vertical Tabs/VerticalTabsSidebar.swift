@@ -88,6 +88,12 @@ enum VerticalTabsTestSupport {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 EditorPanel.shared.show(from: controller, folder: (file as NSString).deletingLastPathComponent)
                 EditorPanel.shared.session(for: controller).webView.openFile(file, line: 20)
+                // `GHOSTTY_CUSTOM_TEST_EDITOR_JS`: script run in the editor once it's loaded.
+                if let script = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_EDITOR_JS"] {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                        EditorPanel.shared.session(for: controller).webView.evaluateJavaScript(script)
+                    }
+                }
             }
         }
         // Report which window is the visible tab so a test can capture that one.

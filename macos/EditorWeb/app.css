@@ -55,7 +55,11 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg-edi
 
 /* Editor part */
 #editor-part { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
-#tabs { height: 35px; flex: none; display: flex; background: var(--bg-side); overflow-x: auto; overflow-y: hidden;
+#top-bar { height: 35px; flex: none; display: flex; background: var(--bg-side); }
+#toggle-explorer { flex: none; width: 35px; height: 35px; display: flex; align-items: center; justify-content: center;
+  font-size: 16px; color: var(--fg-muted); border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
+#toggle-explorer:hover { color: var(--fg); background: var(--bg-hover); }
+#tabs { flex: 1; min-width: 0; height: 35px; display: flex; background: var(--bg-side); overflow-x: auto; overflow-y: hidden;
   border-bottom: 1px solid var(--border); }
 #tabs::-webkit-scrollbar { height: 3px; }
 #tabs::-webkit-scrollbar-thumb { background: #79797966; }

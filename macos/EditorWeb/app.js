@@ -417,9 +417,13 @@ $('qo-input').addEventListener('blur', () => setTimeout(closeQuickOpen, 100));
 })();
 
 function toggleExplorer() {
-  $('explorer').classList.toggle('collapsed');
-  $('sash').classList.toggle('hidden', $('explorer').classList.contains('collapsed'));
+  const hidden = $('explorer').classList.toggle('collapsed');
+  $('sash').classList.toggle('hidden', hidden);
+  const button = $('toggle-explorer');
+  button.className = `codicon codicon-layout-sidebar-left${hidden ? '-off' : ''}`;
+  button.title = `${hidden ? 'Show' : 'Hide'} Explorer (⌘B)`;
 }
+$('toggle-explorer').onclick = toggleExplorer;
 
 $('refresh').onclick = refreshExplorer;
 $('collapse').onclick = () => { state.expanded.clear(); renderTree(); };
