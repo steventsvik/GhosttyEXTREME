@@ -37,9 +37,9 @@ struct VerticalTabsLayout<Content: View>: View {
                     HermesSessionView(controller: controller)
                 }
             }
-            // The editor's web view is shared, so only the visible tab's window hosts it.
-            if editorPanel.isVisible && model.isSelectedTab {
-                EditorPanelColumn()
+            // Each tab has its own editor.
+            if editorPanel.isVisible(controller) {
+                EditorPanelColumn(controller: controller)
             }
         }
         .coordinateSpace(name: verticalTabsSpace)
@@ -83,7 +83,7 @@ enum VerticalTabsTestSupport {
         if let file = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_EDITOR"] {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 EditorPanel.shared.show(from: controller, folder: (file as NSString).deletingLastPathComponent)
-                EditorPanel.shared.webView.openFile(file, line: 20)
+                EditorPanel.shared.session(for: controller).webView.openFile(file, line: 20)
             }
         }
         // Report which window is the visible tab so a test can capture that one.
@@ -91,6 +91,17 @@ enum VerticalTabsTestSupport {
             DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
                 let window = controller.window?.tabGroup?.selectedWindow ?? controller.window
                 try? String(window?.windowNumber ?? 0).write(toFile: path, atomically: true, encoding: .utf8)
+            }
+        }
+        // `GHOSTTY_CUSTOM_TEST_RESELECT=1`: switch back to the first tab after 9s and
+        // report its window in <window file>.2.
+        if ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_RESELECT"] == "1",
+           let path = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_WINDOW_FILE"] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 9) {
+                VerticalTabsActions.select(controller)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    try? String(controller.window?.windowNumber ?? 0).write(toFile: path + ".2", atomically: true, encoding: .utf8)
+                }
             }
         }
         guard let value = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_TABS"],

@@ -3,23 +3,20 @@ import AppKit
 import Combine
 import SwiftUI
 
-/// App-wide state of the code editor panel on the right side of terminal windows.
+/// The code editor panels. Each terminal tab has its own editor — its own folder, open
+/// files and Agent timeline, following only that tab's terminal — created the first time
+/// it's opened in that tab.
 final class EditorPanel: ObservableObject {
     static let shared = EditorPanel()
 
     static let widthKey = "EditorPanelWidth"
     static let defaultWidth: Double = 720
 
-    /// Starts closed each launch; the panel only exists once you open it.
-    @Published private(set) var isVisible = false
+    /// Tabs whose editor is currently open.
+    @Published private(set) var visibleTabs: Set<ObjectIdentifier> = []
 
-    /// Created on first use: until then the editor costs nothing.
-    private(set) lazy var webView = EditorWebView()
-
-    /// How much each window was widened to fit the panel, so hiding can undo it.
-    private var widened: [ObjectIdentifier: CGFloat] = [:]
-
-    /// Keeps the Explorer on the active terminal's folder while the panel is open.
+    private var sessions: [ObjectIdentifier: EditorSession] = [:]
+    private var themeJSON: String?
     private var followTimer: Timer?
     private var cancellables: Set<AnyCancellable> = []
 
@@ -27,48 +24,151 @@ final class EditorPanel: ObservableObject {
         NotificationCenter.default.publisher(for: .ghosttyConfigDidChange)
             .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
             .sink { [weak self] _ in
-                guard let self, self.themeApplied else { return }
-                self.applyTerminalTheme()
+                guard let self, self.themeJSON != nil else { return }
+                self.loadTheme()
             }
             .store(in: &cancellables)
         NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)
-            .sink { [weak self] _ in self?.followTerminal() }
+            .sink { [weak self] note in
+                guard let controller = (note.object as? NSWindow)?.windowController as? TerminalController else { return }
+                self?.sessions[ObjectIdentifier(controller)]?.follow()
+            }
             .store(in: &cancellables)
         NotificationCenter.default.publisher(for: VerticalTabsAgents.didChange)
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.followTerminal() }
+            .sink { [weak self] _ in self?.followVisible() }
             .store(in: &cancellables)
     }
 
-    private var themeApplied = false
-
-    /// Tails the transcript of the agent in the followed terminal pane.
-    private lazy var feed: AgentFeed = {
-        let feed = AgentFeed()
-        feed.onItems = { [weak self] items, reset in self?.webView.sendAgentItems(items, reset: reset) }
-        return feed
-    }()
-    private var lastStatus: [String: String]?
-
-    private func applyTerminalTheme() {
-        themeApplied = true
-        EditorTheme.load { [weak self] json in self?.webView.setTheme(json) }
+    func isVisible(_ controller: TerminalController) -> Bool {
+        visibleTabs.contains(ObjectIdentifier(controller))
     }
 
-    /// Shows the folder of the focused pane in the frontmost terminal, following `cd`
-    /// and tab switches the way the editor is expected to mirror the terminal.
-    private func followTerminal() {
-        guard isVisible, let surface = Self.frontController?.focusedSurface else { return }
-        if let pwd = surface.pwd, pwd != webView.currentFolder { webView.openFolder(pwd) }
-        followAgent(in: surface)
-    }
-
-    /// Shows the agent running in the followed pane: its live timeline and status.
-    private func followAgent(in surface: Ghostty.SurfaceView) {
-        let info = VerticalTabsAgents.shared.info(for: surface)
-        if let info, let path = info.transcriptPath {
-            feed.follow(path: path, kind: info.kind)
+    func session(for controller: TerminalController) -> EditorSession {
+        let id = ObjectIdentifier(controller)
+        if let session = sessions[id] { return session }
+        let session = EditorSession(controller: controller)
+        sessions[id] = session
+        if let themeJSON {
+            // Empty while the theme is still loading; loadTheme applies it to all sessions.
+            if !themeJSON.isEmpty { session.webView.setTheme(themeJSON) }
+        } else {
+            loadTheme()
         }
+        // The editor goes away with its tab.
+        NotificationCenter.default.publisher(for: NSWindow.willCloseNotification, object: controller.window)
+            .sink { [weak self] _ in
+                self?.sessions.removeValue(forKey: id)?.close()
+                self?.visibleTabs.remove(id)
+            }
+            .store(in: &cancellables)
+        return session
+    }
+
+    /// Opens this tab's editor, optionally on a specific folder.
+    func show(from controller: TerminalController?, folder: String? = nil) {
+        guard let controller, !HermesSessions.shared.isHermes(controller) else { return }
+        let session = session(for: controller)
+        session.show(folder: folder)
+        let id = ObjectIdentifier(controller)
+        if !visibleTabs.contains(id), let window = controller.window { session.widen(window) }
+        visibleTabs.insert(id)
+        startFollowing()
+        DispatchQueue.main.async { session.webView.focusEditor() }
+    }
+
+    func hide(returningFocusTo controller: TerminalController?) {
+        guard let controller else { return }
+        let id = ObjectIdentifier(controller)
+        sessions[id]?.hide()
+        visibleTabs.remove(id)
+        if let surface = controller.focusedSurface { Ghostty.moveFocus(to: surface) }
+    }
+
+    func toggle(from controller: TerminalController?) {
+        guard let controller else { return }
+        if isVisible(controller) { hide(returningFocusTo: controller) } else { show(from: controller) }
+    }
+
+    /// Keeps open editors on their own terminal's folder and agent. Only editors whose
+    /// tab is on screen do any work.
+    private func startFollowing() {
+        guard followTimer == nil else { return }
+        let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in self?.followVisible() }
+        timer.tolerance = 0.5
+        RunLoop.main.add(timer, forMode: .common)
+        followTimer = timer
+    }
+
+    private func followVisible() {
+        if visibleTabs.isEmpty {
+            followTimer?.invalidate()
+            followTimer = nil
+            return
+        }
+        for id in visibleTabs { sessions[id]?.followIfOnScreen() }
+    }
+
+    /// Terminal colors and font, shared by every editor.
+    private func loadTheme() {
+        themeJSON = themeJSON ?? ""
+        EditorTheme.load { [weak self] json in
+            guard let self else { return }
+            self.themeJSON = json
+            self.sessions.values.forEach { $0.webView.setTheme(json) }
+        }
+    }
+
+    /// The terminal controller of the frontmost window, if any.
+    static var frontController: TerminalController? {
+        (NSApp.keyWindow ?? NSApp.mainWindow)?.windowController as? TerminalController
+    }
+}
+
+/// One tab's editor: a web view following that tab's terminal pane and its agent.
+final class EditorSession {
+    private weak var controller: TerminalController?
+    let webView = EditorWebView()
+    private let feed = AgentFeed()
+    private var lastStatus: [String: String]?
+    private var isVisible = false
+    /// How much the window was widened for this editor, so hiding can undo it.
+    private var widenedBy: CGFloat = 0
+
+    init(controller: TerminalController) {
+        self.controller = controller
+        feed.onItems = { [weak self] items, reset in self?.webView.sendAgentItems(items, reset: reset) }
+    }
+
+    func show(folder: String?) {
+        isVisible = true
+        if let folder = folder ?? controller?.focusedSurface?.pwd { webView.openFolder(folder) }
+        follow()
+    }
+
+    func hide() {
+        isVisible = false
+        feed.stop()
+        lastStatus = nil
+        if let window = controller?.window { narrow(window) }
+    }
+
+    func close() {
+        feed.stop()
+    }
+
+    func followIfOnScreen() {
+        guard let window = controller?.window, window.occlusionState.contains(.visible) else { return }
+        follow()
+    }
+
+    /// Shows this tab's focused pane: its folder in the Explorer, its agent in the panel.
+    func follow() {
+        guard isVisible, let surface = controller?.focusedSurface else { return }
+        if let pwd = surface.pwd, pwd != webView.currentFolder { webView.openFolder(pwd) }
+
+        let info = VerticalTabsAgents.shared.info(for: surface)
+        if let info, let path = info.transcriptPath { feed.follow(path: path, kind: info.kind) }
         var status: [String: String]?
         if let info {
             status = [
@@ -86,28 +186,12 @@ final class EditorPanel: ObservableObject {
         webView.sendAgentStatus(status)
     }
 
-    /// Shows the panel, opening the folder of the given terminal pane if no folder is open yet.
-    func show(from controller: TerminalController?, folder: String? = nil) {
-        if let folder = folder ?? controller?.focusedSurface?.pwd {
-            webView.openFolder(folder)
-        }
-        if !themeApplied { applyTerminalTheme() }
-        if followTimer == nil {
-            let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in self?.followTerminal() }
-            timer.tolerance = 0.5
-            RunLoop.main.add(timer, forMode: .common)
-            followTimer = timer
-        }
-        if !isVisible, let window = controller?.window { widen(window) }
-        isVisible = true
-        DispatchQueue.main.async { self.webView.focusEditor() }
-    }
-
-    /// Makes room for the panel beside the terminal when the screen has space, like the
-    /// sidebar does, instead of squeezing the terminal.
-    private func widen(_ window: NSWindow) {
-        guard !window.styleMask.contains(.fullScreen), let screen = window.screen ?? NSScreen.main else { return }
-        let panel = CGFloat(UserDefaults.standard.object(forKey: Self.widthKey) as? Double ?? Self.defaultWidth) + 1
+    /// Makes room for the panel when the screen has space. Tabs share their window's
+    /// size, so this only happens for a window with a single tab.
+    func widen(_ window: NSWindow) {
+        guard !window.styleMask.contains(.fullScreen), (window.tabGroup?.windows.count ?? 1) <= 1,
+              let screen = window.screen ?? NSScreen.main else { return }
+        let panel = CGFloat(UserDefaults.standard.object(forKey: EditorPanel.widthKey) as? Double ?? EditorPanel.defaultWidth) + 1
         let visible = screen.visibleFrame
         let extra = min(panel, visible.width - window.frame.width)
         guard extra > 0 else { return }
@@ -115,39 +199,21 @@ final class EditorPanel: ObservableObject {
         frame.size.width += extra
         if frame.maxX > visible.maxX { frame.origin.x = max(visible.minX, visible.maxX - frame.width) }
         window.setFrame(frame, display: true, animate: true)
-        widened[ObjectIdentifier(window)] = extra
+        widenedBy = extra
     }
 
     private func narrow(_ window: NSWindow) {
-        guard let extra = widened.removeValue(forKey: ObjectIdentifier(window)),
-              !window.styleMask.contains(.fullScreen) else { return }
+        guard widenedBy > 0, !window.styleMask.contains(.fullScreen) else { widenedBy = 0; return }
         var frame = window.frame
-        frame.size.width = max(frame.width - extra, window.minSize.width)
+        frame.size.width = max(frame.width - widenedBy, window.minSize.width)
         window.setFrame(frame, display: true, animate: true)
-    }
-
-    func hide(returningFocusTo controller: TerminalController?) {
-        isVisible = false
-        followTimer?.invalidate()
-        followTimer = nil
-        feed.stop()
-        lastStatus = nil
-        if let window = controller?.window { narrow(window) }
-        if let surface = controller?.focusedSurface { Ghostty.moveFocus(to: surface) }
-    }
-
-    func toggle(from controller: TerminalController?) {
-        if isVisible { hide(returningFocusTo: controller) } else { show(from: controller) }
-    }
-
-    /// The terminal controller of the frontmost window, if any.
-    static var frontController: TerminalController? {
-        (NSApp.keyWindow ?? NSApp.mainWindow)?.windowController as? TerminalController
+        widenedBy = 0
     }
 }
 
-/// The panel as placed in a window's layout: a resize handle and the shared web view.
+/// A tab's editor as placed in its window's layout: a resize handle and its web view.
 struct EditorPanelColumn: View {
+    let controller: TerminalController
     @AppStorage(EditorPanel.widthKey) private var width: Double = EditorPanel.defaultWidth
     @State private var startWidth: Double?
     @State private var cursorPushed = false
@@ -173,33 +239,30 @@ struct EditorPanelColumn: View {
                                     width = min(max(start - value.translation.width, 320), 1600)
                                 }
                                 .onEnded { _ in startWidth = nil }))
-            EditorWebViewHost()
+            EditorWebViewHost(webView: EditorPanel.shared.session(for: controller).webView)
                 .frame(width: width)
         }
     }
 }
 
-/// Hosts the app's single editor web view. Only the visible tab's window shows the
-/// panel, so moving the view into whichever host appears is enough.
+/// Hosts one tab's editor web view.
 private struct EditorWebViewHost: NSViewRepresentable {
-    func makeNSView(context: Context) -> HostView { HostView() }
-    func updateNSView(_ view: HostView, context: Context) { view.attach() }
+    let webView: EditorWebView
 
-    final class HostView: NSView {
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-            attach()
-        }
+    func makeNSView(context: Context) -> NSView {
+        let container = NSView()
+        attach(to: container)
+        return container
+    }
 
-        func attach() {
-            guard window != nil else { return }
-            let webView = EditorPanel.shared.webView
-            guard webView.superview !== self else { return }
-            webView.removeFromSuperview()
-            webView.frame = bounds
-            webView.autoresizingMask = [.width, .height]
-            addSubview(webView)
-        }
+    func updateNSView(_ container: NSView, context: Context) { attach(to: container) }
+
+    private func attach(to container: NSView) {
+        guard webView.superview !== container else { return }
+        webView.removeFromSuperview()
+        webView.frame = container.bounds
+        webView.autoresizingMask = [.width, .height]
+        container.addSubview(webView)
     }
 }
 
@@ -223,8 +286,10 @@ final class EditorMenuTarget: NSObject, NSMenuItemValidation {
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
-        menuItem.state = EditorPanel.shared.isVisible ? .on : .off
-        return true
+        guard let controller = EditorPanel.frontController else { return false }
+        menuItem.state = EditorPanel.shared.isVisible(controller) ? .on : .off
+        // Hermes tabs show Hermes's own app; there's no terminal folder to edit.
+        return !HermesSessions.shared.isHermes(controller)
     }
 }
 #endif
