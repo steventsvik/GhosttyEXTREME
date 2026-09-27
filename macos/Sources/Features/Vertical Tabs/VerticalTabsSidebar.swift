@@ -140,6 +140,10 @@ private struct VerticalTabStatusIndicator: View {
                 Image(systemName: "circle.dotted")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundColor(.blue)
+            case .done:
+                Image(systemName: "checkmark")
+                    .font(.system(size: 9, weight: .heavy))
+                    .foregroundColor(.green)
             case .attention:
                 Circle().fill(Color.orange)
             case .error:
@@ -176,6 +180,10 @@ private struct VerticalTabRow: View {
                         .font(.system(size: 12.5, weight: isSelected ? .semibold : .regular))
                         .lineLimit(1)
                         .truncationMode(.tail)
+
+                    if let agent = snapshot.agent {
+                        VerticalTabAgentLine(agent: agent)
+                    }
 
                     VerticalTabMetadata(pwd: snapshot.representative?.pwd, title: snapshot.title)
                 }
@@ -276,6 +284,49 @@ private struct VerticalTabRow: View {
     }
 }
 
+/// "✳ Claude · Needs permission · Bash" under a tab title.
+private struct VerticalTabAgentLine: View {
+    let agent: VerticalTabAgentInfo
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "sparkle")
+                .font(.system(size: 9, weight: .semibold))
+            Text(agent.displayName)
+                .fontWeight(.medium)
+                .fixedSize()
+            Text("·").fixedSize()
+            // The state is the point of this line; only the detail may truncate.
+            Text(agent.activity.label)
+                .foregroundColor(agent.status == .idle ? .secondary : agent.status.color)
+                .fixedSize()
+            if let detail = agent.detail {
+                Text("·")
+                Text(detail)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .layoutPriority(-1)
+            }
+        }
+        .font(.system(size: 10.5))
+        .foregroundColor(.secondary)
+        .lineLimit(1)
+        .help([agent.displayName, agent.activity.label, agent.detail].compactMap { $0 }.joined(separator: " · "))
+    }
+}
+
+extension VerticalTabStatus {
+    var color: Color {
+        switch self {
+        case .idle: return .secondary
+        case .running: return .blue
+        case .done: return .green
+        case .attention: return .orange
+        case .error: return .red
+        }
+    }
+}
+
 /// Folder and git line under a tab title.
 private struct VerticalTabMetadata: View {
     let pwd: String?
@@ -347,6 +398,11 @@ private struct VerticalTabPaneRow: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer(minLength: 0)
+            if let agent = pane.agent, agent.status != .idle {
+                Text(agent.activity.label)
+                    .foregroundColor(agent.status.color)
+                    .lineLimit(1)
+            }
         }
         .font(.system(size: 11))
         .foregroundColor(pane.isFocused ? .primary : .secondary)

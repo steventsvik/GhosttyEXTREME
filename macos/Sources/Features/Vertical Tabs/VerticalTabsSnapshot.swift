@@ -51,12 +51,18 @@ final class VerticalTabsTicker {
         guard UserDefaults.standard.verticalTabsVisible else { return }
         publisher.send()
     }
+
+    /// Refresh right away, for rare events that should show without waiting for a tick.
+    func tickNow() {
+        tick()
+    }
 }
 
 /// The aggregate state of a pane or tab, in priority order (highest first).
 enum VerticalTabStatus: Int, Comparable {
     case idle
     case running
+    case done
     case attention
     case error
 
@@ -79,6 +85,7 @@ enum VerticalTabStatus: Int, Comparable {
         switch self {
         case .idle: return ""
         case .running: return "Running"
+        case .done: return "Finished"
         case .attention: return "Needs attention"
         case .error: return "Error"
         }
@@ -92,6 +99,7 @@ struct VerticalTabPaneSnapshot: Equatable, Identifiable {
     let pwd: String?
     let status: VerticalTabStatus
     let isFocused: Bool
+    let agent: VerticalTabAgentInfo?
 
     /// Held weakly so a snapshot never keeps a closed pane alive.
     private let surfaceRef: Weak<Ghostty.SurfaceView>
@@ -101,14 +109,18 @@ struct VerticalTabPaneSnapshot: Equatable, Identifiable {
         self.id = ObjectIdentifier(surface)
         self.title = surface.title
         self.pwd = surface.pwd
-        self.status = VerticalTabStatus(surface: surface)
+        let agents = VerticalTabsAgents.shared
+        if VerticalTabsAgents.isBeingViewed(surface) { agents.markSeen(surface) }
+        let agent = agents.info(for: surface)
+        self.agent = agent
+        self.status = max(VerticalTabStatus(surface: surface), agent?.status ?? .idle)
         self.isFocused = isFocused
         self.surfaceRef = Weak(surface)
     }
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.id == rhs.id && lhs.title == rhs.title && lhs.pwd == rhs.pwd
-            && lhs.status == rhs.status && lhs.isFocused == rhs.isFocused
+            && lhs.status == rhs.status && lhs.isFocused == rhs.isFocused && lhs.agent == rhs.agent
     }
 }
 
@@ -139,6 +151,11 @@ struct VerticalTabSnapshot: Equatable {
 
     var status: VerticalTabStatus {
         panes.map(\.status).max() ?? .idle
+    }
+
+    /// The agent to feature on the tab row: the one most in need of attention.
+    var agent: VerticalTabAgentInfo? {
+        panes.compactMap(\.agent).max { $0.status < $1.status }
     }
 }
 #endif
