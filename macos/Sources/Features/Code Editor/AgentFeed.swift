@@ -10,12 +10,15 @@ final class AgentFeed {
     typealias Item = [String: Any]
 
     private let queue = DispatchQueue(label: "com.steventsvik.ghostty-custom.agent-feed", qos: .utility)
-    private var handle: FileHandle?
-    private var source: DispatchSourceFileSystemObject?
-    private var offset: UInt64 = 0
-    private var partial = Data()
     private var kind: VerticalTabAgentKind = .unknown
     private(set) var path: String?
+
+    /// The session transcript, plus one per sub-agent (Claude Code runs sub-agents with
+    /// their own transcripts in `<session>/subagents/`; they often do the actual reading).
+    private var main: Tail?
+    private var subagents: [String: Tail] = [:]
+    private var subagentDir: String?
+    private var scanTimer: DispatchSourceTimer?
 
     /// Called on the main queue with (items, isReset).
     var onItems: (([Item], Bool) -> Void)?
@@ -30,60 +33,120 @@ final class AgentFeed {
         self.path = path
         self.kind = kind
         queue.async { [self] in
-            guard let handle = FileHandle(forReadingAtPath: path) else { return }
-            self.handle = handle
-            let size = (try? handle.seekToEnd()) ?? 0
-            offset = size > backlog ? size - backlog : 0
-            partial = Data()
-            let items = readNew(skipFirstLine: offset > 0)
+            guard let tail = Tail(path: path, startFromEnd: backlog) else { return }
+            main = tail
+            let items = tail.readNew().flatMap { self.items(from: $0, subagent: nil) }
             DispatchQueue.main.async { self.onItems?(items, true) }
+            tail.watch(on: queue) { [weak self] in self?.drain(tail, subagent: nil) }
 
-            let source = DispatchSource.makeFileSystemObjectSource(
-                fileDescriptor: handle.fileDescriptor, eventMask: [.extend, .write], queue: queue)
-            source.setEventHandler { [weak self] in
-                guard let self else { return }
-                let items = self.readNew(skipFirstLine: false)
-                guard !items.isEmpty else { return }
-                DispatchQueue.main.async { self.onItems?(items, false) }
-            }
-            source.resume()
-            self.source = source
+            // Sub-agents that already exist are followed from now on; new ones from the start.
+            subagentDir = (path as NSString).deletingPathExtension + "/subagents"
+            scanSubagents(existingFromEnd: true)
+            let timer = DispatchSource.makeTimerSource(queue: queue)
+            timer.schedule(deadline: .now() + 1, repeating: 1, leeway: .milliseconds(500))
+            timer.setEventHandler { [weak self] in self?.scanSubagents(existingFromEnd: false) }
+            timer.resume()
+            scanTimer = timer
         }
     }
 
     func stop() {
         path = nil
         queue.async { [self] in
-            source?.cancel()
-            source = nil
-            try? handle?.close()
-            handle = nil
+            scanTimer?.cancel()
+            scanTimer = nil
+            main?.close()
+            main = nil
+            subagents.values.forEach { $0.close() }
+            subagents.removeAll()
+            subagentDir = nil
         }
     }
 
-    // MARK: Reading
+    private func scanSubagents(existingFromEnd: Bool) {
+        guard let dir = subagentDir,
+              let names = try? FileManager.default.contentsOfDirectory(atPath: dir) else { return }
+        for name in names where name.hasSuffix(".jsonl") && subagents[name] == nil {
+            let file = dir + "/" + name
+            guard let tail = Tail(path: file, startFromEnd: existingFromEnd ? 0 : nil) else { continue }
+            let label = Self.subagentLabel(meta: (file as NSString).deletingPathExtension + ".meta.json")
+            subagents[name] = tail
+            drain(tail, subagent: label)
+            tail.watch(on: queue) { [weak self] in self?.drain(tail, subagent: label) }
+        }
+    }
 
-    private func readNew(skipFirstLine: Bool) -> [Item] {
-        guard let handle else { return [] }
-        try? handle.seek(toOffset: offset)
-        let data = handle.readDataToEndOfFile()
-        offset += UInt64(data.count)
-        var buffer = partial + data
-        if skipFirstLine, let newline = buffer.firstIndex(of: 0x0A) {
-            buffer = buffer[(newline + 1)...]
-        }
-        // Keep an incomplete last line for the next read.
-        guard let lastNewline = buffer.lastIndex(of: 0x0A) else {
-            partial = Data(buffer)
-            return []
-        }
-        partial = Data(buffer[(lastNewline + 1)...])
-        var items: [Item] = []
-        for line in buffer[..<lastNewline].split(separator: 0x0A) {
-            guard let record = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any] else { continue }
-            items += kind == .codex ? codexItems(record) : claudeItems(record)
+    private func drain(_ tail: Tail, subagent: String?) {
+        let items = tail.readNew().flatMap { self.items(from: $0, subagent: subagent) }
+        guard !items.isEmpty else { return }
+        DispatchQueue.main.async { self.onItems?(items, false) }
+    }
+
+    private static func subagentLabel(meta: String) -> String {
+        guard let data = FileManager.default.contents(atPath: meta),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let description = json["description"] as? String, !description.isEmpty else { return "Sub-agent" }
+        return description
+    }
+
+    private func items(from record: [String: Any], subagent: String?) -> [Item] {
+        var items = kind == .codex ? codexItems(record) : claudeItems(record)
+        if let subagent {
+            // A sub-agent's first message is its instructions, not the user's prompt.
+            items = items.filter { $0["kind"] as? String != "prompt" }
+            for index in items.indices { items[index]["sub"] = subagent }
         }
         return items
+    }
+
+    /// Follows one JSONL file: reads only appended bytes, keeps partial lines for later.
+    private final class Tail {
+        private let handle: FileHandle
+        private var offset: UInt64
+        private var partial = Data()
+        private var skipFirstLine: Bool
+        private var source: DispatchSourceFileSystemObject?
+
+        /// `startFromEnd`: nil = whole file, 0 = only new data, n = the last n bytes.
+        init?(path: String, startFromEnd: UInt64?) {
+            guard let handle = FileHandle(forReadingAtPath: path) else { return nil }
+            self.handle = handle
+            let size = (try? handle.seekToEnd()) ?? 0
+            if let n = startFromEnd { offset = size > n ? size - n : 0 } else { offset = 0 }
+            skipFirstLine = offset > 0 && startFromEnd != 0
+        }
+
+        func watch(on queue: DispatchQueue, _ handler: @escaping () -> Void) {
+            let source = DispatchSource.makeFileSystemObjectSource(
+                fileDescriptor: handle.fileDescriptor, eventMask: [.extend, .write], queue: queue)
+            source.setEventHandler(handler: handler)
+            source.resume()
+            self.source = source
+        }
+
+        func readNew() -> [[String: Any]] {
+            try? handle.seek(toOffset: offset)
+            let data = handle.readDataToEndOfFile()
+            offset += UInt64(data.count)
+            var buffer = partial + data
+            if skipFirstLine, let newline = buffer.firstIndex(of: 0x0A) {
+                buffer = buffer[(newline + 1)...]
+                skipFirstLine = false
+            }
+            guard let lastNewline = buffer.lastIndex(of: 0x0A) else {
+                partial = Data(buffer)
+                return []
+            }
+            partial = Data(buffer[(lastNewline + 1)...])
+            return buffer[..<lastNewline].split(separator: 0x0A).compactMap {
+                try? JSONSerialization.jsonObject(with: Data($0)) as? [String: Any]
+            }
+        }
+
+        func close() {
+            source?.cancel()
+            try? handle.close()
+        }
     }
 
     private func clip(_ text: String?, _ limit: Int? = nil) -> String {

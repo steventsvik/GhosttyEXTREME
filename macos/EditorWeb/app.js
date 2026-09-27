@@ -588,11 +588,13 @@ function renderItem(item) {
     t.onclick = () => node.classList.toggle('open');
     node.append(t);
   } else if (item.kind === 'message') {
+    if (item.sub) node.append(el('div', 'sub-tag', `↳ ${item.sub}`));
     const t = el('div', 'text'); t.append(richText(item.text)); node.append(t);
   } else if (item.kind === 'tool') {
     const [icon, verb, color] = ACTIONS[item.action] || ACTIONS.other;
     node.style.setProperty('--c', `var(${color})`);
     const head = el('div', 'head');
+    if (item.sub) head.append(Object.assign(el('span', 'sub-tag', `↳ ${item.sub}`), { title: `Sub-agent: ${item.sub}` }));
     const chip = el('span', 'chip');
     chip.append(el('i', `codicon codicon-${icon}`), verb || item.tool);
     head.append(chip);
@@ -654,7 +656,7 @@ function agentItems(items, reset) {
   for (const item of items) {
     const node = renderItem(item);
     if (node) feed.append(node);
-    if (!reset && agent.follow && item.kind === 'tool') followAction(item);
+    if (!reset && agent.follow && (item.kind === 'tool' || item.kind === 'result')) followAction(item);
   }
   // Only the newest item shimmers while the agent works.
   feed.querySelectorAll('.item.live').forEach(n => n.classList.remove('live'));
@@ -702,10 +704,11 @@ function agentStatus(status) {
 
 // ---------- Follow mode: show the agent's actions in the editor ------------------
 //
-// Reads: the file opens (as a preview tab) and scrolls to exactly the lines the agent is
-// reading, with a scanning highlight and a label. Edits: the file opens, removed lines
-// show struck through and collapse away, new lines are written in one by one, and an
-// agent cursor marks where it wrote. Everything runs in order, as the agent works.
+// Every agent — the main one and each sub-agent — gets a lane with its own queue, so they
+// animate in parallel. With one active lane, actions play in the main editor (preview
+// tabs). With two or more, the editor splits into a live grid: one read-only pane per
+// agent, each jumping to exactly the code that agent is reading or changing.
+// Reads show as soon as the agent issues them; edits animate as soon as they land on disk.
 
 const agentMarks = new Map(); // path -> timeout for the tab/explorer marker
 
@@ -718,15 +721,15 @@ function markFile(path, kind) {
   requestAnimationFrame(apply);
   agentMarks.set(path, setTimeout(() => {
     document.querySelectorAll('.agent-read, .agent-edit').forEach(n => {
-      if (n.title === path || n.dataset.path === path) n.classList.remove('agent-read', 'agent-edit');
+      if (samePath(n.title, path) || samePath(n.dataset.path, path)) n.classList.remove('agent-read', 'agent-edit');
     });
   }, 5000));
 }
 
-/** Stagger classes (.agent-d-N) so animations can run line by line. */
+/** Stagger classes (.agent-d-N / .agent-w-N) so animations can run line by line. */
 (() => {
   const rules = [];
-  for (let i = 0; i < 120; i++) rules.push(`.agent-d-${i}{animation-delay:${i * 45}ms!important}`);
+  for (let i = 0; i < 120; i++) rules.push(`.agent-d-${i}{animation-delay:${i * 38}ms!important}`);
   for (let i = 0; i < 48; i++) rules.push(`.agent-w-${i}{animation-delay:${i * 40}ms!important}`);
   document.head.append(Object.assign(document.createElement('style'), { textContent: rules.join('\n') }));
 })();
@@ -736,132 +739,385 @@ const agentName = () => (agent.status?.name || 'Agent').replace(/ Code$/, '');
 /** Don't pull the file out from under someone typing in the editor. */
 const userIsEditing = () => editor?.hasTextFocus() && Date.now() - lastUserEdit < 6000;
 
-let followChain = Promise.resolve();
-function followAction(item) {
-  followChain = followChain.then(() => follow(item)).catch(e => log(`follow: ${e?.stack || e}`));
-}
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const LANE_COLORS = ['--act-think', '--act-read', '--act-edit', '--act-write', '--act-agent', '--act-search'];
+const lanes = new Map(); // key -> lane
+let split = null;        // { grid } while the split view is showing
+let viewSeq = 0;
 
-async function follow(item) {
-  const look = lookTarget(item);
-  if (look?.path) return showLook(look);
-  if ((item.action === 'edit' || item.action === 'write') && item.path) return showEdit(item);
-}
+// ----- Where an action looks at code -----------------------------------------
 
-/** Where a tool call looks at code: Read ranges and common shell readers. */
-function lookTarget(item) {
+async function looksFor(item) {
   const base = item.cwd || state.root;
-  const resolve = (p) => {
+  const abs = (p) => {
     if (!p) return null;
     p = p.replace(/^['"]|['"]$/g, '');
-    if (p.startsWith('/')) return p;
-    if (p.startsWith('~')) return null;
-    return base ? `${base}/${p.replace(/^\.\//, '')}` : null;
+    if (p.startsWith('~') || p.includes('$')) return null;
+    const full = p.startsWith('/') ? p : (base ? `${base}/${p.replace(/^\.\//, '')}` : null);
+    // Claude's own scratch files (saved tool output) aren't the user's code.
+    return full && !full.includes('/.claude/projects/') ? full : null;
   };
+  const looks = [];
   if (item.action === 'read' && item.path) {
     const start = Math.max(1, item.offset || 1);
-    return { path: agentAbs(item.path), start, end: item.limit ? start + item.limit - 1 : null };
+    const path = abs(item.path);
+    if (path) looks.push({ path, start, end: item.limit ? start + item.limit - 1 : null });
+    return looks;
   }
-  const cmd = item.command;
-  if (!cmd) return null;
-  const file = String.raw`([^\s|;&<>]+\.[A-Za-z0-9_]+|[^\s|;&<>]*/[^\s|;&<>]+)`;
-  const tries = [
-    [new RegExp(String.raw`nl\s+(?:-\w+\s+)*${file}\s*\|\s*sed\s+-n\s+['"]?(\d+),(\d+)p`), m => [m[1], +m[2], +m[3]]],
-    [new RegExp(String.raw`sed\s+-n\s+['"]?(\d+),(\d+)p['"]?\s+${file}`), m => [m[3], +m[1], +m[2]]],
-    [new RegExp(String.raw`head\s+(?:-n\s*|-)(\d+)\s+${file}`), m => [m[2], 1, +m[1]]],
-    [new RegExp(String.raw`tail\s+(?:-n\s*|-)(\d+)\s+${file}`), m => [m[2], -m[1], null]],
-    [new RegExp(String.raw`(?:^|[;&|(]\s*|\s)(?:cat|bat|less)\s+(?:-\w+\s+)*${file}`), m => [m[1], 1, null]],
-  ];
-  for (const [re, pick] of tries) {
-    const m = cmd.match(re);
-    if (m) { const [p, start, end] = pick(m); return { path: resolve(p), start, end }; }
+  if (item.tool === 'Grep' && item.pattern && item.path && /\.[A-Za-z0-9]+$/.test(item.path)) {
+    const path = abs(item.path);
+    if (path) looks.push({ path, grep: item.pattern });
+    return looks;
   }
-  return null;
+  if (!item.command) return looks;
+
+  const FILE = String.raw`([^\s|;&<>()]+\.[A-Za-z0-9_]+|[^\s|;&<>()]*/[^\s|;&<>()]+)`;
+  const addFiles = async (tokens, range) => {
+    for (const token of tokens) {
+      for (const file of await expandGlob(token, base)) {
+        const path = abs(file);
+        if (path) looks.push({ path, ...range });
+      }
+    }
+  };
+  // Loops like `for f in a.js dir/*.js; do cat -n $f; done` read every listed file.
+  for (const m of item.command.matchAll(/for\s+(\w+)\s+in\s+([^;]+?);\s*do\b([\s\S]*?)\bdone/g)) {
+    const [, , list, body] = m;
+    const range = body.match(/sed\s+-n\s+['"]?(\d+),(\d+)p/);
+    await addFiles(list.trim().split(/\s+/), range ? { start: +range[1], end: +range[2] } : { start: 1, end: null });
+  }
+  const command = item.command.replace(/for\s+\w+\s+in\s+[^;]+?;\s*do\b[\s\S]*?\bdone/g, ' ');
+  for (const segment of command.split(/;|&&|\|\||\n/)) {
+    let m;
+    if ((m = segment.match(new RegExp(String.raw`nl\s+(?:-\w+\s+)*${FILE}\s*\|\s*sed\s+-n\s+['"]?(\d+),(\d+)p`)))) {
+      await addFiles([m[1]], { start: +m[2], end: +m[3] });
+    } else if ((m = segment.match(new RegExp(String.raw`sed\s+-n\s+['"]?(\d+),(\d+)p['"]?\s+${FILE}`)))) {
+      await addFiles([m[3]], { start: +m[1], end: +m[2] });
+    } else if ((m = segment.match(new RegExp(String.raw`head\s+(?:-n\s*|-)(\d+)\s+${FILE}`)))) {
+      await addFiles([m[2]], { start: 1, end: +m[1] });
+    } else if ((m = segment.match(new RegExp(String.raw`tail\s+(?:-n\s*|-)(\d+)\s+${FILE}`)))) {
+      await addFiles([m[2]], { start: -m[1], end: null });
+    } else if ((m = segment.match(/(?:^|\s)(?:rg|grep)\s+((?:-[\w-]+\s+)*)(?:-e\s+)?("[^"]*"|'[^']*'|\S+)\s+([^|]+)/))) {
+      const pattern = m[2].replace(/^['"]|['"]$/g, '');
+      const targets = m[3].trim().split(/\s+/).filter(t => /\.[A-Za-z0-9]+$|\*/.test(t) && !t.startsWith('-'));
+      await addFiles(targets.slice(0, 6), { grep: pattern });
+    } else if ((m = segment.match(/(?:^|\s)(?:cat|bat|less)\s+((?:-\w+\s+)*)([^|<>]+)/))) {
+      const files = m[2].trim().split(/\s+/).filter(t => /\.[A-Za-z0-9]+$|\//.test(t));
+      const head = segment.match(/\|\s*head\s+(?:-n\s*|-)(\d+)/);
+      await addFiles(files.slice(0, 8), { start: 1, end: head ? +head[1] : null });
+    }
+  }
+  return looks.slice(0, 10);
 }
 
-// Reading ------------------------------------------------------------------
-
-let lookDecorations = null;
-let lookWidget = null;
-let lookTimer = null;
-
-function clearLook() {
-  clearTimeout(lookTimer);
-  lookDecorations?.clear();
-  lookDecorations = null;
-  if (lookWidget) { editor.removeContentWidget(lookWidget); lookWidget = null; }
+async function expandGlob(token, base) {
+  if (!token.includes('*')) return [token];
+  if (!state.root || (base && !samePath(base, state.root))) return [];
+  if (!state.files) state.files = await fs('files');
+  const re = new RegExp('^' + token.replace(/^\.\//, '').replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*\*/g, '\u0000').replace(/\*/g, '[^/]*').replace(/\u0000/g, '.*') + '$');
+  return state.files.filter(f => re.test(f)).slice(0, 8);
 }
 
-async function showLook({ path, start, end }) {
-  markFile(path, 'read');
-  if (userIsEditing()) return;
-  const tab = await openFile(path, { focus: false, preview: true, quiet: true });
-  if (!tab || !samePath(state.active, path)) return;
-  await reloadFromDisk(tab);
-  const count = tab.model.getLineCount();
-  const first = start < 0 ? Math.max(1, count + start + 1) : Math.min(start, count);
-  const last = Math.min(end ?? count, count);
-  clearLook();
-  clearEdit();
-
-  // Scanning wave down the lines being read (capped so huge reads stay cheap).
-  const shown = Math.min(last, first + 300);
-  const decorations = [];
-  for (let line = first; line <= shown; line++) {
-    decorations.push({
-      range: new monacoRef.Range(line, 1, line, 1),
-      options: { isWholeLine: true, className: `agent-look-line agent-w-${(line - first) % 48}`,
-                 linesDecorationsClassName: 'agent-look-gutter' },
-    });
+/** Lines of `model` matching a grep pattern (basic regex syntax translated). */
+function grepLines(model, pattern) {
+  let re;
+  try { re = new RegExp(pattern.replace(/\\\|/g, '|').replace(/\\([(){}+?])/g, '$1'), 'i'); }
+  catch { re = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'); }
+  const lines = [];
+  for (let n = 1, count = model.getLineCount(); n <= count && lines.length < 200; n++) {
+    if (re.test(model.getLineContent(n))) lines.push(n);
   }
-  lookDecorations = editor.createDecorationsCollection(decorations);
+  return lines;
+}
 
-  const label = document.createElement('div');
-  label.className = 'agent-label read';
-  label.textContent = `${agentName()} · reading ${first === 1 && last === count ? 'the file' : `lines ${first}–${last}`}`;
-  lookWidget = {
-    getId: () => 'agent.look',
-    getDomNode: () => label,
-    getPosition: () => ({ position: { lineNumber: first, column: 1 },
+// ----- Lanes -----------------------------------------------------------------
+
+function laneFor(item) {
+  const key = item.sub || 'main';
+  let lane = lanes.get(key);
+  if (!lane) {
+    lane = { key, label: item.sub || agentName(), color: LANE_COLORS[lanes.size % LANE_COLORS.length],
+             queue: [], busy: false, lastActive: 0, pending: new Map(), view: null };
+    lanes.set(key, lane);
+  }
+  return lane;
+}
+
+function followAction(item) {
+  const lane = laneFor(item);
+  if (item.kind === 'tool') {
+    if (item.action === 'edit' || item.action === 'write') {
+      // Animate when the change is on disk: on its result, or after a short wait.
+      const entry = { item, timer: setTimeout(() => { lane.pending.delete(item.id); enqueue(lane, { edit: item }); }, 2500) };
+      lane.pending.set(item.id, entry);
+    } else {
+      looksFor(item).then(looks => looks.forEach(look => enqueue(lane, { look, item })));
+    }
+  } else if (item.kind === 'result') {
+    const entry = lane.pending.get(item.id);
+    if (entry) {
+      clearTimeout(entry.timer);
+      lane.pending.delete(item.id);
+      if (!item.error) enqueue(lane, { edit: entry.item });
+    }
+  }
+}
+
+function enqueue(lane, action) {
+  lane.lastActive = Date.now();
+  lane.queue.push(action);
+  // When an agent gets ahead, skip to its latest looks (edits are always shown).
+  while (lane.queue.length > 3) {
+    const index = lane.queue.findIndex(a => a.look);
+    if (index < 0) break;
+    lane.queue.splice(index, 1);
+  }
+  updateSplit();
+  runLane(lane);
+}
+
+async function runLane(lane) {
+  if (lane.busy) return;
+  lane.busy = true;
+  try {
+    while (lane.queue.length) {
+      const action = lane.queue.shift();
+      lane.lastActive = Date.now();
+      const view = viewFor(lane);
+      if (!view) continue;
+      if (action.look) {
+        await showLook(view, action.look);
+        await sleep(lane.queue.length ? 380 : 650);
+      } else if (action.edit) {
+        await showEdit(view, action.edit);
+        await sleep(lane.queue.length ? 500 : 900);
+      }
+    }
+  } catch (e) {
+    log(`follow: ${e?.stack || e}`);
+  } finally {
+    lane.busy = false;
+  }
+}
+
+// ----- Views: the main editor, or one pane per lane in split view -------------------
+
+function mainView() {
+  if (!mainView.view) mainView.view = { id: 'main', main: true, editor: () => editor, deco: {} };
+  return mainView.view;
+}
+
+function viewFor(lane) {
+  if (split) return lane.view || null;
+  return mainView();
+}
+
+const ACTIVE_WINDOW = 20000;
+const activeLanes = () => [...lanes.values()].filter(l => Date.now() - l.lastActive < ACTIVE_WINDOW);
+
+function updateSplit() {
+  const active = activeLanes();
+  if (active.length >= 2) {
+    if (!split) enterSplit();
+    for (const lane of active) if (!lane.view) addPane(lane);
+    layoutSplit();
+  }
+}
+
+function enterSplit() {
+  const grid = el('div', 'agent-grid');
+  const exit = el('div', 'agent-grid-exit');
+  exit.innerHTML = '<i class="codicon codicon-close"></i> Exit split view';
+  exit.onclick = () => exitSplit(true);
+  grid.append(exit);
+  $('editor-part').append(grid);
+  clearMainDecorations();
+  split = { grid, dismissedAt: 0 };
+}
+
+function exitSplit(manual) {
+  if (!split) return;
+  const { grid } = split;
+  for (const lane of lanes.values()) {
+    if (lane.view) { lane.view.monaco.dispose(); lane.view = null; }
+  }
+  monacoRef.editor.getModels().filter(m => m.uri.scheme === 'agentview').forEach(m => m.dispose());
+  grid.classList.add('closing');
+  setTimeout(() => grid.remove(), 180);
+  split = null;
+  if (manual) lanes.forEach(l => { l.lastActive = 0; });
+}
+
+function addPane(lane) {
+  const pane = el('div', 'agent-pane');
+  pane.style.setProperty('--c', `var(${lane.color})`);
+  const head = el('div', 'agent-pane-head');
+  const dot = el('span', 'agent-pane-dot');
+  const title = el('span', 'agent-pane-title', lane.key === 'main' ? agentName() : lane.label);
+  const action = el('span', 'agent-pane-action', 'starting…');
+  const file = el('span', 'agent-pane-file');
+  head.append(dot, title, action, file);
+  const body = el('div', 'agent-pane-body');
+  pane.append(head, body);
+  split.grid.append(pane);
+  const instance = monacoRef.editor.create(body, {
+    readOnly: true, domReadOnly: true, model: null, automaticLayout: true,
+    fontFamily: editor.getOption(monacoRef.editor.EditorOption.fontFamily), fontSize: 12, lineHeight: 18,
+    minimap: { enabled: false }, scrollBeyondLastLine: false, renderLineHighlight: 'none', folding: false,
+    lineNumbersMinChars: 3, glyphMargin: false, stickyScroll: { enabled: false }, smoothScrolling: true,
+    scrollbar: { verticalScrollbarSize: 6, horizontalScrollbarSize: 6 }, contextmenu: false,
+  });
+  lane.view = { id: `pane${++viewSeq}`, main: false, monaco: instance, editor: () => instance, deco: {},
+                pane, action, file, lane };
+}
+
+function layoutSplit() {
+  if (!split) return;
+  const panes = split.grid.querySelectorAll('.agent-pane').length;
+  const columns = panes <= 2 ? panes : panes <= 4 ? 2 : 3;
+  split.grid.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+  split.grid.style.gridTemplateRows = `repeat(${Math.ceil(panes / columns)}, 1fr)`;
+  // No empty cell: the last pane spans whatever is left of its row.
+  const all = [...split.grid.querySelectorAll('.agent-pane')];
+  all.forEach(p => { p.style.gridColumn = ''; });
+  const leftover = panes % columns;
+  if (leftover) all[all.length - 1].style.gridColumn = `span ${columns - leftover + 1}`;
+}
+
+// Panes of agents that went quiet fade out; the split closes when one agent is left.
+setInterval(() => {
+  if (!split) return;
+  const active = new Set(activeLanes());
+  for (const lane of lanes.values()) {
+    if (lane.view && !active.has(lane) && !lane.queue.length) {
+      const { pane, monaco } = lane.view;
+      pane.classList.add('closing');
+      setTimeout(() => { monaco.dispose(); pane.remove(); layoutSplit(); }, 200);
+      lane.view = null;
+    }
+  }
+  if (active.size < 2) exitSplit(false);
+}, 2000);
+
+/** Model for a view: the tab's model in the main editor, a private copy in a pane. */
+async function modelFor(view, path, { preview }) {
+  if (view.main) {
+    if (userIsEditing()) return null;
+    const tab = await openFile(path, { focus: false, preview, quiet: true });
+    if (!tab || !samePath(state.active, tab.path)) return null;
+    await reloadFromDisk(tab);
+    return tab.model;
+  }
+  const result = await fs('read', { path });
+  if (result.error) return null;
+  const uri = monacoRef.Uri.from({ scheme: 'agentview', path });
+  let model = monacoRef.editor.getModel(uri);
+  if (!model) model = monacoRef.editor.createModel(result.content, undefined, uri);
+  else if (model.getValue() !== result.content) model.setValue(result.content);
+  const instance = view.editor();
+  if (instance.getModel() !== model) {
+    instance.setModel(model);
+    view.switched = true;  // jump, don't glide, when a pane changes files
+  }
+  view.file.textContent = relative(path);
+  view.file.title = path;
+  return model;
+}
+
+function clearView(view) {
+  const instance = view.editor();
+  const d = view.deco;
+  (d.timers || []).forEach(clearTimeout);
+  d.timers = [];
+  d.look?.clear(); d.look = null;
+  d.edit?.clear(); d.edit = null;
+  if (d.widget) { instance.removeContentWidget(d.widget); d.widget = null; }
+  if (d.zone) { const zone = d.zone; instance.changeViewZones(acc => acc.removeZone(zone)); d.zone = null; }
+}
+
+function clearMainDecorations() { if (mainView.view) clearView(mainView.view); }
+
+function addLabel(view, line, text, cls) {
+  const node = document.createElement('div');
+  node.className = `agent-label ${cls}`;
+  node.textContent = text;
+  view.deco.widget = {
+    getId: () => `agent.label.${view.id}`,
+    getDomNode: () => node,
+    getPosition: () => ({ position: { lineNumber: line, column: 1 },
       preference: [monacoRef.editor.ContentWidgetPositionPreference.ABOVE, monacoRef.editor.ContentWidgetPositionPreference.BELOW] }),
   };
-  editor.addContentWidget(lookWidget);
-
-  const visible = editor.getVisibleRanges()[0];
-  const fits = visible && (last - first) < (visible.endLineNumber - visible.startLineNumber - 2);
-  const smooth = monacoRef.editor.ScrollType.Smooth;
-  if (fits) editor.revealRangeInCenter(new monacoRef.Range(first, 1, last, 1), smooth);
-  else editor.revealLineNearTop(first, smooth);
-  lookTimer = setTimeout(clearLook, 7000);
+  view.editor().addContentWidget(view.deco.widget);
 }
 
-// Editing ------------------------------------------------------------------
-
-let editDecorations = null;
-let removedZone = null;
-let editTimers = [];
-
-function clearEdit() {
-  editTimers.forEach(clearTimeout);
-  editTimers = [];
-  editDecorations?.clear();
-  editDecorations = null;
-  editor.changeViewZones(acc => { if (removedZone) acc.removeZone(removedZone); removedZone = null; });
+/**
+ * Scrolls a view to lines first..last: centered if they fit, else from the top. A pane
+ * that just switched files (or was just created) jumps; otherwise it glides.
+ */
+function revealLines(view, first, last) {
+  const instance = view.editor();
+  const reveal = () => {
+    const { Smooth, Immediate } = monacoRef.editor.ScrollType;
+    const type = view.switched ? Immediate : Smooth;
+    view.switched = false;
+    const height = instance.getLayoutInfo().height;
+    const lineHeight = instance.getOption(monacoRef.editor.EditorOption.lineHeight);
+    const fits = (last - first + 3) * lineHeight < height;
+    if (fits) instance.revealRangeInCenter(new monacoRef.Range(first, 1, last, 1), type);
+    else instance.revealLineNearTop(first, type);
+  };
+  // A pane created a moment ago may not have its size yet.
+  if (!instance.getLayoutInfo().height) { instance.layout(); requestAnimationFrame(reveal); }
+  else reveal();
 }
 
-async function showEdit(item) {
-  const path = agentAbs(item.path);
-  if (!path) return;
-  markFile(path, 'edit');
-  // Give the agent a moment to finish writing the file.
-  await new Promise(r => setTimeout(r, 400));
-  if (userIsEditing()) {
-    const tab = state.tabs.find(t => samePath(t.path, path));
-    if (tab) await reloadFromDisk(tab);
-    return;
+// ----- Reading ---------------------------------------------------------------
+
+async function showLook(view, look) {
+  markFile(look.path, 'read');
+  const model = await modelFor(view, look.path, { preview: true });
+  if (!model) return;
+  const instance = view.editor();
+  const count = model.getLineCount();
+  clearView(view);
+
+  let lines, label;
+  if (look.grep) {
+    lines = grepLines(model, look.grep);
+    label = `searching “${look.grep.length > 28 ? look.grep.slice(0, 27) + '…' : look.grep}” · ${lines.length} match${lines.length === 1 ? '' : 'es'}`;
+  } else {
+    const first = look.start < 0 ? Math.max(1, count + look.start + 1) : Math.min(look.start, count);
+    const last = Math.min(look.end ?? count, count);
+    lines = [];
+    for (let n = first; n <= Math.min(last, first + 300); n++) lines.push(n);
+    label = first === 1 && last === count ? 'reading the file' : `reading lines ${first}–${last}`;
   }
-  const tab = await openFile(path, { focus: false, quiet: true });
-  if (!tab) return;
-  await reloadFromDisk(tab);
+  if (!lines.length) lines = [1];
+  view.deco.look = instance.createDecorationsCollection(lines.map((line, i) => ({
+    range: new monacoRef.Range(line, 1, line, 1),
+    options: { isWholeLine: true, className: `agent-look-line agent-w-${i % 48}`, linesDecorationsClassName: 'agent-look-gutter' },
+  })));
+  const name = view.main ? agentName() : view.lane.label;
+  addLabel(view, lines[0], view.main ? `${name} · ${label}` : label, 'read');
+  if (view.action) { view.action.textContent = label; view.pane.dataset.state = 'read'; }
+
+  revealLines(view, lines[0], lines[lines.length - 1]);
+  view.deco.timers.push(setTimeout(() => clearView(view), view.main ? 7000 : 12000));
+}
+
+// ----- Editing ---------------------------------------------------------------
+
+async function showEdit(view, item) {
+  const path = agentAbs(item.path);
+  if (!path || path.includes('/.claude/projects/')) return;
+  markFile(path, 'edit');
+  if (view.main) {
+    const open = state.tabs.find(t => samePath(t.path, path));
+    if (userIsEditing()) { if (open) await reloadFromDisk(open); return; }
+  }
+  const model = await modelFor(view, path, { preview: false });
+  if (!model) return;
   let added = item.new || '';
   let removed = item.old || '';
   if (item.patch) {
@@ -869,11 +1125,11 @@ async function showEdit(item) {
     added = lines.filter(l => l.startsWith('+') && !l.startsWith('+++')).map(l => l.slice(1)).join('\n');
     removed = lines.filter(l => l.startsWith('-') && !l.startsWith('---')).map(l => l.slice(1)).join('\n');
   }
-  if (samePath(state.active, path)) animateChange(tab, added, removed, item.action === 'write');
+  animateChange(view, model, added, removed, item.action === 'write');
 }
 
-function animateChange(tab, added, removed, isNewFile) {
-  const model = tab.model;
+function animateChange(view, model, added, removed, isNewFile) {
+  const instance = view.editor();
   let range;
   if (isNewFile) {
     range = new monacoRef.Range(1, 1, Math.min(model.getLineCount(), 400), 1);
@@ -885,10 +1141,8 @@ function animateChange(tab, added, removed, isNewFile) {
     if (!match) return;
     range = match.range;
   }
-  clearLook();
-  clearEdit();
+  clearView(view);
 
-  // New lines are written in one after another, each with a green sweep.
   const decorations = [];
   for (let line = range.startLineNumber, i = 0; line <= range.endLineNumber; line++, i++) {
     const delay = `agent-d-${Math.min(i, 119)}`;
@@ -898,31 +1152,32 @@ function animateChange(tab, added, removed, isNewFile) {
                  linesDecorationsClassName: 'agent-added-gutter' },
     });
   }
-  // The agent's cursor, where it finished writing.
   const lastLine = range.endLineNumber;
   decorations.push({
     range: new monacoRef.Range(lastLine, model.getLineMaxColumn(lastLine), lastLine, model.getLineMaxColumn(lastLine)),
     options: { afterContentClassName: 'agent-caret' },
   });
-  editDecorations = editor.createDecorationsCollection(decorations);
+  view.deco.edit = instance.createDecorationsCollection(decorations);
 
-  // Removed lines appear struck through, then collapse away.
   const gone = removed && !isNewFile ? removed.split('\n').slice(0, 30) : [];
-  editor.changeViewZones(acc => {
+  instance.changeViewZones(acc => {
     if (gone.length) {
       const dom = el('div', 'agent-removed-zone');
       dom.textContent = gone.join('\n');
-      dom.style.lineHeight = `${editor.getOption(monacoRef.editor.EditorOption.lineHeight)}px`;
-      removedZone = acc.addZone({ afterLineNumber: range.startLineNumber - 1, heightInLines: gone.length, domNode: dom });
+      dom.style.lineHeight = `${instance.getOption(monacoRef.editor.EditorOption.lineHeight)}px`;
+      view.deco.zone = acc.addZone({ afterLineNumber: range.startLineNumber - 1, heightInLines: gone.length, domNode: dom });
     }
   });
-  editor.revealRangeInCenterIfOutsideViewport(range, monacoRef.editor.ScrollType.Smooth);
+  const label = isNewFile ? 'writing a new file' : `editing lines ${range.startLineNumber}–${range.endLineNumber}`;
+  if (!view.main) addLabel(view, range.startLineNumber, label, 'edit');
+  if (view.action) { view.action.textContent = label; view.pane.dataset.state = 'edit'; }
+  revealLines(view, range.startLineNumber, range.endLineNumber);
 
   const lines = range.endLineNumber - range.startLineNumber + 1;
-  editTimers.push(setTimeout(() => {
-    editor.changeViewZones(acc => { if (removedZone) acc.removeZone(removedZone); removedZone = null; });
-  }, 2600 + Math.min(lines, 120) * 45));
-  editTimers.push(setTimeout(clearEdit, 8000 + Math.min(lines, 120) * 45));
+  view.deco.timers.push(setTimeout(() => {
+    if (view.deco.zone) { const zone = view.deco.zone; instance.changeViewZones(acc => acc.removeZone(zone)); view.deco.zone = null; }
+  }, 2600 + Math.min(lines, 120) * 38));
+  view.deco.timers.push(setTimeout(() => clearView(view), 8000 + Math.min(lines, 120) * 38));
 }
 
 async function reloadFromDisk(tab) {
