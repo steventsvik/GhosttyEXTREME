@@ -34,12 +34,29 @@ if ! git rebase --onto "$latest" "$current" custom; then
 fi
 
 zig_version=$(grep -o 'minimum_zig_version = "[^"]*"' build.zig.zon | cut -d'"' -f2)
-zig_bin="$HOME/.local/zig/zig-aarch64-macos-$zig_version/zig"
-if [[ ! -x "$zig_bin" ]]; then
-  echo "$latest needs Zig $zig_version, which isn't installed at $zig_bin." >&2
+# Homebrew's Zig bottles carry patches for newer Xcode SDKs; the ziglang.org
+# tarballs of 0.15.x fail to link against the macOS 26.4+ SDKs.
+zig_bin=""
+for candidate in "/opt/homebrew/opt/zig@${zig_version%.*}/bin/zig" /opt/homebrew/bin/zig; do
+  if [[ -x "$candidate" && "$("$candidate" version)" == "$zig_version" ]]; then
+    zig_bin="$candidate"
+    break
+  fi
+done
+if [[ -z "$zig_bin" ]]; then
+  echo "$latest needs Zig $zig_version. Try: brew install zig@${zig_version%.*}" >&2
   exit 1
 fi
 
-"$zig_bin" build -Doptimize=ReleaseFast
+# The repo lives under ~/Desktop, where iCloud's File Provider tags new files
+# with xattrs that codesign rejects. Keep Xcode's build output outside it.
+build_cache="$HOME/Library/Caches/ghostty-custom/macos-build"
+if [[ ! -L macos/build ]]; then
+  rm -rf macos/build
+  mkdir -p "$build_cache"
+  ln -s "$build_cache" macos/build
+fi
+
+"$zig_bin" build -Doptimize=ReleaseFast -Dxcframework-target=native
 git push --force-with-lease origin custom
 echo "Updated to $latest and rebuilt."
