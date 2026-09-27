@@ -58,5 +58,6 @@ if [[ ! -L macos/build ]]; then
 fi
 
 "$zig_bin" build -Doptimize=ReleaseFast -Dxcframework-target=native
+ditto macos/build/ReleaseLocal/Ghostty.app "/Applications/Ghostty Custom.app"
 git push --force-with-lease origin custom
 echo "Updated to $latest and rebuilt."

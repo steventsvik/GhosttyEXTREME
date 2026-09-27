@@ -526,6 +526,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         // We only listen for frame changes if we have more than 1 window,
         // otherwise the accessory view doesn't matter.
         tabListenForFrame = window?.tabbedWindows?.count ?? 0 > 1
+        VerticalTabs.setNeedsRefresh()
 
         if let windows = window?.tabbedWindows as? [TerminalWindow] {
             for (tab, window) in zip(1..., windows) {
@@ -1036,7 +1037,9 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
         // Initialize our content view to the SwiftUI root
         let container = TerminalViewContainer {
-            TerminalView(ghostty: ghostty, viewModel: self, delegate: self)
+            VerticalTabsLayout(controller: self, ghostty: ghostty) {
+                TerminalView(ghostty: ghostty, viewModel: self, delegate: self)
+            }
         }
 
         // Set the initial content size on the container so that
