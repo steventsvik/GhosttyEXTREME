@@ -15,7 +15,10 @@ enum VerticalTabs {
     /// UserDefaults key backing the sidebar's width.
     static let widthKey = "VerticalTabsWidth"
 
-    static let defaultWidth: Double = 240
+    /// UserDefaults key for the one-line-per-pane "condensed" layout.
+    static let condensedKey = "VerticalTabsCondensed"
+
+    static let defaultWidth: Double = 290
     static let widthRange: ClosedRange<Double> = 180...420
 
     static func setNeedsRefresh() {
@@ -90,6 +93,11 @@ final class VerticalTabsModel: ObservableObject {
     private weak var owner: TerminalController?
     private var cancellables: Set<AnyCancellable> = []
 
+    /// Watches the native tab bar so it can be re-hidden the moment macOS shows it
+    /// (it does so on its own whenever a tab is added).
+    private var tabBarObservation: NSKeyValueObservation?
+    private weak var observedTabGroup: NSWindowTabGroup?
+
     init(owner: TerminalController) {
         self.owner = owner
 
@@ -134,13 +142,27 @@ final class VerticalTabsModel: ObservableObject {
     /// When the sidebar is showing, the horizontal native tab bar is redundant, so hide it.
     /// The "tabs" titlebar style draws tabs into the titlebar itself, so we leave it alone.
     private func syncNativeTabBar(window: NSWindow) {
-        guard let owner, owner.window?.isKeyWindow == true else { return }
-        guard owner.ghostty.config.macosTitlebarStyle != .tabs else { return }
         guard let tabGroup = window.tabGroup else { return }
+
+        if observedTabGroup !== tabGroup {
+            observedTabGroup = tabGroup
+            tabBarObservation = tabGroup.observe(\.isTabBarVisible, options: [.new]) { [weak self] _, _ in
+                DispatchQueue.main.async { self?.applyTabBarPreference() }
+            }
+        }
+        applyTabBarPreference()
+    }
+
+    private func applyTabBarPreference() {
+        guard let owner, let window = owner.window, let tabGroup = window.tabGroup else { return }
+        guard owner.ghostty.config.macosTitlebarStyle != .tabs else { return }
+        // Every window in the group has a model; only the selected one acts, so two
+        // models can't toggle the shared bar back and forth.
+        guard tabGroup.selectedWindow === window || tabGroup.windows.count == 1 else { return }
 
         let sidebarVisible = UserDefaults.standard.verticalTabsVisible
         let wantsTabBar = !sidebarVisible && tabGroup.windows.count > 1
-        if tabGroup.isTabBarVisible != wantsTabBar, tabGroup.windows.count > 1 || tabGroup.isTabBarVisible {
+        if tabGroup.isTabBarVisible != wantsTabBar {
             window.toggleTabBar(nil)
         }
     }

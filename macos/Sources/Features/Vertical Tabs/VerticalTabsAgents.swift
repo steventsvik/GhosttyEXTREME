@@ -20,42 +20,34 @@ enum VerticalTabAgentActivity: Equatable {
         case .failed: return "Error"
         }
     }
+
+    var badge: VerticalTabBadge {
+        switch self {
+        case .ready: return .none
+        case .working: return .working
+        case .needsPermission: return .permission
+        case .needsInput: return .input
+        case .done: return .done
+        case .failed: return .error
+        }
+    }
 }
 
 struct VerticalTabAgentInfo: Equatable {
-    /// e.g. "claude"
-    let agent: String
+    let kind: VerticalTabAgentKind
     var activity: VerticalTabAgentActivity
-    /// Short context: the tool awaiting permission, the prompt being worked on, etc.
+    /// The prompt the agent is working on.
+    var task: String?
+    /// What it's blocked on: the tool awaiting permission, or the question asked.
     var detail: String?
     /// A finished or blocked agent the user hasn't looked at yet.
     var unseen: Bool
-
-    var displayName: String {
-        switch agent {
-        case "claude": return "Claude"
-        case "codex": return "Codex"
-        case "gemini": return "Gemini"
-        default: return agent.capitalized
-        }
-    }
-
-    /// How this agent contributes to the pane's status indicator.
-    var status: VerticalTabStatus {
-        switch activity {
-        case .working: return .running
-        case .needsPermission, .needsInput: return .attention
-        case .done: return unseen ? .done : .idle
-        case .failed: return .error
-        case .ready: return .idle
-        }
-    }
 }
 
 /// Receives agent status events and remembers the latest state per pane.
 ///
 /// Events arrive as OSC 777 notifications titled `ghostty-custom://agent` with a small
-/// JSON body, emitted by the agent's hooks (see `agent-hooks/` in the repo root). The
+/// JSON body, emitted by the agents' hooks (see `agent-hooks/` in the repo root). The
 /// core forwards these without rate limiting; we consume them here so they never
 /// become desktop notifications.
 final class VerticalTabsAgents {
@@ -119,13 +111,17 @@ final class VerticalTabsAgents {
         default: return
         }
 
-        let agent = event.agent ?? states.object(forKey: surface)?.info.agent ?? "agent"
-        let needsEyes = activity == .done || activity == .needsPermission
-            || activity == .needsInput || activity == .failed
+        let existing = states.object(forKey: surface)?.info
+        let kind = event.agent.map(VerticalTabAgentKind.init(id:)) ?? existing?.kind ?? .unknown
+        let eventDetail = event.detail?.isEmpty == false ? event.detail : nil
+        let task = event.event == "prompt_submit" ? eventDetail : existing?.task
+        let detail = activity == .needsPermission || activity == .needsInput ? eventDetail : nil
+        let needsEyes = activity != .working && activity != .ready
         let info = VerticalTabAgentInfo(
-            agent: agent,
+            kind: kind,
             activity: activity,
-            detail: event.detail?.isEmpty == false ? event.detail : nil,
+            task: task,
+            detail: detail,
             unseen: needsEyes && !Self.isBeingViewed(surface))
 
         if let box = states.object(forKey: surface) {

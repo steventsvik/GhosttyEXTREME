@@ -1,6 +1,8 @@
 #if os(macOS)
 import AppKit
 import Combine
+import GhosttyKit
+import SwiftUI
 
 /// Drives sidebar updates by sampling instead of subscribing.
 ///
@@ -58,37 +60,110 @@ final class VerticalTabsTicker {
     }
 }
 
-/// The aggregate state of a pane or tab, in priority order (highest first).
-enum VerticalTabStatus: Int, Comparable {
-    case idle
-    case running
+/// The status badge shown on a pane's icon, following Warp's conversation statuses.
+enum VerticalTabBadge: Int, Comparable {
+    case none
+    case working
     case done
-    case attention
+    case bell
+    case input
+    case permission
     case error
 
     static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
 
+    /// Status of a plain terminal pane (no agent), from bell and progress reports.
     init(surface: Ghostty.SurfaceView) {
         switch surface.progressReport?.state {
         case .error:
             self = .error
         case _ where surface.bell:
-            self = .attention
+            self = .bell
         case .set, .indeterminate, .pause:
-            self = .running
+            self = .working
         default:
-            self = .idle
+            self = .none
+        }
+    }
+
+    var symbol: String? {
+        switch self {
+        case .none: return nil
+        case .working: return "clock.fill"
+        case .done: return "checkmark"
+        case .bell: return "bell.fill"
+        case .input: return "questionmark"
+        case .permission: return "stop.fill"
+        case .error: return "exclamationmark.triangle.fill"
         }
     }
 
     var helpText: String {
         switch self {
-        case .idle: return ""
-        case .running: return "Running"
-        case .done: return "Finished"
-        case .attention: return "Needs attention"
+        case .none: return ""
+        case .working: return "Working"
+        case .done: return "Done"
+        case .bell: return "Bell"
+        case .input: return "Needs input"
+        case .permission: return "Needs permission"
         case .error: return "Error"
         }
+    }
+
+    func color(_ palette: VerticalTabsPalette) -> Color {
+        switch self {
+        case .none: return .secondary
+        case .working: return palette.magenta
+        case .done: return palette.green
+        case .bell, .input, .permission: return palette.yellow
+        case .error: return palette.red
+        }
+    }
+}
+
+/// Status colors taken from the terminal theme's ANSI palette, as Warp does, so they
+/// match whatever theme is in use.
+struct VerticalTabsPalette: Equatable {
+    let red: Color
+    let green: Color
+    let yellow: Color
+    let magenta: Color
+    /// The terminal background, which the sidebar is drawn on.
+    let background: Color
+
+    static let fallback = VerticalTabsPalette(
+        red: .red, green: .green, yellow: .yellow, magenta: .purple,
+        background: Color(nsColor: .windowBackgroundColor))
+
+    init(red: Color, green: Color, yellow: Color, magenta: Color, background: Color) {
+        self.red = red
+        self.green = green
+        self.yellow = yellow
+        self.magenta = magenta
+        self.background = background
+    }
+
+    /// Bright ANSI variants (9–13) read better as small glyphs on a dark sidebar.
+    init(config: Ghostty.Config) {
+        guard let cfg = config.config else {
+            self = .fallback
+            return
+        }
+        var palette = ghostty_config_palette_s()
+        let key = "palette"
+        guard ghostty_config_get(cfg, &palette, key, UInt(key.lengthOfBytes(using: .utf8))) else {
+            self = .fallback
+            return
+        }
+        func color(_ index: Int) -> Color {
+            withUnsafeBytes(of: palette.colors) { raw in
+                let colors = raw.bindMemory(to: ghostty_config_color_s.self)
+                let c = colors[index]
+                return Color(red: Double(c.r) / 255, green: Double(c.g) / 255, blue: Double(c.b) / 255)
+            }
+        }
+        self.init(red: color(9), green: color(10), yellow: color(11), magenta: color(13),
+                  background: config.backgroundColor)
     }
 }
 
@@ -97,7 +172,7 @@ struct VerticalTabPaneSnapshot: Equatable, Identifiable {
     let id: ObjectIdentifier
     let title: String
     let pwd: String?
-    let status: VerticalTabStatus
+    let badge: VerticalTabBadge
     let isFocused: Bool
     let agent: VerticalTabAgentInfo?
 
@@ -113,14 +188,15 @@ struct VerticalTabPaneSnapshot: Equatable, Identifiable {
         if VerticalTabsAgents.isBeingViewed(surface) { agents.markSeen(surface) }
         let agent = agents.info(for: surface)
         self.agent = agent
-        self.status = max(VerticalTabStatus(surface: surface), agent?.status ?? .idle)
+        // An agent's own status wins over terminal signals like its bell.
+        self.badge = agent?.activity.badge ?? VerticalTabBadge(surface: surface)
         self.isFocused = isFocused
         self.surfaceRef = Weak(surface)
     }
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.id == rhs.id && lhs.title == rhs.title && lhs.pwd == rhs.pwd
-            && lhs.status == rhs.status && lhs.isFocused == rhs.isFocused && lhs.agent == rhs.agent
+            && lhs.badge == rhs.badge && lhs.isFocused == rhs.isFocused && lhs.agent == rhs.agent
     }
 }
 
@@ -149,13 +225,14 @@ struct VerticalTabSnapshot: Equatable {
         panes.first(where: \.isFocused) ?? panes.first
     }
 
-    var status: VerticalTabStatus {
-        panes.map(\.status).max() ?? .idle
+    /// The most urgent badge among the tab's panes.
+    var badge: VerticalTabBadge {
+        panes.map(\.badge).max() ?? .none
     }
 
-    /// The agent to feature on the tab row: the one most in need of attention.
-    var agent: VerticalTabAgentInfo? {
-        panes.compactMap(\.agent).max { $0.status < $1.status }
+    /// True when some pane has an agent result the user hasn't looked at.
+    var hasUnseen: Bool {
+        panes.contains { $0.agent?.unseen == true }
     }
 }
 #endif
