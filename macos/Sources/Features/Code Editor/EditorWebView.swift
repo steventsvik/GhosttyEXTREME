@@ -33,9 +33,14 @@ final class EditorWebView: WKWebView {
 
     // MARK: Commands from the app
 
+    /// The folder shown in the Explorer.
+    var currentFolder: String? { files.root }
+
     func openFolder(_ path: String) {
-        let root = Self.workspaceRoot(for: path)
+        let root = (path as NSString).standardizingPath
+        guard root != files.root else { return }
         files.root = root
+        files.allowedRoots.insert(root)
         let branch = Self.branch(of: root) ?? ""
         run("app.openFolder(\(Self.js(root)), \(Self.js((root as NSString).lastPathComponent)), \(Self.js(branch)))")
     }
@@ -81,12 +86,12 @@ final class EditorWebView: WKWebView {
         return true
     }
 
-    // MARK: Helpers
-
-    /// Opens the enclosing git repository if there is one, like opening a folder in VS Code.
-    static func workspaceRoot(for path: String) -> String {
-        VerticalTabsGit.repoRoot(containing: path)?.path ?? path
+    /// Applies the terminal's colors and font (see `EditorTheme`).
+    func setTheme(_ json: String) {
+        run("app.setTheme(\(json))")
     }
+
+    // MARK: Helpers
 
     static func branch(of root: String) -> String? {
         guard let repo = VerticalTabsGit.repoRoot(containing: root),
@@ -158,6 +163,8 @@ private final class EditorAssetHandler: NSObject, WKURLSchemeHandler {
 /// Answers the page's `fs` requests. Access is limited to the open workspace folder.
 private final class EditorFileBridge: NSObject, WKScriptMessageHandlerWithReply {
     var root: String?
+    /// Every folder shown this session. Open tabs from earlier folders stay editable.
+    var allowedRoots: Set<String> = []
     var onReady: (() -> Void)?
 
     private let maxFileSize = 8 * 1024 * 1024
@@ -222,9 +229,10 @@ private final class EditorFileBridge: NSObject, WKScriptMessageHandlerWithReply 
     }
 
     private func allowed(_ value: Any?) -> String? {
-        guard let root, let raw = value as? String else { return nil }
+        guard let raw = value as? String else { return nil }
         let path = (raw as NSString).standardizingPath
-        return path == root || path.hasPrefix(root + "/") ? path : nil
+        let roots = allowedRoots.union(root.map { [$0] } ?? [])
+        return roots.contains { path == $0 || path.hasPrefix($0 == "/" ? "/" : $0 + "/") } ? path : nil
     }
 
     private func list(_ path: String) -> [[String: Any]] {

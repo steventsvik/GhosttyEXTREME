@@ -15,19 +15,53 @@ final class EditorPanel: ObservableObject {
 
     /// Created on first use: until then the editor costs nothing.
     private(set) lazy var webView = EditorWebView()
-    private var hasWorkspace = false
 
     /// How much each window was widened to fit the panel, so hiding can undo it.
     private var widened: [ObjectIdentifier: CGFloat] = [:]
 
+    /// Keeps the Explorer on the active terminal's folder while the panel is open.
+    private var followTimer: Timer?
+    private var cancellables: Set<AnyCancellable> = []
+
+    private init() {
+        NotificationCenter.default.publisher(for: .ghosttyConfigDidChange)
+            .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self, self.themeApplied else { return }
+                self.applyTerminalTheme()
+            }
+            .store(in: &cancellables)
+        NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)
+            .sink { [weak self] _ in self?.followTerminal() }
+            .store(in: &cancellables)
+    }
+
+    private var themeApplied = false
+
+    private func applyTerminalTheme() {
+        themeApplied = true
+        EditorTheme.load { [weak self] json in self?.webView.setTheme(json) }
+    }
+
+    /// Shows the folder of the focused pane in the frontmost terminal, following `cd`
+    /// and tab switches the way the editor is expected to mirror the terminal.
+    private func followTerminal() {
+        guard isVisible, let pwd = Self.frontController?.focusedSurface?.pwd,
+              pwd != webView.currentFolder else { return }
+        webView.openFolder(pwd)
+    }
+
     /// Shows the panel, opening the folder of the given terminal pane if no folder is open yet.
     func show(from controller: TerminalController?, folder: String? = nil) {
-        if let folder {
+        if let folder = folder ?? controller?.focusedSurface?.pwd {
             webView.openFolder(folder)
-            hasWorkspace = true
-        } else if !hasWorkspace, let pwd = controller?.focusedSurface?.pwd {
-            webView.openFolder(pwd)
-            hasWorkspace = true
+        }
+        if !themeApplied { applyTerminalTheme() }
+        if followTimer == nil {
+            let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in self?.followTerminal() }
+            timer.tolerance = 0.5
+            RunLoop.main.add(timer, forMode: .common)
+            followTimer = timer
         }
         if !isVisible, let window = controller?.window { widen(window) }
         isVisible = true
@@ -59,6 +93,8 @@ final class EditorPanel: ObservableObject {
 
     func hide(returningFocusTo controller: TerminalController?) {
         isVisible = false
+        followTimer?.invalidate()
+        followTimer = nil
         if let window = controller?.window { narrow(window) }
         if let surface = controller?.focusedSurface { Ghostty.moveFocus(to: surface) }
     }

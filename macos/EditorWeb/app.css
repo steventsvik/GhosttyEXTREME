@@ -1,4 +1,9 @@
-/* VS Code "Dark Modern" workbench colors. */
+/* Ghostty's default font, bundled because Ghostty embeds it rather than installing it. */
+@font-face { font-family: "JetBrains Mono"; font-weight: 400; font-style: normal; src: url(fonts/jetbrains-mono-latin-400-normal.woff2) format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 400; font-style: italic; src: url(fonts/jetbrains-mono-latin-400-italic.woff2) format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 700; font-style: normal; src: url(fonts/jetbrains-mono-latin-700-normal.woff2) format("woff2"); }
+
+/* VS Code "Dark Modern" workbench colors; replaced by the terminal theme via app.setTheme. */
 :root {
   --bg-editor: #1f1f1f;
   --bg-side: #181818;

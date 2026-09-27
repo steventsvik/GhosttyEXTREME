@@ -399,6 +399,99 @@ function showError(message) {
   alert(String(message));
 }
 
+// ---------- Terminal theme ----------------------------------------------------
+
+const hex = (c) => c.replace('#', '');
+const toRGB = (c) => { const h = hex(c); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); };
+const toHex = (rgb) => '#' + rgb.map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
+const mix = (a, b, t) => { const [x, y] = [toRGB(a), toRGB(b)]; return toHex(x.map((v, i) => v + (y[i] - v) * t)); };
+const luminance = (c) => {
+  const [r, g, b] = toRGB(c).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const contrast = (a, b) => { const [x, y] = [luminance(a), luminance(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+/** Moves a palette color toward the foreground until it's readable on the background. */
+function readable(color, bg, fg, min = 3.2) {
+  let c = color;
+  for (let i = 0; i < 12 && contrast(c, bg) < min; i++) c = mix(c, fg, 0.18);
+  return c;
+}
+
+let terminalTheme = null;
+
+function applyTheme(t) {
+  if (!monacoRef) { terminalTheme = t; return; }
+  const bg = t.background, fg = t.foreground, p = t.palette;
+  const dark = luminance(bg) < 0.4;
+  const pick = (...indices) => readable(p[indices.find(i => p[i]) ?? 7] || fg, bg, fg);
+
+  // Workbench: shades of the terminal background, like the terminal's own chrome.
+  const vars = {
+    '--bg-editor': bg,
+    '--bg-side': mix(bg, fg, dark ? 0.035 : 0.05),
+    '--bg-tab-inactive': mix(bg, fg, dark ? 0.035 : 0.05),
+    '--bg-hover': mix(bg, fg, 0.08),
+    '--bg-selected': mix(bg, fg, 0.14),
+    '--bg-input': mix(bg, fg, 0.1),
+    '--border': mix(bg, fg, 0.12),
+    '--fg': fg,
+    '--fg-muted': mix(fg, bg, 0.35),
+    '--fg-dim': mix(fg, bg, 0.55),
+    '--accent': pick(12, 4, 13),
+    '--modified': pick(11, 3),
+    '--font-mono': `${t.fontFamily ? `"${t.fontFamily}", ` : ''}"JetBrains Mono", Menlo, monospace`,
+  };
+  for (const [k, v] of Object.entries(vars)) document.documentElement.style.setProperty(k, v);
+
+  // Syntax colors from the ANSI palette (bright variants first, as terminal themes intend).
+  const c = {
+    keyword: pick(13, 5, 12), string: pick(10, 2, 11), number: pick(11, 3, 14), type: pick(14, 6, 12),
+    func: pick(12, 4, 14), tag: pick(9, 1), attr: pick(11, 3), regexp: pick(9, 1),
+    comment: mix(fg, bg, 0.5), delimiter: mix(fg, bg, 0.2),
+  };
+  const rule = (token, color, fontStyle) => ({ token, foreground: hex(color), ...(fontStyle ? { fontStyle } : {}) });
+  monacoRef.editor.defineTheme('terminal', {
+    base: dark ? 'vs-dark' : 'vs',
+    inherit: true,
+    rules: [
+      rule('', fg), rule('comment', c.comment, 'italic'), rule('keyword', c.keyword), rule('storage', c.keyword),
+      rule('string', c.string), rule('string.escape', c.number), rule('number', c.number), rule('constant', c.number),
+      rule('type', c.type), rule('type.identifier', c.type), rule('namespace', c.type), rule('predefined', c.func),
+      rule('function', c.func), rule('identifier', fg), rule('variable', fg), rule('delimiter', c.delimiter),
+      rule('operator', c.delimiter), rule('tag', c.tag), rule('attribute.name', c.attr),
+      rule('attribute.value', c.string), rule('regexp', c.regexp), rule('annotation', c.attr),
+      rule('string.key.json', c.func), rule('string.value.json', c.string), rule('key', c.func),
+    ],
+    colors: {
+      'editor.background': bg,
+      'editor.foreground': fg,
+      'editorCursor.foreground': t.cursor || fg,
+      'editor.selectionBackground': (t.selectionBackground || mix(bg, fg, 0.25)) + 'aa',
+      'editor.inactiveSelectionBackground': (t.selectionBackground || mix(bg, fg, 0.25)) + '55',
+      'editor.lineHighlightBackground': mix(bg, fg, 0.05),
+      'editor.lineHighlightBorder': mix(bg, fg, 0.05),
+      'editorLineNumber.foreground': mix(fg, bg, 0.62),
+      'editorLineNumber.activeForeground': fg,
+      'editorIndentGuide.background1': mix(bg, fg, 0.1),
+      'editorIndentGuide.activeBackground1': mix(bg, fg, 0.25),
+      'editorGutter.background': bg,
+      'editorWidget.background': mix(bg, fg, 0.05),
+      'editorWidget.border': mix(bg, fg, 0.15),
+      'editorSuggestWidget.selectedBackground': mix(bg, fg, 0.14),
+      'editor.findMatchBackground': (t.selectionBackground || c.number) + '88',
+      'editor.findMatchHighlightBackground': c.number + '33',
+      'minimap.background': bg,
+      'scrollbarSlider.background': mix(bg, fg, 0.18) + '88',
+      'scrollbarSlider.hoverBackground': mix(bg, fg, 0.28) + 'aa',
+      'focusBorder': vars['--accent'],
+    },
+  });
+  monacoRef.editor.setTheme('terminal');
+  const fontSize = t.fontSize || 13;
+  editor.updateOptions({ fontFamily: vars['--font-mono'], fontSize, lineHeight: Math.round(fontSize * 1.55) });
+  document.fonts.ready.then(() => monacoRef.editor.remeasureFonts());
+}
+
 // ---------- Native entry points ---------------------------------------------
 
 window.app = {
@@ -416,6 +509,7 @@ window.app = {
     renderStatus();
   },
   openFile(path, line) { openFile(path, { line }); },
+  setTheme(theme) { applyTheme(theme); },
   focus() { (editor?.getModel() ? editor : $('tree')).focus(); },
 };
 
@@ -457,6 +551,7 @@ require(['vs/editor/editor.main'], () => {
     padding: { top: 4 },
     fixedOverflowWidgets: true,
   });
+  if (terminalTheme) applyTheme(terminalTheme);
   editor.onDidChangeCursorPosition(renderStatus);
   editor.onDidChangeCursorSelection(renderStatus);
   const { KeyMod, KeyCode } = monacoRef;
@@ -468,5 +563,4 @@ require(['vs/editor/editor.main'], () => {
   setInterval(syncWithDisk, 2000);
   window.addEventListener('focus', () => { refreshExplorer(); syncWithDisk(); });
   fs('ready');
-  log('monaco ready');
 });
