@@ -140,6 +140,11 @@ final class VerticalTabsModel: ObservableObject {
     }
 
     /// When the sidebar is showing, the horizontal native tab bar is redundant, so hide it.
+    ///
+    /// macOS refuses `toggleTabBar` while a window has more than one tab, so instead we
+    /// hide the titlebar accessory that hosts the tab bar, which also gives its space
+    /// back to the content. macOS may re-show or rebuild it when tabs change, so this is
+    /// re-applied whenever the tab bar's visibility or the tab list changes.
     /// The "tabs" titlebar style draws tabs into the titlebar itself, so we leave it alone.
     private func syncNativeTabBar(window: NSWindow) {
         guard let tabGroup = window.tabGroup else { return }
@@ -154,17 +159,18 @@ final class VerticalTabsModel: ObservableObject {
     }
 
     private func applyTabBarPreference() {
-        guard let owner, let window = owner.window, let tabGroup = window.tabGroup else { return }
+        guard let owner, let window = owner.window else { return }
         guard owner.ghostty.config.macosTitlebarStyle != .tabs else { return }
-        // Every window in the group has a model; only the selected one acts, so two
-        // models can't toggle the shared bar back and forth.
-        guard tabGroup.selectedWindow === window || tabGroup.windows.count == 1 else { return }
 
-        let sidebarVisible = UserDefaults.standard.verticalTabsVisible
-        let wantsTabBar = !sidebarVisible && tabGroup.windows.count > 1
-        if tabGroup.isTabBarVisible != wantsTabBar {
-            window.toggleTabBar(nil)
+        let hide = UserDefaults.standard.verticalTabsVisible
+        for accessory in window.titlebarAccessoryViewControllers where Self.isTabBar(accessory) {
+            if accessory.isHidden != hide { accessory.isHidden = hide }
         }
+    }
+
+    private static func isTabBar(_ accessory: NSTitlebarAccessoryViewController) -> Bool {
+        let view = accessory.view
+        return view.className.contains("NSTabBar") || view.firstDescendant(withClassName: "NSTabBar") != nil
     }
 }
 

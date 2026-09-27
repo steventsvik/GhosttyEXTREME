@@ -28,7 +28,28 @@ struct VerticalTabsLayout<Content: View>: View {
             }
             content
         }
-        .onAppear { VerticalTabsMenu.shared.installIfNeeded() }
+        .onAppear {
+            VerticalTabsMenu.shared.installIfNeeded()
+            VerticalTabsTestSupport.openTestTabsIfRequested(from: controller)
+        }
+    }
+}
+
+/// Test-only: `GHOSTTY_CUSTOM_TEST_TABS=N` (set by a test launch, never in normal use)
+/// opens N tabs at startup so the sidebar can be exercised without UI scripting.
+enum VerticalTabsTestSupport {
+    private static var didOpen = false
+
+    static func openTestTabsIfRequested(from controller: TerminalController) {
+        guard !didOpen,
+              let value = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_TABS"],
+              let count = Int(value), count > 1 else { return }
+        didOpen = true
+        for i in 1..<count {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6 * Double(i)) {
+                controller.newTab(nil)
+            }
+        }
     }
 }
 
@@ -93,14 +114,10 @@ struct VerticalTabsSidebar: View {
         let palette = VerticalTabsPalette(config: config)
 
         VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                VerticalTabsHeaderButton(
-                    symbol: condensed ? "list.bullet.below.rectangle" : "line.3.horizontal",
-                    title: condensed ? "Expand view" : "Condense view"
-                ) { condensed.toggle() }
-                VerticalTabsHeaderButton(symbol: "plus", title: "New tab", shortcut: "⌘T") {
-                    owner.newTab(nil)
-                }
+            // Full labels when there's room, compact ones in a narrow sidebar.
+            ViewThatFits(in: .horizontal) {
+                headerButtons(compact: false)
+                headerButtons(compact: true)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 10)
@@ -135,6 +152,20 @@ struct VerticalTabsSidebar: View {
             Color.primary.opacity(0.04)
         }
     }
+
+    private func headerButtons(compact: Bool) -> some View {
+        HStack(spacing: 8) {
+            VerticalTabsHeaderButton(
+                symbol: condensed ? "list.bullet.below.rectangle" : "line.3.horizontal",
+                title: compact ? (condensed ? "Expand" : "Condense") : (condensed ? "Expand view" : "Condense view")
+            ) { condensed.toggle() }
+            VerticalTabsHeaderButton(
+                symbol: "plus",
+                title: compact ? "New" : "New tab",
+                shortcut: compact ? nil : "⌘T"
+            ) { owner.newTab(nil) }
+        }
+    }
 }
 
 private struct VerticalTabsHeaderButton: View {
@@ -148,7 +179,7 @@ private struct VerticalTabsHeaderButton: View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: symbol).font(.system(size: 11, weight: .semibold))
-                Text(title).font(.system(size: 12, weight: .medium)).lineLimit(1)
+                Text(title).font(.system(size: 12, weight: .medium)).lineLimit(1).fixedSize()
                 if let shortcut {
                     Text(shortcut).font(.system(size: 11)).foregroundColor(.secondary)
                 }
