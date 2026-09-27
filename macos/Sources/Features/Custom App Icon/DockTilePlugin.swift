@@ -46,6 +46,14 @@ class DockTilePlugin: NSObject, NSDockTilePlugIn {
         }
     }
 
+    /// The icon file the app bundle declares (CFBundleIconFile), loaded from disk.
+    static func bundleIconImage(for appURL: URL) -> NSImage? {
+        guard let bundle = Bundle(url: appURL),
+              let name = bundle.object(forInfoDictionaryKey: "CFBundleIconFile") as? String else { return nil }
+        let file = name.hasSuffix(".icns") ? name : name + ".icns"
+        return NSImage(contentsOf: appURL.appendingPathComponent("Contents/Resources/\(file)"))
+    }
+
     /// The primary NSDockTilePlugin function.
     func setDockTile(_ dockTile: NSDockTile?) {
         // If no dock tile or no access to Ghostty defaults, we can't do anything.
@@ -96,8 +104,12 @@ class DockTilePlugin: NSObject, NSDockTilePlugIn {
             // Use the `Blueprint` icon to distinguish Debug from Release builds.
             appIcon = pluginBundle.image(forResource: "BlueprintImage")!
             #else
-            // Get the composed icon from the app bundle.
-            if let appBundlePath,
+            // Ghostty Custom: use the bundle's own icon file directly. Asking
+            // NSWorkspace for the composed icon can return a stale cached copy (the
+            // stock blue icon) after the app is reinstalled.
+            if let bundleIcon = ghosttyAppURL.flatMap(Self.bundleIconImage(for:)) {
+                appIcon = bundleIcon
+            } else if let appBundlePath,
                 let iconRep = NSWorkspace.shared.icon(forFile: appBundlePath)
                 .bestRepresentation(
                     for: CGRect(origin: .zero, size: dockTile.size),

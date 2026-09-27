@@ -849,6 +849,13 @@ class AppDelegate: NSObject,
             DistributedNotificationCenter.default()
                 .postNotificationName(.ghosttyIconDidChange, object: nil, userInfo: nil, deliverImmediately: true)
         }
+        // Ghostty Custom: with the default icon, show the bundle's own (carbon) icon
+        // file while running, rather than a possibly stale cached copy.
+        if case .official = config.macosIcon,
+           let name = Bundle.main.object(forInfoDictionaryKey: "CFBundleIconFile") as? String,
+           let icon = Bundle.main.image(forResource: (name as NSString).deletingPathExtension) {
+            NSApp.applicationIconImage = icon
+        }
     }
 
     // MARK: - Restorable State
