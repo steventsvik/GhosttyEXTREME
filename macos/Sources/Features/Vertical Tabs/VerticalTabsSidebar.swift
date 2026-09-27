@@ -10,6 +10,7 @@ struct VerticalTabsLayout<Content: View>: View {
     @StateObject private var model: VerticalTabsModel
     @StateObject private var overlay = VerticalTabsOverlayState()
     @ObservedObject private var editorPanel = EditorPanel.shared
+    @ObservedObject private var hermes = HermesSessions.shared
     @AppStorage(VerticalTabs.visibleKey) private var visible: Bool = true
     @AppStorage(VerticalTabs.widthKey) private var width: Double = VerticalTabs.defaultWidth
     private let content: Content
@@ -29,7 +30,13 @@ struct VerticalTabsLayout<Content: View>: View {
                     .environmentObject(overlay)
                 VerticalTabsResizeHandle(width: $width)
             }
-            content
+            // A Hermes tab shows Hermes's own app over its (hidden, idle) terminal.
+            ZStack {
+                content
+                if hermes.isHermes(controller) {
+                    HermesSessionView(controller: controller)
+                }
+            }
             // The editor's web view is shared, so only the visible tab's window hosts it.
             if editorPanel.isVisible && model.isSelectedTab {
                 EditorPanelColumn()
@@ -69,6 +76,9 @@ enum VerticalTabsTestSupport {
             DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
                 NotificationCenter.default.post(name: showOverlay, object: nil)
             }
+        }
+        if ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_SESSION"] == "hermes" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NewSessionKind.hermes.open(from: controller) }
         }
         if let file = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_EDITOR"] {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
@@ -199,11 +209,7 @@ struct VerticalTabsSidebar: View {
                 symbol: condensed ? "list.bullet.below.rectangle" : "line.3.horizontal",
                 title: compact ? (condensed ? "Expand" : "Condense") : (condensed ? "Expand view" : "Condense view")
             ) { condensed.toggle() }
-            VerticalTabsHeaderButton(
-                symbol: "plus",
-                title: compact ? "New" : "New tab",
-                shortcut: compact ? nil : "⌘T"
-            ) { owner.newTab(nil) }
+            NewSessionMenu(owner: owner, compact: compact)
         }
     }
 }
@@ -282,13 +288,10 @@ struct VerticalTabAvatar: View {
         if let agent {
             ZStack {
                 Circle().fill(agent.brandColor)
-                if let asset = agent.logoAsset {
-                    Image(asset)
-                        .renderingMode(.template)
-                        .resizable()
-                        .scaledToFit()
-                        .foregroundColor(agent.glyphOnBrand)
-                        .frame(width: size * 0.43, height: size * 0.43)
+                if agent.logoAsset != nil {
+                    VerticalTabAgentLogo(kind: agent, tint: agent.glyphOnBrand)
+                        .frame(width: size * (agent.logoIsTemplate ? 0.43 : 0.62),
+                               height: size * (agent.logoIsTemplate ? 0.43 : 0.62))
                 } else {
                     Image(systemName: "sparkle")
                         .font(.system(size: size * 0.34, weight: .bold))
@@ -314,14 +317,8 @@ private struct VerticalTabKindLabel: View {
     var body: some View {
         HStack(spacing: 5) {
             if let agent {
-                if let asset = agent.kind.logoAsset {
-                    Image(asset)
-                        .renderingMode(.template)
-                        .resizable()
-                        .scaledToFit()
-                        .foregroundColor(agent.kind.standaloneLogoColor)
-                        .frame(width: 12, height: 12)
-                }
+                VerticalTabAgentLogo(kind: agent.kind, tint: agent.kind.standaloneLogoColor)
+                    .frame(width: 12, height: 12)
                 Text(agent.kind.displayName)
                     .fixedSize()
                 if agent.activity != .ready {

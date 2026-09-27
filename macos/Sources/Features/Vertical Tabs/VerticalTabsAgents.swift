@@ -78,6 +78,13 @@ final class VerticalTabsAgents {
         states.object(forKey: surface)?.info
     }
 
+    /// Labels a pane with an agent that doesn't report status itself (e.g. a Hermes tab).
+    func setStaticAgent(_ kind: VerticalTabAgentKind, task: String?, on surface: Ghostty.SurfaceView) {
+        states.setObject(Box(VerticalTabAgentInfo(kind: kind, activity: .ready, task: task, detail: nil, unseen: false)),
+                         forKey: surface)
+        VerticalTabsTicker.shared.tickNow()
+    }
+
     /// Clears the "unseen" flag once the user is looking at the pane.
     func markSeen(_ surface: Ghostty.SurfaceView) {
         guard let box = states.object(forKey: surface), box.info.unseen else { return }

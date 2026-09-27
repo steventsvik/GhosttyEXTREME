@@ -192,14 +192,8 @@ private struct VerticalTabsHoverCard: View {
                     .foregroundColor(agent.activity.badge.color(palette))
                 }
                 HStack(spacing: 6) {
-                    if let asset = agent.kind.logoAsset {
-                        Image(asset)
-                            .renderingMode(.template)
-                            .resizable()
-                            .scaledToFit()
-                            .foregroundColor(agent.kind.standaloneLogoColor)
-                            .frame(width: 14, height: 14)
-                    }
+                    VerticalTabAgentLogo(kind: agent.kind, tint: agent.kind.standaloneLogoColor)
+                        .frame(width: 14, height: 14)
                     Text(agent.kind.displayName)
                 }
                 .font(.system(size: 12))

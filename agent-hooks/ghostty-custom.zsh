@@ -20,6 +20,7 @@ typeset -gA _gc_agent_commands=(
   cursor-agent cursor
   droid droid
   goose goose
+  hermes hermes
 )
 
 _gc_agent_event() {

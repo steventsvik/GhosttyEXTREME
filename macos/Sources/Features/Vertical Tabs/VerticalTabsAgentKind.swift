@@ -13,6 +13,7 @@ enum VerticalTabAgentKind: String, CaseIterable {
     case cursor
     case droid
     case goose
+    case hermes
     case unknown
 
     /// Resolves the `agent` field of an event ("claude", "codex", ...).
@@ -31,6 +32,7 @@ enum VerticalTabAgentKind: String, CaseIterable {
         case .cursor: return "Cursor"
         case .droid: return "Droid"
         case .goose: return "Goose"
+        case .hermes: return "Hermes"
         case .unknown: return "Agent"
         }
     }
@@ -47,6 +49,7 @@ enum VerticalTabAgentKind: String, CaseIterable {
         case .cursor: return "AgentLogo-cursor"
         case .droid: return "AgentLogo-droid"
         case .goose: return "AgentLogo-goose"
+        case .hermes: return "AgentLogo-hermes"
         case .unknown: return nil
         }
     }
@@ -63,9 +66,13 @@ enum VerticalTabAgentKind: String, CaseIterable {
         case .cursor: return Color(red: 38 / 255, green: 37 / 255, blue: 30 / 255)
         case .droid: return .white
         case .goose: return Color(white: 16 / 255)
+        case .hermes: return Color(red: 124 / 255, green: 58 / 255, blue: 237 / 255)
         case .unknown: return Color(white: 0.45)
         }
     }
+
+    /// Single-color logos are tinted; Hermes's pixel-art knight keeps its own colors.
+    var logoIsTemplate: Bool { self != .hermes }
 
     /// Logo color on top of `brandColor`: dark on light brands, white otherwise.
     var glyphOnBrand: Color {
@@ -78,6 +85,21 @@ enum VerticalTabAgentKind: String, CaseIterable {
         switch self {
         case .codex, .cursor, .goose, .droid, .unknown: return .primary
         default: return brandColor
+        }
+    }
+}
+/// An agent's logo: tinted when it's a single-color mark, in full color otherwise.
+struct VerticalTabAgentLogo: View {
+    let kind: VerticalTabAgentKind
+    let tint: Color
+
+    var body: some View {
+        if let asset = kind.logoAsset {
+            if kind.logoIsTemplate {
+                Image(asset).renderingMode(.template).resizable().scaledToFit().foregroundColor(tint)
+            } else {
+                Image(asset).resizable().interpolation(.none).scaledToFit()
+            }
         }
     }
 }
