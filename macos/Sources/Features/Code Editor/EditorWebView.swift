@@ -86,6 +86,26 @@ final class EditorWebView: WKWebView {
         return true
     }
 
+    /// Streams the agent timeline to the page. Files the agent touches become readable
+    /// so follow mode can open them even outside the Explorer's folder.
+    func sendAgentItems(_ items: [AgentFeed.Item], reset: Bool) {
+        for item in items {
+            if let path = item["path"] as? String, path.hasPrefix("/") {
+                files.allowedFiles.insert((path as NSString).standardizingPath)
+            }
+        }
+        guard let data = try? JSONSerialization.data(withJSONObject: items),
+              let json = String(data: data, encoding: .utf8) else { return }
+        run("app.agentItems(\(json), \(reset))")
+    }
+
+    func sendAgentStatus(_ status: [String: Any]?) {
+        guard let status else { run("app.agentStatus(null)"); return }
+        guard let data = try? JSONSerialization.data(withJSONObject: status),
+              let json = String(data: data, encoding: .utf8) else { return }
+        run("app.agentStatus(\(json))")
+    }
+
     /// Applies the terminal's colors and font (see `EditorTheme`).
     func setTheme(_ json: String) {
         run("app.setTheme(\(json))")
@@ -165,6 +185,8 @@ private final class EditorFileBridge: NSObject, WKScriptMessageHandlerWithReply 
     var root: String?
     /// Every folder shown this session. Open tabs from earlier folders stay editable.
     var allowedRoots: Set<String> = []
+    /// Files an agent touched, which follow mode may open.
+    var allowedFiles: Set<String> = []
     var onReady: (() -> Void)?
 
     private let maxFileSize = 8 * 1024 * 1024
@@ -231,6 +253,7 @@ private final class EditorFileBridge: NSObject, WKScriptMessageHandlerWithReply 
     private func allowed(_ value: Any?) -> String? {
         guard let raw = value as? String else { return nil }
         let path = (raw as NSString).standardizingPath
+        if allowedFiles.contains(path) { return path }
         let roots = allowedRoots.union(root.map { [$0] } ?? [])
         return roots.contains { path == $0 || path.hasPrefix($0 == "/" ? "/" : $0 + "/") } ? path : nil
     }

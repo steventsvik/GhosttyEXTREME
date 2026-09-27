@@ -49,7 +49,13 @@ function iconEl(name) {
   return i;
 }
 const basename = (p) => p.split('/').pop();
-const relative = (p) => (state.root && p.startsWith(state.root + '/')) ? p.slice(state.root.length + 1) : p;
+// macOS reports /tmp and /var as /private/tmp and /private/var; treat them as the same place.
+const canonical = (p) => p.replace(/^\/private\/(tmp|var)\//, '/$1/');
+const relative = (p) => {
+  if (!state.root) return p;
+  const [root, path] = [canonical(state.root), canonical(p)];
+  return path.startsWith(root + '/') ? path.slice(root.length + 1) : p;
+};
 
 // ---------- Explorer -------------------------------------------------------
 
@@ -115,7 +121,7 @@ async function refreshExplorer() {
 
 const isDirty = (tab) => tab.model.getAlternativeVersionId() !== tab.savedVersion;
 
-async function openFile(path, { line } = {}) {
+async function openFile(path, { line, focus = true } = {}) {
   let tab = state.tabs.find(t => t.path === path);
   if (!tab) {
     let result;
@@ -127,11 +133,12 @@ async function openFile(path, { line } = {}) {
     model.onDidChangeContent(() => { renderTabs(); });
     state.tabs.push(tab);
   }
-  activate(path);
+  activate(path, { focus });
   if (line) { editor.revealLineInCenter(line); editor.setPosition({ lineNumber: line, column: 1 }); }
+  return tab;
 }
 
-function activate(path) {
+function activate(path, { focus = true } = {}) {
   const current = state.tabs.find(t => t.path === state.active);
   if (current) current.viewState = editor.saveViewState();
   state.active = path;
@@ -140,7 +147,7 @@ function activate(path) {
   if (tab) {
     editor.setModel(tab.model);
     if (tab.viewState) editor.restoreViewState(tab.viewState);
-    editor.focus();
+    if (focus) editor.focus();
     state.selected = path;
   } else {
     editor.setModel(null);
@@ -492,6 +499,281 @@ function applyTheme(t) {
   document.fonts.ready.then(() => monacoRef.editor.remeasureFonts());
 }
 
+// ---------- Agent panel -------------------------------------------------------
+
+const ACTIONS = {
+  read: ['eye', 'Read', '--act-read'], edit: ['edit', 'Edit', '--act-edit'], write: ['new-file', 'Write', '--act-write'],
+  run: ['terminal', 'Run', '--act-run'], search: ['search', 'Search', '--act-search'], web: ['globe', 'Web', '--act-web'],
+  agent: ['hubot', 'Agent', '--act-agent'], todo: ['checklist', 'Todos', '--act-todo'], other: ['tools', '', '--fg-muted'],
+};
+const AGENT_BRANDS = {
+  claude: ['#D97757', 'claude.svg'], codex: ['#000000', 'openai.svg'], gemini: ['#4285F4', 'gemini_cli.svg'],
+  opencode: ['#808080', 'opencode.svg'], amp: ['#F34E3F', 'amp.svg'], copilot: ['#8534F3', 'copilot.svg'],
+  cursor: ['#26251E', 'cursor.svg'], droid: ['#FFFFFF', 'droid.svg'], goose: ['#101010', 'goose.svg'],
+};
+const agent = { status: null, tools: new Map(), follow: true, atBottom: true };
+
+function agentAbs(path) {
+  if (!path) return null;
+  return path.startsWith('/') ? path : (state.root ? `${state.root}/${path}` : null);
+}
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+/** Inline `code` spans in agent text; everything else stays plain text. */
+function richText(text) {
+  const frag = document.createDocumentFragment();
+  text.split(/(`[^`\n]+`)/).forEach(part => {
+    if (part.startsWith('`') && part.endsWith('`') && part.length > 2) frag.append(el('code', null, part.slice(1, -1)));
+    else frag.append(part);
+  });
+  return frag;
+}
+
+function codeBlock(lines, cls, max = 10) {
+  const box = el('div', 'code' + (cls ? ' ' + cls : ''));
+  lines.slice(0, max).forEach(([kind, text]) => box.append(el('div', kind, text || ' ')));
+  if (lines.length > max) box.append(el('div', 'more', `… ${lines.length - max} more lines`));
+  return box;
+}
+
+function renderItem(item) {
+  const node = el('div', 'item ' + item.kind);
+  if (item.kind === 'prompt') {
+    node.append(el('div', 'label', 'YOU'));
+    const t = el('div', 'text');
+    t.append(richText(item.text));
+    node.append(t);
+  } else if (item.kind === 'thinking') {
+    node.append(el('div', 'label', 'THINKING'));
+    const t = el('div', 'text', item.text || 'Reasoning hidden by the agent');
+    t.onclick = () => node.classList.toggle('open');
+    node.append(t);
+  } else if (item.kind === 'message') {
+    const t = el('div', 'text'); t.append(richText(item.text)); node.append(t);
+  } else if (item.kind === 'tool') {
+    const [icon, verb, color] = ACTIONS[item.action] || ACTIONS.other;
+    node.style.setProperty('--c', `var(${color})`);
+    const head = el('div', 'head');
+    const chip = el('span', 'chip');
+    chip.append(el('i', `codicon codicon-${icon}`), verb || item.tool);
+    head.append(chip);
+    const path = agentAbs(item.path);
+    if (path) {
+      const target = el('span', 'target link', relative(path));
+      target.title = path;
+      target.onclick = () => openFile(path);
+      head.append(target);
+    } else if (item.pattern || item.query || item.description) {
+      head.append(el('span', 'target', item.pattern || item.query || item.description));
+    }
+    const mark = el('span', 'pending');
+    head.append(mark);
+    node.append(head);
+    if (item.command) node.append(codeBlock(item.command.split('\n').map(l => ['', l]), 'cmd', 6));
+    if (item.patch) {
+      const lines = item.patch.split('\n').filter(l => /^[+-]/.test(l) && !/^(\+\+\+|---)/.test(l))
+        .map(l => [l[0] === '+' ? 'add' : 'del', l.slice(1)]);
+      node.append(codeBlock(lines, '', 14));
+    } else if (item.old != null || item.new != null) {
+      const lines = [
+        ...(item.old ? item.old.split('\n').map(l => ['del', l]) : []),
+        ...(item.new ? item.new.split('\n').map(l => ['add', l]) : []),
+      ];
+      node.append(codeBlock(lines, '', 14));
+    }
+    if (item.todos) {
+      const list = el('div', 'todos');
+      item.todos.forEach(t => {
+        const mark = t.status === 'completed' ? '✓' : t.status === 'in_progress' ? '◐' : '○';
+        list.append(el('div', t.status, `${mark} ${t.text}`));
+      });
+      node.append(list);
+    }
+    agent.tools.set(item.id, { node, mark, item });
+  } else if (item.kind === 'result') {
+    const tool = agent.tools.get(item.id);
+    if (!tool) return null;
+    tool.mark.className = item.error ? 'codicon codicon-error err-mark' : 'codicon codicon-check done-mark';
+    tool.node.classList.remove('live');
+    const text = (item.text || '').trim();
+    const showOutput = item.error || tool.item.action === 'run' || tool.item.action === 'search';
+    if (text && showOutput) {
+      const lines = text.split('\n');
+      const out = el('div', 'result' + (item.error ? ' error' : ''),
+        lines.slice(0, 8).join('\n') + (lines.length > 8 ? `\n… ${lines.length - 8} more lines` : ''));
+      tool.node.append(out);
+    }
+    return null;
+  }
+  return node;
+}
+
+function agentItems(items, reset) {
+  const feed = $('agent-feed');
+  if (reset) { feed.replaceChildren(); agent.tools.clear(); }
+  const stick = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 40;
+  for (const item of items) {
+    const node = renderItem(item);
+    if (node) feed.append(node);
+    if (!reset && agent.follow && item.kind === 'tool') followAction(item);
+  }
+  // Only the newest item shimmers while the agent works.
+  feed.querySelectorAll('.item.live').forEach(n => n.classList.remove('live'));
+  if (agent.status?.badge === 'working') feed.lastElementChild?.classList.add('live');
+  if (!feed.children.length) {
+    feed.append(Object.assign(el('div', 'agent-empty'), { innerHTML: 'Waiting for the agent…' }));
+  }
+  if (stick || reset) feed.scrollTop = feed.scrollHeight;
+  $('agent').classList.remove('empty');
+}
+
+function agentStatus(status) {
+  agent.status = status;
+  const logo = $('agent-logo'), pill = $('agent-pill');
+  if (!status) {
+    logo.style.display = 'none';
+    $('agent-name').textContent = 'AGENT';
+    pill.className = 'pill';
+    $('agent-task').textContent = '';
+    return;
+  }
+  const [brand, file] = AGENT_BRANDS[status.kind] || ['#777', null];
+  logo.style.display = 'inline-flex';
+  logo.style.background = brand;
+  logo.classList.toggle('dark-glyph', status.kind === 'droid');
+  logo.replaceChildren(...(file ? [Object.assign(el('img'), { src: `logos/${file}` })] : []));
+  $('agent-name').textContent = status.name.toUpperCase();
+  const colors = { working: '--act-think', permission: '--act-todo', input: '--act-todo', done: '--act-write', error: '--act-error' };
+  const color = colors[status.badge];
+  pill.textContent = status.activity;
+  pill.className = 'pill' + (status.activity ? ' show' : '') + (status.badge === 'working' ? ' working' : '');
+  pill.style.color = color ? `var(${color})` : 'var(--fg-muted)';
+  pill.style.background = color ? `color-mix(in srgb, var(${color}) 16%, transparent)` : 'var(--bg-hover)';
+  $('agent-task').textContent = status.detail || status.task || '';
+  const feed = $('agent-feed');
+  feed.querySelectorAll('.item.live').forEach(n => n.classList.remove('live'));
+  if (status.badge === 'working') feed.lastElementChild?.classList.add('live');
+  if (status.live === 'no' && !agent.tools.size && feed.querySelector('.agent-empty')) {
+    feed.querySelector('.agent-empty').innerHTML =
+      `${escapeHTML(status.name)} is running. Its live activity appears after your next prompt.`;
+  }
+}
+
+// ---------- Follow mode: show the agent's actions in the editor ------------------
+
+const agentMarks = new Map(); // path -> timeout for the tab/explorer marker
+
+function markFile(path, kind) {
+  clearTimeout(agentMarks.get(path));
+  document.querySelectorAll(`.tab, .row`).forEach(n => {
+    if (n.title === path || n.dataset.path === path) { n.classList.remove('agent-read', 'agent-edit'); n.classList.add(`agent-${kind}`); }
+  });
+  agentMarks.set(path, setTimeout(() => {
+    document.querySelectorAll('.agent-read, .agent-edit').forEach(n => {
+      if (n.title === path || n.dataset.path === path) n.classList.remove('agent-read', 'agent-edit');
+    });
+  }, 4000));
+}
+
+async function followAction(item) {
+  const path = agentAbs(item.path);
+  if (!path) return;
+  if (item.action === 'read') { markFile(path, 'read'); return; }
+  if (item.action !== 'edit' && item.action !== 'write') return;
+  // Give the agent a moment to finish writing the file.
+  await new Promise(r => setTimeout(r, 500));
+  const tab = await openFile(path, { focus: false });
+  if (!tab) return;
+  await reloadFromDisk(tab);
+  markFile(path, 'edit');
+  let added = item.new || '';
+  let removed = item.old || '';
+  if (item.patch) {
+    const lines = item.patch.split('\n');
+    added = lines.filter(l => l.startsWith('+') && !l.startsWith('+++')).map(l => l.slice(1)).join('\n');
+    removed = lines.filter(l => l.startsWith('-') && !l.startsWith('---')).map(l => l.slice(1)).join('\n');
+  }
+  highlightChange(tab, added, removed);
+}
+
+async function reloadFromDisk(tab) {
+  if (isDirty(tab)) return;
+  const result = await fs('read', { path: tab.path });
+  if (result.error || result.content === tab.model.getValue()) return;
+  tab.mtime = result.mtime;
+  tab.model.pushEditOperations([], [{ range: tab.model.getFullModelRange(), text: result.content }], () => null);
+  tab.savedVersion = tab.model.getAlternativeVersionId();
+}
+
+let changeDecorations = null;
+let removedZone = null;
+
+function highlightChange(tab, added, removed) {
+  if (state.active !== tab.path || !added.trim()) return;
+  const model = tab.model;
+  const firstLine = added.split('\n').find(l => l.trim()) || added;
+  const match = model.findMatches(added.length < 5000 ? added : firstLine, false, false, true, null, false)[0]
+    || model.findMatches(firstLine, false, false, true, null, false)[0];
+  if (!match) return;
+  const range = match.range;
+  changeDecorations?.clear();
+  changeDecorations = editor.createDecorationsCollection([{
+    range: new monacoRef.Range(range.startLineNumber, 1, range.endLineNumber, 1),
+    options: { isWholeLine: true, className: 'agent-added-line', linesDecorationsClassName: 'agent-added-gutter' },
+  }]);
+  editor.changeViewZones(acc => {
+    if (removedZone) acc.removeZone(removedZone);
+    removedZone = null;
+    const lines = removed ? removed.split('\n').slice(0, 30) : [];
+    if (lines.length) {
+      const dom = el('div', 'agent-removed-zone');
+      dom.textContent = lines.join('\n');
+      dom.style.lineHeight = `${editor.getOption(monacoRef.editor.EditorOption.lineHeight)}px`;
+      removedZone = acc.addZone({ afterLineNumber: range.startLineNumber - 1, heightInLines: lines.length, domNode: dom });
+    }
+  });
+  editor.revealRangeInCenterIfOutsideViewport(range);
+  clearTimeout(highlightChange.timer);
+  highlightChange.timer = setTimeout(() => {
+    changeDecorations?.clear();
+    editor.changeViewZones(acc => { if (removedZone) acc.removeZone(removedZone); removedZone = null; });
+  }, 7000);
+}
+
+// Panel chrome: resize, collapse, follow toggle, clear.
+(() => {
+  const root = document.documentElement;
+  const setHeight = (h) => root.style.setProperty('--agent-h', h);
+  setHeight('38%');
+  const sash = $('agent-sash');
+  sash.addEventListener('mousedown', (e) => {
+    const part = $('editor-part');
+    const startY = e.clientY, startH = $('agent').offsetHeight;
+    sash.classList.add('active');
+    const move = (ev) => setHeight(`${Math.max(60, Math.min(part.offsetHeight - 120, startH - (ev.clientY - startY)))}px`);
+    const up = () => { sash.classList.remove('active'); removeEventListener('mousemove', move); removeEventListener('mouseup', up); };
+    addEventListener('mousemove', move);
+    addEventListener('mouseup', up);
+  });
+  $('agent-toggle').onclick = () => {
+    const collapsed = $('agent').classList.toggle('collapsed');
+    $('agent-toggle').className = `codicon codicon-chevron-${collapsed ? 'up' : 'down'}`;
+    root.style.setProperty('--agent-h', collapsed ? '30px' : '38%');
+  };
+  const follow = $('agent-follow');
+  follow.classList.add('on');
+  follow.onclick = () => { agent.follow = !agent.follow; follow.classList.toggle('on', agent.follow); };
+  $('agent-clear').onclick = () => { $('agent-feed').replaceChildren(); agent.tools.clear(); };
+  const feed = $('agent-feed');
+  feed.addEventListener('scroll', () => { agent.atBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 40; });
+})();
+
 // ---------- Native entry points ---------------------------------------------
 
 window.app = {
@@ -510,6 +792,8 @@ window.app = {
   },
   openFile(path, line) { openFile(path, { line }); },
   setTheme(theme) { applyTheme(theme); },
+  agentItems(items, reset) { agentItems(items, reset); },
+  agentStatus(status) { agentStatus(status); },
   focus() { (editor?.getModel() ? editor : $('tree')).focus(); },
 };
 

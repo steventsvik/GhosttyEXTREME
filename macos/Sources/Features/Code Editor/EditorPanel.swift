@@ -34,9 +34,21 @@ final class EditorPanel: ObservableObject {
         NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)
             .sink { [weak self] _ in self?.followTerminal() }
             .store(in: &cancellables)
+        NotificationCenter.default.publisher(for: VerticalTabsAgents.didChange)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.followTerminal() }
+            .store(in: &cancellables)
     }
 
     private var themeApplied = false
+
+    /// Tails the transcript of the agent in the followed terminal pane.
+    private lazy var feed: AgentFeed = {
+        let feed = AgentFeed()
+        feed.onItems = { [weak self] items, reset in self?.webView.sendAgentItems(items, reset: reset) }
+        return feed
+    }()
+    private var lastStatus: [String: String]?
 
     private func applyTerminalTheme() {
         themeApplied = true
@@ -46,9 +58,32 @@ final class EditorPanel: ObservableObject {
     /// Shows the folder of the focused pane in the frontmost terminal, following `cd`
     /// and tab switches the way the editor is expected to mirror the terminal.
     private func followTerminal() {
-        guard isVisible, let pwd = Self.frontController?.focusedSurface?.pwd,
-              pwd != webView.currentFolder else { return }
-        webView.openFolder(pwd)
+        guard isVisible, let surface = Self.frontController?.focusedSurface else { return }
+        if let pwd = surface.pwd, pwd != webView.currentFolder { webView.openFolder(pwd) }
+        followAgent(in: surface)
+    }
+
+    /// Shows the agent running in the followed pane: its live timeline and status.
+    private func followAgent(in surface: Ghostty.SurfaceView) {
+        let info = VerticalTabsAgents.shared.info(for: surface)
+        if let info, let path = info.transcriptPath {
+            feed.follow(path: path, kind: info.kind)
+        }
+        var status: [String: String]?
+        if let info {
+            status = [
+                "kind": info.kind.rawValue,
+                "name": info.kind.displayName,
+                "activity": info.activity.label,
+                "badge": String(describing: info.activity.badge),
+                "task": info.task ?? "",
+                "detail": info.detail ?? "",
+                "live": info.transcriptPath == nil ? "no" : "yes",
+            ]
+        }
+        guard status != lastStatus else { return }
+        lastStatus = status
+        webView.sendAgentStatus(status)
     }
 
     /// Shows the panel, opening the folder of the given terminal pane if no folder is open yet.
@@ -95,6 +130,8 @@ final class EditorPanel: ObservableObject {
         isVisible = false
         followTimer?.invalidate()
         followTimer = nil
+        feed.stop()
+        lastStatus = nil
         if let window = controller?.window { narrow(window) }
         if let surface = controller?.focusedSurface { Ghostty.moveFocus(to: surface) }
     }

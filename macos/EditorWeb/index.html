@@ -25,6 +25,21 @@
     <div id="tabs"></div>
     <div id="breadcrumbs"></div>
     <div id="editor"></div>
+    <div id="agent-sash"></div>
+    <section id="agent" class="empty">
+      <div class="agent-header">
+        <span id="agent-logo" class="agent-logo"></span>
+        <span id="agent-name">AGENT</span>
+        <span id="agent-pill" class="pill"></span>
+        <span id="agent-task"></span>
+        <span class="agent-actions">
+          <i class="codicon codicon-eye" id="agent-follow" title="Follow the agent: open files it edits"></i>
+          <i class="codicon codicon-clear-all" id="agent-clear" title="Clear"></i>
+          <i class="codicon codicon-chevron-down" id="agent-toggle" title="Hide panel"></i>
+        </span>
+      </div>
+      <div id="agent-feed"><div class="agent-empty">Run <code>claude</code> or <code>codex</code> in this terminal to see what it's doing here, live.</div></div>
+    </section>
     <div id="watermark">
       <div class="watermark-inner">
         <div class="wm-row"><span>Go to File</span><kbd>⌘</kbd><kbd>P</kbd></div>

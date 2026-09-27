@@ -46,6 +46,16 @@ sequence=$(jq -r --arg agent "$agent" --arg event "$event" '
   | {agent: $agent} + .
   | "\u001b]777;notify;ghostty-custom://agent;\(tojson)\u0007"
 ' <<<"$input" 2>/dev/null) || exit 0
+
+# Where this session's transcript lives, so the editor can show the agent's thinking and
+# actions live. Sent separately to stay under Ghostty's 255-byte notification body limit.
+if [ "$event" = "session_start" ] || [ "$event" = "prompt_submit" ]; then
+  transcript=$(jq -r '.transcript_path // empty' <<<"$input" 2>/dev/null)
+  if [ -n "$transcript" ] && [ ${#transcript} -lt 200 ]; then
+    sequence+=$(jq -rn --arg agent "$agent" --arg path "$transcript" \
+      '"\u001b]777;notify;ghostty-custom://agent;\({agent: $agent, event: "transcript", detail: $path} | tojson)\u0007"')
+  fi
+fi
 [ -n "$sequence" ] || exit 0
 
 if [ "$agent" = "claude" ]; then

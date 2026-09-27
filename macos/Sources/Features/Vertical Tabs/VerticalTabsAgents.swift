@@ -42,6 +42,8 @@ struct VerticalTabAgentInfo: Equatable {
     var detail: String?
     /// A finished or blocked agent the user hasn't looked at yet.
     var unseen: Bool
+    /// The session transcript, which the code editor tails to show the agent live.
+    var transcriptPath: String? = nil
 }
 
 /// Receives agent status events and remembers the latest state per pane.
@@ -54,6 +56,8 @@ final class VerticalTabsAgents {
     static let shared = VerticalTabsAgents()
 
     static let titlePrefix = "ghostty-custom://"
+    /// Posted (object: the surface) whenever a pane's agent state changes.
+    static let didChange = Notification.Name("com.steventsvik.ghostty-custom.agentDidChange")
     static let agentTitle = "ghostty-custom://agent"
 
     private final class Box {
@@ -91,12 +95,25 @@ final class VerticalTabsAgents {
         }
         apply(event, to: surface)
         VerticalTabsTicker.shared.tickNow()
+        NotificationCenter.default.post(name: Self.didChange, object: surface)
         return true
     }
 
     private func apply(_ event: Event, to surface: Ghostty.SurfaceView) {
         if event.event == "session_end" {
             states.removeObject(forKey: surface)
+            return
+        }
+        if event.event == "transcript" {
+            guard let path = event.detail, !path.isEmpty else { return }
+            if let box = states.object(forKey: surface) {
+                box.info.transcriptPath = path
+            } else {
+                let kind = event.agent.map(VerticalTabAgentKind.init(id:)) ?? .unknown
+                states.setObject(Box(VerticalTabAgentInfo(
+                    kind: kind, activity: .ready, task: nil, detail: nil, unseen: false,
+                    transcriptPath: path)), forKey: surface)
+            }
             return
         }
 
@@ -122,7 +139,8 @@ final class VerticalTabsAgents {
             activity: activity,
             task: task,
             detail: detail,
-            unseen: needsEyes && !Self.isBeingViewed(surface))
+            unseen: needsEyes && !Self.isBeingViewed(surface),
+            transcriptPath: existing?.transcriptPath)
 
         if let box = states.object(forKey: surface) {
             box.info = info
