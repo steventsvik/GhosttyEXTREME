@@ -8,6 +8,7 @@ struct VerticalTabsLayout<Content: View>: View {
     let controller: TerminalController
     @ObservedObject var ghostty: Ghostty.App
     @StateObject private var model: VerticalTabsModel
+    @StateObject private var overlay = VerticalTabsOverlayState()
     @AppStorage(VerticalTabs.visibleKey) private var visible: Bool = true
     @AppStorage(VerticalTabs.widthKey) private var width: Double = VerticalTabs.defaultWidth
     private let content: Content
@@ -24,10 +25,21 @@ struct VerticalTabsLayout<Content: View>: View {
             if visible && ghostty.readiness == .ready {
                 VerticalTabsSidebar(model: model, owner: controller, config: ghostty.config)
                     .frame(width: width)
+                    .environmentObject(overlay)
                 VerticalTabsResizeHandle(width: $width)
             }
             content
         }
+        .coordinateSpace(name: verticalTabsSpace)
+        .overlay {
+            if visible && ghostty.readiness == .ready {
+                VerticalTabsOverlayLayer(
+                    state: overlay,
+                    palette: VerticalTabsPalette(config: ghostty.config),
+                    sidebarWidth: width)
+            }
+        }
+        .onChange(of: visible) { _ in overlay.dismissAll() }
         .onAppear {
             VerticalTabsMenu.shared.installIfNeeded()
             VerticalTabsTestSupport.openTestTabsIfRequested(from: controller)
@@ -40,11 +52,28 @@ struct VerticalTabsLayout<Content: View>: View {
 enum VerticalTabsTestSupport {
     private static var didOpen = false
 
+    /// `GHOSTTY_CUSTOM_TEST_OVERLAY=hover|menu`: the selected row opens its hover card
+    /// or ⋮ menu shortly after launch.
+    static let overlayMode = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_OVERLAY"]
+    static let showOverlay = Notification.Name("com.steventsvik.ghostty-custom.testShowOverlay")
+
     static func openTestTabsIfRequested(from controller: TerminalController) {
-        guard !didOpen,
-              let value = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_TABS"],
-              let count = Int(value), count > 1 else { return }
+        guard !didOpen else { return }
         didOpen = true
+        if overlayMode != nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                NotificationCenter.default.post(name: showOverlay, object: nil)
+            }
+        }
+        // Report which window is the visible tab so a test can capture that one.
+        if let path = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_WINDOW_FILE"] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                let window = controller.window?.tabGroup?.selectedWindow ?? controller.window
+                try? String(window?.windowNumber ?? 0).write(toFile: path, atomically: true, encoding: .utf8)
+            }
+        }
+        guard let value = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_TABS"],
+              let count = Int(value), count > 1 else { return }
         for i in 1..<count {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6 * Double(i)) {
                 controller.newTab(nil)
@@ -322,7 +351,7 @@ private struct VerticalTabGroup: View {
     let onToggleCollapse: () -> Void
 
     @State private var snapshot: VerticalTabSnapshot = .empty
-    @State private var hoveringHeader = false
+    @ObservedObject private var pins = VerticalTabsPins.shared
 
     private var isSelected: Bool { controller === owner }
 
@@ -335,6 +364,8 @@ private struct VerticalTabGroup: View {
                         VerticalTabPaneRow(
                             pane: pane,
                             controller: controller,
+                            tabTitle: snapshot.title,
+                            tabColor: tabColor,
                             isSelected: isSelected && pane.isFocused,
                             condensed: condensed,
                             palette: palette)
@@ -355,6 +386,12 @@ private struct VerticalTabGroup: View {
 
     private var header: some View {
         HStack(spacing: 6) {
+            if pins.isPinned(controller) {
+                Image(systemName: "pin.fill")
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+                    .rotationEffect(.degrees(45))
+            }
             if let color = tabColor.displayColor {
                 Circle().fill(Color(nsColor: color)).frame(width: 7, height: 7)
             }
@@ -369,14 +406,7 @@ private struct VerticalTabGroup: View {
                     .help("Agent finished while you were away")
             }
             Spacer(minLength: 4)
-            if hoveringHeader {
-                Button { controller.closeTab(nil) } label: {
-                    Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
-                }
-                .buttonStyle(.plain)
-                .foregroundColor(.secondary)
-                .help("Close Tab")
-            } else if index <= 9 {
+            if index <= 9 {
                 Text("⌘\(index)").font(.system(size: 10)).foregroundColor(.secondary.opacity(0.7))
             }
             Text(snapshot.panes.count == 1 ? "1 pane" : "\(snapshot.panes.count) panes")
@@ -396,7 +426,6 @@ private struct VerticalTabGroup: View {
         .padding(.top, 10)
         .padding(.bottom, collapsed ? 10 : 6)
         .contentShape(Rectangle())
-        .onHover { hoveringHeader = $0 }
         .onTapGesture { select() }
         .contextMenu { contextMenu }
     }
@@ -451,6 +480,8 @@ private struct VerticalTabGroup: View {
 private struct VerticalTabPaneRow: View {
     let pane: VerticalTabPaneSnapshot
     let controller: TerminalController
+    let tabTitle: String
+    let tabColor: TerminalTabColor
     let isSelected: Bool
     let condensed: Bool
     let palette: VerticalTabsPalette
@@ -458,6 +489,8 @@ private struct VerticalTabPaneRow: View {
     @ObservedObject private var git = VerticalTabsGit.shared
     @State private var trackedPwd: String?
     @State private var hovering = false
+    @State private var frame: CGRect = .zero
+    @EnvironmentObject private var overlay: VerticalTabsOverlayState
 
     private var gitInfo: VerticalTabsGitInfo? { git.info(for: pane.pwd) }
 
@@ -473,10 +506,36 @@ private struct VerticalTabPaneRow: View {
         .overlay(
             RoundedRectangle(cornerRadius: 8)
                 .stroke(Color.primary.opacity(isSelected ? 0.18 : 0), lineWidth: 1))
+        .overlay(alignment: .topTrailing) {
+            if hovering || overlay.menu?.pane.id == pane.id { hoverChip.padding(.top, 4).padding(.trailing, 4) }
+        }
+        .background(
+            GeometryReader { geometry in
+                Color.clear
+                    .onAppear { frame = geometry.frame(in: .named(verticalTabsSpace)) }
+                    .onChange(of: geometry.frame(in: .named(verticalTabsSpace))) { frame = $0 }
+            })
         .contentShape(Rectangle())
-        .onHover { hovering = $0 }
+        .onHover { inside in
+            hovering = inside
+            if inside {
+                overlay.hoverBegan(.init(pane: pane, tabTitle: tabTitle, frame: frame))
+            } else {
+                overlay.hoverEnded(pane.id)
+            }
+        }
         .onTapGesture(perform: focus)
-        .help(tooltip)
+        .onReceive(NotificationCenter.default.publisher(for: VerticalTabsTestSupport.showOverlay)) { _ in
+            guard isSelected else { return }
+            if VerticalTabsTestSupport.overlayMode == "menu" {
+                overlay.menu = .init(
+                    controller: controller, pane: pane, tabColor: tabColor,
+                    anchor: CGRect(x: frame.maxX - 56, y: frame.minY + 4, width: 26, height: 26))
+            } else {
+                hovering = true
+                overlay.hoverBegan(.init(pane: pane, tabTitle: tabTitle, frame: frame))
+            }
+        }
         .onAppear {
             trackedPwd = pane.pwd
             git.track(pane.pwd)
@@ -490,6 +549,48 @@ private struct VerticalTabPaneRow: View {
             trackedPwd = newValue
             git.track(newValue)
         }
+    }
+
+    /// Warp's floating ⋮ / × controls shown on the hovered row.
+    private var hoverChip: some View {
+        HStack(spacing: 0) {
+            chipButton("ellipsis", rotated: true, help: "More") {
+                overlay.dismissAll()
+                overlay.menu = .init(
+                    controller: controller,
+                    pane: pane,
+                    tabColor: tabColor,
+                    anchor: CGRect(x: frame.maxX - 56, y: frame.minY + 4, width: 26, height: 26))
+            }
+            chipButton("xmark", help: controller.surfaceTree.count > 1 ? "Close Pane" : "Close Tab") {
+                overlay.dismissAll()
+                if controller.surfaceTree.count > 1, let surface = pane.surface {
+                    controller.closeSurface(surface)
+                } else {
+                    controller.closeTab(nil)
+                }
+            }
+        }
+        .padding(2)
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 6).fill(palette.background)
+                RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.09))
+            })
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.14), lineWidth: 1))
+    }
+
+    private func chipButton(_ symbol: String, rotated: Bool = false, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 11, weight: .semibold))
+                .rotationEffect(.degrees(rotated ? 90 : 0))
+                .frame(width: 22, height: 20)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundColor(.secondary)
+        .help(help)
     }
 
     private var avatar: some View {
@@ -577,17 +678,6 @@ private struct VerticalTabPaneRow: View {
             .background(RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.06)))
             .fixedSize()
         }
-    }
-
-    private var tooltip: String {
-        var parts: [String] = []
-        if let agent = pane.agent {
-            parts.append("\(agent.kind.displayName): \(agent.activity.label)")
-            if let task = agent.task { parts.append(task) }
-            if let detail = agent.detail { parts.append(detail) }
-        }
-        if let pwd = pane.pwd { parts.append(pwd) }
-        return parts.joined(separator: "\n")
     }
 
     private func focus() {

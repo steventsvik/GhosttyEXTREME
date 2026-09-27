@@ -89,7 +89,7 @@ enum VerticalTabBadge: Int, Comparable {
     var symbol: String? {
         switch self {
         case .none: return nil
-        case .working: return "clock.fill"
+        case .working: return "chart.pie.fill"
         case .done: return "checkmark"
         case .bell: return "bell.fill"
         case .input: return "questionmark"
