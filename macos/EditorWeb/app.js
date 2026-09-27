@@ -51,6 +51,7 @@ function iconEl(name) {
 const basename = (p) => p.split('/').pop();
 // macOS reports /tmp and /var as /private/tmp and /private/var; treat them as the same place.
 const canonical = (p) => p.replace(/^\/private\/(tmp|var)\//, '/$1/');
+const samePath = (a, b) => a === b || (a && b && canonical(a) === canonical(b));
 const relative = (p) => {
   if (!state.root) return p;
   const [root, path] = [canonical(state.root), canonical(p)];
@@ -121,21 +122,50 @@ async function refreshExplorer() {
 
 const isDirty = (tab) => tab.model.getAlternativeVersionId() !== tab.savedVersion;
 
-async function openFile(path, { line, focus = true } = {}) {
-  let tab = state.tabs.find(t => t.path === path);
+let reloading = false;      // true while we apply disk content (not the user typing)
+let lastUserEdit = 0;
+
+/**
+ * Opens a file in a tab. `preview` tabs (files the agent only looks at) reuse a single
+ * italic tab, as in VS Code, so following a codebase scan doesn't pile up tabs.
+ * `quiet` skips error alerts (for follow mode, where a guessed path may not exist).
+ */
+async function openFile(path, { line, focus = true, preview = false, quiet = false, activate: show = true } = {}) {
+  let tab = state.tabs.find(t => samePath(t.path, path));
+  if (tab) path = tab.path;
   if (!tab) {
     let result;
-    try { result = await fs('read', { path }); } catch (e) { return showError(e); }
-    if (result.error) return showError(result.error);
+    try { result = await fs('read', { path }); } catch (e) { return quiet ? null : showError(e); }
+    if (result.error) return quiet ? null : showError(result.error);
     const uri = monacoRef.Uri.file(path);
     const model = monacoRef.editor.getModel(uri) || monacoRef.editor.createModel(result.content, undefined, uri);
-    tab = { path, model, viewState: null, savedVersion: model.getAlternativeVersionId(), mtime: result.mtime, conflict: false };
-    model.onDidChangeContent(() => { renderTabs(); });
-    state.tabs.push(tab);
+    tab = { path, model, viewState: null, savedVersion: model.getAlternativeVersionId(), mtime: result.mtime,
+            conflict: false, preview };
+    model.onDidChangeContent(() => {
+      if (!reloading) { tab.preview = false; lastUserEdit = Date.now(); }
+      renderTabs();
+    });
+    if (preview) {
+      const old = state.tabs.find(t => t.preview && !isDirty(t));
+      if (old) replaceTab(old, tab); else state.tabs.push(tab);
+    } else {
+      state.tabs.push(tab);
+    }
+  } else if (!preview && tab.preview) {
+    tab.preview = false;
   }
-  activate(path, { focus });
+  if (show) activate(path, { focus });
+  else renderTabs();
   if (line) { editor.revealLineInCenter(line); editor.setPosition({ lineNumber: line, column: 1 }); }
   return tab;
+}
+
+/** Swaps a preview tab for another in the same slot, without prompting. */
+function replaceTab(old, tab) {
+  const index = state.tabs.indexOf(old);
+  state.tabs.splice(index, 1, tab);
+  if (state.active === old.path) state.active = null;
+  old.model.dispose();
 }
 
 function activate(path, { focus = true } = {}) {
@@ -185,7 +215,8 @@ function renderTabs() {
   bar.replaceChildren(...state.tabs.map(tab => {
     const el = document.createElement('div');
     el.className = 'tab' + (tab.path === state.active ? ' active' : '') + (isDirty(tab) ? ' dirty' : '') +
-      (tab.conflict ? ' conflict' : '');
+      (tab.conflict ? ' conflict' : '') + (tab.preview ? ' preview' : '');
+    el.ondblclick = () => { tab.preview = false; renderTabs(); };
     el.title = tab.conflict ? `${tab.path}\nChanged on disk while you have unsaved edits` : tab.path;
     el.append(iconEl(basename(tab.path)));
     const name = document.createElement('span');
@@ -252,7 +283,9 @@ async function syncWithDisk() {
     if (result.content !== tab.model.getValue()) {
       const isActive = tab.path === state.active;
       const view = isActive ? editor.saveViewState() : null;
+      reloading = true;
       tab.model.pushEditOperations([], [{ range: tab.model.getFullModelRange(), text: result.content }], () => null);
+      reloading = false;
       tab.savedVersion = tab.model.getAlternativeVersionId();
       if (isActive && view) editor.restoreViewState(view);
     }
@@ -644,6 +677,8 @@ function agentStatus(status) {
     return;
   }
   const [brand, file] = AGENT_BRANDS[status.kind] || ['#777', null];
+  document.documentElement.style.setProperty('--agent-brand', brand === '#000000' ? '#8a8a8a' : brand);
+  document.documentElement.style.setProperty('--agent-label', JSON.stringify(status.name.replace(/ Code$/, '')));
   logo.style.display = 'inline-flex';
   logo.style.background = brand;
   logo.classList.toggle('dark-glyph', status.kind === 'droid');
@@ -666,32 +701,167 @@ function agentStatus(status) {
 }
 
 // ---------- Follow mode: show the agent's actions in the editor ------------------
+//
+// Reads: the file opens (as a preview tab) and scrolls to exactly the lines the agent is
+// reading, with a scanning highlight and a label. Edits: the file opens, removed lines
+// show struck through and collapse away, new lines are written in one by one, and an
+// agent cursor marks where it wrote. Everything runs in order, as the agent works.
 
 const agentMarks = new Map(); // path -> timeout for the tab/explorer marker
 
 function markFile(path, kind) {
   clearTimeout(agentMarks.get(path));
-  document.querySelectorAll(`.tab, .row`).forEach(n => {
-    if (n.title === path || n.dataset.path === path) { n.classList.remove('agent-read', 'agent-edit'); n.classList.add(`agent-${kind}`); }
+  const apply = () => document.querySelectorAll('.tab, .row').forEach(n => {
+    if (samePath(n.title, path) || samePath(n.dataset.path, path)) { n.classList.remove('agent-read', 'agent-edit'); n.classList.add(`agent-${kind}`); }
   });
+  apply();
+  requestAnimationFrame(apply);
   agentMarks.set(path, setTimeout(() => {
     document.querySelectorAll('.agent-read, .agent-edit').forEach(n => {
       if (n.title === path || n.dataset.path === path) n.classList.remove('agent-read', 'agent-edit');
     });
-  }, 4000));
+  }, 5000));
 }
 
-async function followAction(item) {
+/** Stagger classes (.agent-d-N) so animations can run line by line. */
+(() => {
+  const rules = [];
+  for (let i = 0; i < 120; i++) rules.push(`.agent-d-${i}{animation-delay:${i * 45}ms!important}`);
+  for (let i = 0; i < 48; i++) rules.push(`.agent-w-${i}{animation-delay:${i * 40}ms!important}`);
+  document.head.append(Object.assign(document.createElement('style'), { textContent: rules.join('\n') }));
+})();
+
+const agentName = () => (agent.status?.name || 'Agent').replace(/ Code$/, '');
+
+/** Don't pull the file out from under someone typing in the editor. */
+const userIsEditing = () => editor?.hasTextFocus() && Date.now() - lastUserEdit < 6000;
+
+let followChain = Promise.resolve();
+function followAction(item) {
+  followChain = followChain.then(() => follow(item)).catch(e => log(`follow: ${e?.stack || e}`));
+}
+
+async function follow(item) {
+  const look = lookTarget(item);
+  if (look?.path) return showLook(look);
+  if ((item.action === 'edit' || item.action === 'write') && item.path) return showEdit(item);
+}
+
+/** Where a tool call looks at code: Read ranges and common shell readers. */
+function lookTarget(item) {
+  const base = item.cwd || state.root;
+  const resolve = (p) => {
+    if (!p) return null;
+    p = p.replace(/^['"]|['"]$/g, '');
+    if (p.startsWith('/')) return p;
+    if (p.startsWith('~')) return null;
+    return base ? `${base}/${p.replace(/^\.\//, '')}` : null;
+  };
+  if (item.action === 'read' && item.path) {
+    const start = Math.max(1, item.offset || 1);
+    return { path: agentAbs(item.path), start, end: item.limit ? start + item.limit - 1 : null };
+  }
+  const cmd = item.command;
+  if (!cmd) return null;
+  const file = String.raw`([^\s|;&<>]+\.[A-Za-z0-9_]+|[^\s|;&<>]*/[^\s|;&<>]+)`;
+  const tries = [
+    [new RegExp(String.raw`nl\s+(?:-\w+\s+)*${file}\s*\|\s*sed\s+-n\s+['"]?(\d+),(\d+)p`), m => [m[1], +m[2], +m[3]]],
+    [new RegExp(String.raw`sed\s+-n\s+['"]?(\d+),(\d+)p['"]?\s+${file}`), m => [m[3], +m[1], +m[2]]],
+    [new RegExp(String.raw`head\s+(?:-n\s*|-)(\d+)\s+${file}`), m => [m[2], 1, +m[1]]],
+    [new RegExp(String.raw`tail\s+(?:-n\s*|-)(\d+)\s+${file}`), m => [m[2], -m[1], null]],
+    [new RegExp(String.raw`(?:^|[;&|(]\s*|\s)(?:cat|bat|less)\s+(?:-\w+\s+)*${file}`), m => [m[1], 1, null]],
+  ];
+  for (const [re, pick] of tries) {
+    const m = cmd.match(re);
+    if (m) { const [p, start, end] = pick(m); return { path: resolve(p), start, end }; }
+  }
+  return null;
+}
+
+// Reading ------------------------------------------------------------------
+
+let lookDecorations = null;
+let lookWidget = null;
+let lookTimer = null;
+
+function clearLook() {
+  clearTimeout(lookTimer);
+  lookDecorations?.clear();
+  lookDecorations = null;
+  if (lookWidget) { editor.removeContentWidget(lookWidget); lookWidget = null; }
+}
+
+async function showLook({ path, start, end }) {
+  markFile(path, 'read');
+  if (userIsEditing()) return;
+  const tab = await openFile(path, { focus: false, preview: true, quiet: true });
+  if (!tab || !samePath(state.active, path)) return;
+  await reloadFromDisk(tab);
+  const count = tab.model.getLineCount();
+  const first = start < 0 ? Math.max(1, count + start + 1) : Math.min(start, count);
+  const last = Math.min(end ?? count, count);
+  clearLook();
+  clearEdit();
+
+  // Scanning wave down the lines being read (capped so huge reads stay cheap).
+  const shown = Math.min(last, first + 300);
+  const decorations = [];
+  for (let line = first; line <= shown; line++) {
+    decorations.push({
+      range: new monacoRef.Range(line, 1, line, 1),
+      options: { isWholeLine: true, className: `agent-look-line agent-w-${(line - first) % 48}`,
+                 linesDecorationsClassName: 'agent-look-gutter' },
+    });
+  }
+  lookDecorations = editor.createDecorationsCollection(decorations);
+
+  const label = document.createElement('div');
+  label.className = 'agent-label read';
+  label.textContent = `${agentName()} · reading ${first === 1 && last === count ? 'the file' : `lines ${first}–${last}`}`;
+  lookWidget = {
+    getId: () => 'agent.look',
+    getDomNode: () => label,
+    getPosition: () => ({ position: { lineNumber: first, column: 1 },
+      preference: [monacoRef.editor.ContentWidgetPositionPreference.ABOVE, monacoRef.editor.ContentWidgetPositionPreference.BELOW] }),
+  };
+  editor.addContentWidget(lookWidget);
+
+  const visible = editor.getVisibleRanges()[0];
+  const fits = visible && (last - first) < (visible.endLineNumber - visible.startLineNumber - 2);
+  const smooth = monacoRef.editor.ScrollType.Smooth;
+  if (fits) editor.revealRangeInCenter(new monacoRef.Range(first, 1, last, 1), smooth);
+  else editor.revealLineNearTop(first, smooth);
+  lookTimer = setTimeout(clearLook, 7000);
+}
+
+// Editing ------------------------------------------------------------------
+
+let editDecorations = null;
+let removedZone = null;
+let editTimers = [];
+
+function clearEdit() {
+  editTimers.forEach(clearTimeout);
+  editTimers = [];
+  editDecorations?.clear();
+  editDecorations = null;
+  editor.changeViewZones(acc => { if (removedZone) acc.removeZone(removedZone); removedZone = null; });
+}
+
+async function showEdit(item) {
   const path = agentAbs(item.path);
   if (!path) return;
-  if (item.action === 'read') { markFile(path, 'read'); return; }
-  if (item.action !== 'edit' && item.action !== 'write') return;
+  markFile(path, 'edit');
   // Give the agent a moment to finish writing the file.
-  await new Promise(r => setTimeout(r, 500));
-  const tab = await openFile(path, { focus: false });
+  await new Promise(r => setTimeout(r, 400));
+  if (userIsEditing()) {
+    const tab = state.tabs.find(t => samePath(t.path, path));
+    if (tab) await reloadFromDisk(tab);
+    return;
+  }
+  const tab = await openFile(path, { focus: false, quiet: true });
   if (!tab) return;
   await reloadFromDisk(tab);
-  markFile(path, 'edit');
   let added = item.new || '';
   let removed = item.old || '';
   if (item.patch) {
@@ -699,7 +869,60 @@ async function followAction(item) {
     added = lines.filter(l => l.startsWith('+') && !l.startsWith('+++')).map(l => l.slice(1)).join('\n');
     removed = lines.filter(l => l.startsWith('-') && !l.startsWith('---')).map(l => l.slice(1)).join('\n');
   }
-  highlightChange(tab, added, removed);
+  if (samePath(state.active, path)) animateChange(tab, added, removed, item.action === 'write');
+}
+
+function animateChange(tab, added, removed, isNewFile) {
+  const model = tab.model;
+  let range;
+  if (isNewFile) {
+    range = new monacoRef.Range(1, 1, Math.min(model.getLineCount(), 400), 1);
+  } else {
+    if (!added.trim()) return;
+    const firstLine = added.split('\n').find(l => l.trim()) || added;
+    const match = model.findMatches(added.length < 5000 ? added : firstLine, false, false, true, null, false)[0]
+      || model.findMatches(firstLine, false, false, true, null, false)[0];
+    if (!match) return;
+    range = match.range;
+  }
+  clearLook();
+  clearEdit();
+
+  // New lines are written in one after another, each with a green sweep.
+  const decorations = [];
+  for (let line = range.startLineNumber, i = 0; line <= range.endLineNumber; line++, i++) {
+    const delay = `agent-d-${Math.min(i, 119)}`;
+    decorations.push({
+      range: new monacoRef.Range(line, 1, line, model.getLineMaxColumn(line)),
+      options: { isWholeLine: true, className: `agent-write-line ${delay}`, inlineClassName: `agent-write-text ${delay}`,
+                 linesDecorationsClassName: 'agent-added-gutter' },
+    });
+  }
+  // The agent's cursor, where it finished writing.
+  const lastLine = range.endLineNumber;
+  decorations.push({
+    range: new monacoRef.Range(lastLine, model.getLineMaxColumn(lastLine), lastLine, model.getLineMaxColumn(lastLine)),
+    options: { afterContentClassName: 'agent-caret' },
+  });
+  editDecorations = editor.createDecorationsCollection(decorations);
+
+  // Removed lines appear struck through, then collapse away.
+  const gone = removed && !isNewFile ? removed.split('\n').slice(0, 30) : [];
+  editor.changeViewZones(acc => {
+    if (gone.length) {
+      const dom = el('div', 'agent-removed-zone');
+      dom.textContent = gone.join('\n');
+      dom.style.lineHeight = `${editor.getOption(monacoRef.editor.EditorOption.lineHeight)}px`;
+      removedZone = acc.addZone({ afterLineNumber: range.startLineNumber - 1, heightInLines: gone.length, domNode: dom });
+    }
+  });
+  editor.revealRangeInCenterIfOutsideViewport(range, monacoRef.editor.ScrollType.Smooth);
+
+  const lines = range.endLineNumber - range.startLineNumber + 1;
+  editTimers.push(setTimeout(() => {
+    editor.changeViewZones(acc => { if (removedZone) acc.removeZone(removedZone); removedZone = null; });
+  }, 2600 + Math.min(lines, 120) * 45));
+  editTimers.push(setTimeout(clearEdit, 8000 + Math.min(lines, 120) * 45));
 }
 
 async function reloadFromDisk(tab) {
@@ -707,43 +930,10 @@ async function reloadFromDisk(tab) {
   const result = await fs('read', { path: tab.path });
   if (result.error || result.content === tab.model.getValue()) return;
   tab.mtime = result.mtime;
+  reloading = true;
   tab.model.pushEditOperations([], [{ range: tab.model.getFullModelRange(), text: result.content }], () => null);
+  reloading = false;
   tab.savedVersion = tab.model.getAlternativeVersionId();
-}
-
-let changeDecorations = null;
-let removedZone = null;
-
-function highlightChange(tab, added, removed) {
-  if (state.active !== tab.path || !added.trim()) return;
-  const model = tab.model;
-  const firstLine = added.split('\n').find(l => l.trim()) || added;
-  const match = model.findMatches(added.length < 5000 ? added : firstLine, false, false, true, null, false)[0]
-    || model.findMatches(firstLine, false, false, true, null, false)[0];
-  if (!match) return;
-  const range = match.range;
-  changeDecorations?.clear();
-  changeDecorations = editor.createDecorationsCollection([{
-    range: new monacoRef.Range(range.startLineNumber, 1, range.endLineNumber, 1),
-    options: { isWholeLine: true, className: 'agent-added-line', linesDecorationsClassName: 'agent-added-gutter' },
-  }]);
-  editor.changeViewZones(acc => {
-    if (removedZone) acc.removeZone(removedZone);
-    removedZone = null;
-    const lines = removed ? removed.split('\n').slice(0, 30) : [];
-    if (lines.length) {
-      const dom = el('div', 'agent-removed-zone');
-      dom.textContent = lines.join('\n');
-      dom.style.lineHeight = `${editor.getOption(monacoRef.editor.EditorOption.lineHeight)}px`;
-      removedZone = acc.addZone({ afterLineNumber: range.startLineNumber - 1, heightInLines: lines.length, domNode: dom });
-    }
-  });
-  editor.revealRangeInCenterIfOutsideViewport(range);
-  clearTimeout(highlightChange.timer);
-  highlightChange.timer = setTimeout(() => {
-    changeDecorations?.clear();
-    editor.changeViewZones(acc => { if (removedZone) acc.removeZone(removedZone); removedZone = null; });
-  }, 7000);
 }
 
 // Panel chrome: resize, collapse, follow toggle, clear.

@@ -182,12 +182,52 @@ kbd { font: 11px var(--font-ui); background: #8080802b; border: 1px solid #33333
 .todos .in_progress { color: var(--act-todo); }
 
 /* Follow mode: what the agent is touching, in the editor itself. */
-.agent-added-line { background: color-mix(in srgb, var(--act-write) 22%, transparent); animation: agent-fade 7s ease-out forwards; }
-.agent-added-gutter { border-left: 3px solid var(--act-write); }
-@keyframes agent-fade { 0%, 60% { opacity: 1; } 100% { opacity: 0; } }
-.agent-removed-zone { font-family: var(--font-mono); color: var(--act-error); text-decoration: line-through;
-  background: color-mix(in srgb, var(--act-error) 12%, transparent); padding-left: 8px; white-space: pre; overflow: hidden; }
+:root { --agent-brand: var(--act-think); --agent-label: "Agent"; }
+.tab.preview .name { font-style: italic; }
 .tab.agent-read { box-shadow: inset 0 -2px 0 var(--act-read); }
 .tab.agent-edit { box-shadow: inset 0 -2px 0 var(--act-edit); }
 .row.agent-read .label { color: var(--act-read); }
 .row.agent-edit .label { color: var(--act-edit); }
+.tab.agent-read .name::after, .tab.agent-edit .name::after {
+  content: ""; display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-radius: 50%; vertical-align: middle;
+  background: var(--act-read); animation: pulse 1.1s ease-in-out infinite; }
+.tab.agent-edit .name::after { background: var(--act-edit); }
+
+/* Reading: a wave passes down the lines being read. */
+.agent-look-line { background: color-mix(in srgb, var(--act-read) 7%, transparent);
+  animation: agent-wave 1.9s ease-in-out infinite; }
+@keyframes agent-wave {
+  0%, 100% { background: color-mix(in srgb, var(--act-read) 6%, transparent); }
+  45% { background: color-mix(in srgb, var(--act-read) 24%, transparent); }
+}
+.agent-look-gutter { border-left: 3px solid var(--act-read); }
+.agent-label { font: 600 11px var(--font-ui); padding: 2px 8px; border-radius: 5px; white-space: nowrap; pointer-events: none;
+  color: var(--bg-editor); box-shadow: 0 2px 8px #0008; animation: label-in .25s ease-out; }
+.agent-label.read { background: var(--act-read); }
+@keyframes label-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* Writing: each new line fades in after the previous one, with a green sweep. */
+.agent-write-line { background: linear-gradient(90deg, color-mix(in srgb, var(--act-write) 30%, transparent),
+  color-mix(in srgb, var(--act-write) 14%, transparent)) no-repeat; background-size: 0% 100%;
+  animation: agent-sweep .45s ease-out forwards, agent-settle 5s 3s ease-in forwards; }
+@keyframes agent-sweep { to { background-size: 100% 100%; } }
+@keyframes agent-settle { to { opacity: .0; } }
+.agent-write-text { opacity: 0; animation: agent-type .35s ease-out forwards; }
+@keyframes agent-type { from { opacity: 0; filter: blur(2px); } to { opacity: 1; filter: none; } }
+.agent-added-gutter { border-left: 3px solid var(--act-write); }
+
+/* The agent's cursor where it finished writing, labeled like a collaborator's. */
+.agent-caret { position: relative; }
+.agent-caret::before { content: ""; position: absolute; top: 0; bottom: 0; width: 2px; background: var(--agent-brand);
+  animation: caret-blink 1s steps(1) infinite; }
+.agent-caret::after { content: var(--agent-label); position: absolute; left: 2px; top: -1.35em; padding: 0 5px;
+  font: 600 10px var(--font-ui); line-height: 1.5; border-radius: 3px 3px 3px 0; color: #fff; background: var(--agent-brand);
+  white-space: nowrap; animation: label-in .25s ease-out; }
+@keyframes caret-blink { 50% { opacity: 0; } }
+
+/* Removed lines: struck through, then fade out as they collapse. */
+.agent-removed-zone { font-family: var(--font-mono); color: var(--act-error); text-decoration: line-through;
+  background: color-mix(in srgb, var(--act-error) 13%, transparent); padding-left: 8px; white-space: pre; overflow: hidden;
+  border-left: 3px solid var(--act-error); animation: removed-in .3s ease-out, removed-out .6s 2s ease-in forwards; }
+@keyframes removed-in { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+@keyframes removed-out { to { opacity: 0; } }

@@ -160,6 +160,11 @@ final class AgentFeed {
             item["path"] = path
         }
         if let command = input["command"] as? String { item["command"] = clip(command, 600) }
+        // Where a read looks: Read's 1-based start line and line count.
+        if let offset = input["offset"] as? Int { item["offset"] = offset }
+        if let limit = input["limit"] as? Int { item["limit"] = limit }
+        // Codex runs commands in a working directory; relative paths resolve against it.
+        if let workdir = input["workdir"] as? String ?? input["cwd"] as? String { item["cwd"] = workdir }
         if let description = input["description"] as? String { item["description"] = clip(description, 200) }
         if let pattern = input["pattern"] as? String { item["pattern"] = clip(pattern, 200) }
         if let query = input["query"] as? String ?? input["url"] as? String ?? input["prompt"] as? String {
