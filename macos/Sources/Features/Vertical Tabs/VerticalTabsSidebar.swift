@@ -84,6 +84,11 @@ enum VerticalTabsTestSupport {
         if ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_SESSION"] == "hermes" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NewSessionKind.hermes.open(from: controller) }
         }
+        // `GHOSTTY_CUSTOM_TEST_SESSION=docker:<kind>`: open an isolated Docker session.
+        if let value = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_SESSION"], value.hasPrefix("docker:"),
+           let kind = DockerSessionKind(rawValue: String(value.dropFirst("docker:".count))) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) { DockerSessions.open(kind, from: controller) }
+        }
         if let file = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_EDITOR"] {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 EditorPanel.shared.show(from: controller, folder: (file as NSString).deletingLastPathComponent)

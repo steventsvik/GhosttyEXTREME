@@ -41,6 +41,17 @@ enum PaletteExtras {
                     kind.open(from: owner)
                 })
             }
+            for kind in DockerSessionKind.allCases {
+                options.append(CommandOption(
+                    title: "New Isolated Session: \(kind.title)",
+                    subtitle: "Docker · \(kind.detail)",
+                    description: "Open a new tab in a throwaway Docker container",
+                    leadingIcon: "shippingbox",
+                    leadingColor: kind.agent?.brandColor
+                ) {
+                    DockerSessions.open(kind, from: owner)
+                })
+            }
             if !HermesSessions.shared.isHermes(owner) {
                 options.append(CommandOption(
                     title: "Toggle Code Editor",

@@ -73,6 +73,9 @@ struct NewSessionMenu: View {
                         icon(for: kind)
                     }
                 }
+                if kind == .codex {
+                    DockerSessionMenu(owner: owner)
+                }
             }
         } label: {
             HStack(spacing: 6) {
