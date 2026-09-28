@@ -108,6 +108,49 @@ enum VerticalTabsTestSupport {
                 (window?.windowController as? BaseTerminalController)?.toggleCommandPalette(nil)
             }
         }
+        let env = ProcessInfo.processInfo.environment
+        // `GHOSTTY_CUSTOM_TEST_MISSION=1`: open Mission Control after 12s.
+        if env["GHOSTTY_CUSTOM_TEST_MISSION"] == "1" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 12) { MissionControl.show() }
+        }
+        // `GHOSTTY_CUSTOM_TEST_HANDOFF=review|continue`: hand the first pane off to Claude Code after 6s.
+        if let mode = env["GHOSTTY_CUSTOM_TEST_HANDOFF"] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 6) {
+                guard let surface = controller.focusedSurface else { return }
+                AgentHandoff.handOff(from: surface, in: controller, to: .claude, mode: mode == "continue" ? .continue : .review)
+            }
+        }
+        // `GHOSTTY_CUSTOM_TEST_RACE=<task>`: race one Claude and one Codex after 4s; with
+        // `GHOSTTY_CUSTOM_TEST_RACE_KEEP=1`, keep claude-1's changes at 30s and clean up at 36s,
+        // logging to `GHOSTTY_CUSTOM_TEST_LOG`.
+        if let task = env["GHOSTTY_CUSTOM_TEST_RACE"], let folder = env["GHOSTTY_CUSTOM_TEST_RACE_FOLDER"] {
+            let log: (String) -> Void = { line in
+                guard let path = env["GHOSTTY_CUSTOM_TEST_LOG"] else { return }
+                let old = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
+                try? (old + line + "\n").write(toFile: path, atomically: true, encoding: .utf8)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                AgentRaces.shared.start(task: task, folder: folder, counts: [.claude: 1, .codex: 1],
+                                        includeChanges: true, from: controller) { result in
+                    switch result {
+                    case .failure(let error): log("race failed: \(error.message)")
+                    case .success(let race):
+                        log("race \(race.id) " + race.contestants.map { "\($0.id)=\($0.worktree)" }.joined(separator: " "))
+                        AgentRaces.show(race, from: controller)
+                        guard env["GHOSTTY_CUSTOM_TEST_RACE_KEEP"] == "1" else { return }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 26) {
+                            AgentRaces.shared.keep(race.contestants[0], of: race) { error in
+                                log("keep: \(error ?? "ok")")
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 6) {
+                                    AgentRaces.shared.cleanUp(race)
+                                    log("cleaned up")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         // Report which window is the visible tab so a test can capture that one.
         if let path = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_WINDOW_FILE"] {
             DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
@@ -247,7 +290,27 @@ struct VerticalTabsSidebar: View {
                 title: compact ? (condensed ? "Expand" : "Condense") : (condensed ? "Expand view" : "Condense view")
             ) { condensed.toggle() }
             NewSessionMenu(owner: owner, compact: compact)
+            MissionControlButton()
         }
+    }
+}
+
+/// Opens Mission Control (⌃⌘M); a dot shows when an agent is waiting.
+private struct MissionControlButton: View {
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: MissionControl.toggle) {
+            Image(systemName: "square.grid.2x2")
+                .font(.system(size: 12, weight: .semibold))
+                .frame(width: 30, height: 26)
+                .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(hovering ? 0.08 : 0.03)))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.primary.opacity(0.14), lineWidth: 1))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help("Mission Control (⌃⌘M)")
     }
 }
 

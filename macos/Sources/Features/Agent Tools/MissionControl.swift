@@ -1,0 +1,316 @@
+#if os(macOS)
+import AppKit
+import SwiftUI
+
+/// One screen with every agent (or every pane) as a live card: status, task, last action, how
+/// long it's been in that state and the bottom of its terminal. Click a card to jump to it.
+enum MissionControl {
+    static let windowID = "mission-control"
+
+    static func toggle() {
+        if AgentToolWindows.isOpen(windowID) {
+            AgentToolWindows.close(id: windowID)
+        } else {
+            show()
+        }
+    }
+
+    static func show() {
+        AgentToolWindows.show(id: windowID, title: "Mission Control", size: NSSize(width: 1120, height: 720)) {
+            MissionControlView()
+        }
+    }
+}
+
+/// A pane as Mission Control shows it.
+private struct MissionCard: Identifiable {
+    let id: ObjectIdentifier
+    let surface: Weak<Ghostty.SurfaceView>
+    weak var controller: TerminalController?
+    let tabTitle: String
+    let folder: String?
+    let tabColor: Color?
+    let agent: VerticalTabAgentInfo?
+    let preview: String
+
+    /// Waiting agents first, then working, then finished, then everything else.
+    var rank: Int {
+        switch agent?.activity {
+        case .needsPermission, .needsInput: return 0
+        case .working: return 1
+        case .failed: return 2
+        case .done: return 3
+        case .ready: return 4
+        case .none: return 5
+        }
+    }
+}
+
+private struct MissionControlView: View {
+    @AppStorage("GhosttyCustomMissionControlAllPanes") private var showAllPanes = false
+    @ObservedObject private var races = AgentRaces.shared
+    @State private var cards: [MissionCard] = []
+    @State private var now = Date()
+    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    private let columns = [GridItem(.adaptive(minimum: 330, maximum: 520), spacing: 14)]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+            Divider()
+            ScrollView {
+                if cards.isEmpty {
+                    emptyState
+                } else {
+                    LazyVGrid(columns: columns, spacing: 14) {
+                        ForEach(cards) { card in
+                            MissionCardView(card: card, now: now)
+                        }
+                    }
+                    .padding(16)
+                }
+                if !races.races.isEmpty {
+                    racesSection
+                }
+            }
+        }
+        .frame(minWidth: 640, minHeight: 420)
+        .onAppear(perform: reload)
+        .onReceive(timer) { value in
+            now = value
+            reload()
+        }
+        .onChange(of: showAllPanes) { _ in reload() }
+    }
+
+    private var header: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "square.grid.2x2.fill").font(.system(size: 18)).foregroundColor(.accentColor)
+            Text("Mission Control").font(.system(size: 16, weight: .semibold))
+            summary
+            Spacer()
+            Picker("", selection: $showAllPanes) {
+                Text("Agents").tag(false)
+                Text("All panes").tag(true)
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 170)
+            if let owner = TerminalController.all.first(where: { $0.window?.isVisible == true }) {
+                Button {
+                    AgentRaces.showSetup(from: owner)
+                } label: { Label("Race agents…", systemImage: "flag.checkered.2.crossed") }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 30)
+        .padding(.bottom, 12)
+    }
+
+    private var summary: some View {
+        let agents = cards.compactMap(\.agent)
+        let counts: [(String, Int, Color)] = [
+            ("waiting", agents.filter { AgentAlerts.isWaiting($0.activity) }.count, .orange),
+            ("working", agents.filter { $0.activity == .working }.count, AgentStatusPill.color(.working)),
+            ("done", agents.filter { $0.activity == .done }.count, .green),
+        ]
+        return HStack(spacing: 10) {
+            ForEach(counts.filter { $0.1 > 0 }, id: \.0) { label, count, color in
+                HStack(spacing: 4) {
+                    Circle().fill(color).frame(width: 7, height: 7)
+                    Text("\(count) \(label)").font(.system(size: 12)).foregroundColor(.secondary)
+                }
+            }
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "sparkles.rectangle.stack").font(.system(size: 34)).foregroundColor(.secondary)
+            Text(showAllPanes ? "No panes open" : "No agents running")
+                .font(.system(size: 15, weight: .semibold))
+            Text("Start Claude Code or Codex in a tab (or race several at once) and they'll show up here live.")
+                .font(.system(size: 12)).foregroundColor(.secondary).multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: 380)
+        .padding(.vertical, 90)
+        .frame(maxWidth: .infinity)
+    }
+
+    private var racesSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("RACES").font(.system(size: 10.5, weight: .semibold)).kerning(0.4).foregroundColor(.secondary)
+            ForEach(races.races) { race in
+                Button {
+                    AgentRaces.show(race, from: TerminalController.all.first)
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "flag.checkered.2.crossed").foregroundColor(.purple)
+                        Text(race.task).lineLimit(1)
+                        Spacer()
+                        Text("\(race.contestants.count) agents · \(race.repoName)").foregroundColor(.secondary)
+                    }
+                    .font(.system(size: 12))
+                    .padding(10)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.05)))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 16)
+    }
+
+    private func reload() {
+        var result: [MissionCard] = []
+        for controller in TerminalController.all {
+            guard let window = controller.window else { continue }
+            let color = (window as? TerminalWindow)?.tabColor
+            for surface in controller.surfaceTree {
+                let agent = VerticalTabsAgents.shared.info(for: surface)
+                guard showAllPanes || agent != nil else { continue }
+                // Hermes tabs show a web app, not the terminal underneath.
+                let preview = agent?.kind == .hermes ? "" : Self.tail(surface.cachedVisibleContents.get(), lines: 9)
+                let title = controller.titleOverride ?? (surface.title.isEmpty ? window.title : surface.title)
+                result.append(MissionCard(
+                    id: ObjectIdentifier(surface),
+                    surface: Weak(surface),
+                    controller: controller,
+                    tabTitle: title,
+                    folder: surface.pwd.map { ($0 as NSString).abbreviatingWithTildeInPath },
+                    tabColor: color.flatMap { $0.displayColor }.map { Color(nsColor: $0) },
+                    agent: agent,
+                    preview: preview))
+            }
+        }
+        cards = result.sorted { a, b in
+            a.rank != b.rank ? a.rank < b.rank : (a.agent?.since ?? .distantPast) > (b.agent?.since ?? .distantPast)
+        }
+    }
+
+    /// The last non-blank lines of the screen, with trailing spaces trimmed.
+    private static func tail(_ text: String, lines count: Int) -> String {
+        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+            .map { $0.replacingOccurrences(of: "\\s+$", with: "", options: .regularExpression) }
+        var end = lines.count
+        while end > 0 && lines[end - 1].isEmpty { end -= 1 }
+        return lines[max(0, end - count)..<end].joined(separator: "\n")
+    }
+}
+
+private struct MissionCardView: View {
+    let card: MissionCard
+    let now: Date
+    @State private var hovering = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 9) {
+                avatar
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(card.agent?.kind.displayName ?? "Terminal").font(.system(size: 13, weight: .semibold))
+                    Text([card.tabTitle, card.folder].compactMap { $0 }.joined(separator: " · "))
+                        .font(.system(size: 11)).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
+                }
+                Spacer(minLength: 6)
+                if let agent = card.agent, agent.kind != .hermes {
+                    AgentStatusPill(activity: agent.activity)
+                }
+            }
+            if let task = card.agent?.task, !task.isEmpty {
+                Text(task).font(.system(size: 12.5, weight: .medium)).lineLimit(2)
+            }
+            if let agent = card.agent, agent.kind != .hermes {
+                HStack(spacing: 5) {
+                    Image(systemName: AgentAlerts.isWaiting(agent.activity) ? "hand.raised.fill" : "bolt.fill")
+                        .font(.system(size: 9)).foregroundColor(AgentStatusPill.color(agent.activity))
+                    Text(actionLine(agent)).lineLimit(1).truncationMode(.middle)
+                    Spacer(minLength: 4)
+                    Text(elapsed(since: agent.since)).monospacedDigit()
+                }
+                .font(.system(size: 11)).foregroundColor(.secondary)
+            }
+            if !card.preview.isEmpty {
+                Text(card.preview)
+                    .font(.system(size: 9.5, design: .monospaced))
+                    .foregroundColor(.primary.opacity(0.75))
+                    .lineLimit(9)
+                    .frame(maxWidth: .infinity, minHeight: 118, alignment: .bottomLeading)
+                    .padding(8)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.black.opacity(0.35)))
+                    .clipped()
+            }
+            actions
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.primary.opacity(hovering ? 0.08 : 0.045)))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(borderColor, lineWidth: card.rank == 0 ? 1.5 : 1))
+        .contentShape(RoundedRectangle(cornerRadius: 10))
+        .onTapGesture(perform: focus)
+        .onHover { hovering = $0 }
+    }
+
+    private var borderColor: Color {
+        if card.rank == 0 { return AgentStatusPill.color(card.agent?.activity).opacity(0.8) }
+        return card.tabColor?.opacity(0.6) ?? Color.primary.opacity(0.12)
+    }
+
+    private var avatar: some View {
+        ZStack {
+            if let kind = card.agent?.kind {
+                Circle().fill(kind.brandColor)
+                VerticalTabAgentLogo(kind: kind, tint: kind.glyphOnBrand).frame(width: 13, height: 13)
+            } else {
+                Circle().fill(Color.primary.opacity(0.12))
+                Image(systemName: "terminal").font(.system(size: 11))
+            }
+        }
+        .frame(width: 26, height: 26)
+    }
+
+    private var actions: some View {
+        HStack(spacing: 8) {
+            Button("Open", action: focus)
+            if let surface = card.surface.value, let controller = card.controller, surface.pwd != nil {
+                Menu("Hand off") {
+                    ForEach(AgentHandoff.Mode.allCases, id: \.self) { mode in
+                        ForEach(AgentHandoff.targets, id: \.self) { target in
+                            Button(AgentHandoff.title(mode, target)) {
+                                AgentHandoff.handOff(from: surface, in: controller, to: target, mode: mode)
+                                focus()
+                            }
+                        }
+                        if mode == .review { Divider() }
+                    }
+                }
+                .fixedSize()
+            }
+            Spacer()
+        }
+        .controlSize(.small)
+    }
+
+    private func actionLine(_ agent: VerticalTabAgentInfo) -> String {
+        if AgentAlerts.isWaiting(agent.activity) { return agent.detail ?? agent.activity.label }
+        if let action = agent.lastAction { return action }
+        return agent.activity.label
+    }
+
+    private func elapsed(since date: Date) -> String {
+        let seconds = Int(now.timeIntervalSince(date))
+        if seconds < 60 { return "\(seconds)s" }
+        if seconds < 3600 { return "\(seconds / 60)m" }
+        return "\(seconds / 3600)h \(seconds % 3600 / 60)m"
+    }
+
+    private func focus() {
+        guard let surface = card.surface.value else { return }
+        NotificationCenter.default.post(name: Ghostty.Notification.ghosttyPresentTerminal, object: surface)
+    }
+}
+#endif

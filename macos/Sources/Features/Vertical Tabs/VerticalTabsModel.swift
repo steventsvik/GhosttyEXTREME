@@ -189,8 +189,8 @@ extension UserDefaults {
 
 // MARK: - Menu
 
-/// Installs "Toggle Vertical Tabs" (⌃⌘S), "Toggle Code Editor" (⌃⌘E) and a ⌘P
-/// command palette shortcut in the View menu.
+/// Installs "Toggle Vertical Tabs" (⌃⌘S), "Toggle Code Editor" (⌃⌘E), a ⌘P command
+/// palette shortcut, "Mission Control" (⌃⌘M) and "Race Agents…" (⌃⌘R) in the View menu.
 final class VerticalTabsMenu: NSObject {
     static let shared = VerticalTabsMenu()
     private var installed = false
@@ -215,7 +215,24 @@ final class VerticalTabsMenu: NSObject {
             keyEquivalent: "p")
         palette.keyEquivalentModifierMask = [.command]
         viewMenu.insertItem(palette, at: 2)
-        viewMenu.insertItem(.separator(), at: 3)
+        let mission = NSMenuItem(title: "Mission Control", action: #selector(showMissionControl(_:)), keyEquivalent: "m")
+        mission.keyEquivalentModifierMask = [.control, .command]
+        mission.target = self
+        viewMenu.insertItem(mission, at: 3)
+        let race = NSMenuItem(title: "Race Agents…", action: #selector(raceAgents(_:)), keyEquivalent: "r")
+        race.keyEquivalentModifierMask = [.control, .command]
+        race.target = self
+        viewMenu.insertItem(race, at: 4)
+        viewMenu.insertItem(.separator(), at: 5)
+    }
+
+    @objc func showMissionControl(_ sender: Any?) {
+        MissionControl.toggle()
+    }
+
+    @objc func raceAgents(_ sender: Any?) {
+        guard let owner = EditorPanel.frontController ?? TerminalController.all.first else { return }
+        AgentRaces.showSetup(from: owner)
     }
 
     @objc func toggle(_ sender: Any?) {
@@ -238,6 +255,11 @@ final class VerticalTabsMenu: NSObject {
 
 extension VerticalTabsMenu: NSMenuItemValidation {
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(showMissionControl(_:)) {
+            menuItem.state = AgentToolWindows.isOpen(MissionControl.windowID) ? .on : .off
+            return true
+        }
+        if menuItem.action == #selector(raceAgents(_:)) { return !TerminalController.all.isEmpty }
         menuItem.state = UserDefaults.standard.verticalTabsVisible ? .on : .off
         return true
     }

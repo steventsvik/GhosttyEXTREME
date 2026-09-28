@@ -52,6 +52,30 @@ enum PaletteExtras {
                     DockerSessions.open(kind, from: owner)
                 })
             }
+            if surfaceView.pwd != nil && !HermesSessions.shared.isHermes(owner) {
+                for mode in AgentHandoff.Mode.allCases {
+                    for target in AgentHandoff.targets {
+                        options.append(CommandOption(
+                            title: "Hand Off: \(AgentHandoff.title(mode, target))",
+                            description: mode == .review
+                                ? "Open \(target.displayName) beside this pane to review the changes here"
+                                : "Open \(target.displayName) beside this pane to finish the task",
+                            leadingIcon: "arrow.triangle.branch",
+                            leadingColor: target.brandColor
+                        ) {
+                            AgentHandoff.handOff(from: surfaceView, in: owner, to: target, mode: mode)
+                        })
+                    }
+                }
+                options.append(CommandOption(
+                    title: "Race Agents…",
+                    description: "Give the same task to several agents in separate copies and keep the best",
+                    symbols: ["⌃", "⌘", "R"],
+                    leadingIcon: "flag.checkered.2.crossed"
+                ) {
+                    AgentRaces.showSetup(from: owner)
+                })
+            }
             if !HermesSessions.shared.isHermes(owner) {
                 options.append(CommandOption(
                     title: "Toggle Code Editor",
@@ -63,6 +87,14 @@ enum PaletteExtras {
                 })
             }
         }
+        options.append(CommandOption(
+            title: "Mission Control",
+            description: "Every agent at a glance",
+            symbols: ["⌃", "⌘", "M"],
+            leadingIcon: "square.grid.2x2"
+        ) {
+            MissionControl.show()
+        })
         options.append(CommandOption(
             title: "Toggle Vertical Tabs",
             description: "Show or hide the sidebar",

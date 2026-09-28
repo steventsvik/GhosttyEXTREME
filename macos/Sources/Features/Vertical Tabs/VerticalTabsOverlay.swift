@@ -255,6 +255,19 @@ private struct VerticalTabsMenuPanel: View {
                 EditorPanel.shared.show(from: controller, folder: pane.pwd)
             }
             separator
+            ForEach(AgentHandoff.Mode.allCases, id: \.self) { mode in
+                ForEach(AgentHandoff.targets, id: \.self) { target in
+                    item(AgentHandoff.title(mode, target), enabled: pane.pwd != nil && pane.surface != nil) {
+                        guard let surface = pane.surface else { return }
+                        AgentHandoff.handOff(from: surface, in: controller, to: target, mode: mode)
+                    }
+                }
+            }
+            item("Race agents on this project…", enabled: pane.pwd != nil) {
+                VerticalTabsActions.select(controller)
+                AgentRaces.showSetup(from: controller)
+            }
+            separator
             item("Rename tab") {
                 VerticalTabsActions.select(controller)
                 controller.promptTabTitle()

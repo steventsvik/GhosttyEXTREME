@@ -44,6 +44,10 @@ struct VerticalTabAgentInfo: Equatable {
     var unseen: Bool
     /// The session transcript, which the code editor tails to show the agent live.
     var transcriptPath: String? = nil
+    /// When `activity` last changed, for "working for 3m" in Mission Control.
+    var since = Date()
+    /// The most recent tool the agent used, e.g. "Edit: src/app.ts".
+    var lastAction: String? = nil
 }
 
 /// Receives agent status events and remembers the latest state per pane.
@@ -148,13 +152,17 @@ final class VerticalTabsAgents {
         let task = event.event == "prompt_submit" ? eventDetail : existing?.task
         let detail = activity == .needsPermission || activity == .needsInput ? eventDetail : nil
         let needsEyes = activity != .working && activity != .ready
+        let lastAction = event.event == "tool_complete" || event.event == "permission_request"
+            ? eventDetail ?? existing?.lastAction : existing?.lastAction
         let info = VerticalTabAgentInfo(
             kind: kind,
             activity: activity,
             task: task,
             detail: detail,
             unseen: needsEyes && !Self.isBeingViewed(surface),
-            transcriptPath: existing?.transcriptPath)
+            transcriptPath: existing?.transcriptPath,
+            since: existing?.activity == activity ? existing?.since ?? Date() : Date(),
+            lastAction: lastAction)
 
         if let box = states.object(forKey: surface) {
             box.info = info
