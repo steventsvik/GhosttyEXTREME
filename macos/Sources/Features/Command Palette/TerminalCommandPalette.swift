@@ -60,11 +60,14 @@ struct TerminalCommandPaletteView: View {
         var options: [CommandOption] = []
         // Updates always appear first
         options.append(contentsOf: updateOptions)
+        #if os(macOS)
+        options.append(contentsOf: PaletteExtras.waitingOptions())
+        #endif
 
         // Sort the rest. We replace ":" with a character that sorts before space
         // so that "Foo:" sorts before "Foo Bar:". Use sortKey as a tie-breaker
         // for stable ordering when titles are equal.
-        options.append(contentsOf: (jumpOptions + terminalOptions).sorted { a, b in
+        options.append(contentsOf: (jumpOptions + terminalOptions + customOptions).sorted { a, b in
             let aNormalized = a.title.replacingOccurrences(of: ":", with: "\t")
             let bNormalized = b.title.replacingOccurrences(of: ":", with: "\t")
             let comparison = aNormalized.localizedCaseInsensitiveCompare(bNormalized)
@@ -134,6 +137,15 @@ struct TerminalCommandPaletteView: View {
             }
     }
 
+    /// Ghostty Custom: new sessions and sidebar/editor toggles.
+    private var customOptions: [CommandOption] {
+        #if os(macOS)
+        PaletteExtras.commandOptions(for: surfaceView)
+        #else
+        []
+        #endif
+    }
+
     /// Commands for jumping to other terminal surfaces.
     private var jumpOptions: [CommandOption] {
         TerminalController.all.flatMap { controller -> [CommandOption] in
@@ -164,6 +176,7 @@ struct TerminalCommandPaletteView: View {
                     subtitle: subtitle,
                     leadingIcon: "rectangle.on.rectangle",
                     leadingColor: displayColor?.displayColor.map { Color($0) },
+                    badge: PaletteExtras.agentBadge(for: surface),
                     sortKey: AnySortKey(ObjectIdentifier(surface))
                 ) {
                     NotificationCenter.default.post(

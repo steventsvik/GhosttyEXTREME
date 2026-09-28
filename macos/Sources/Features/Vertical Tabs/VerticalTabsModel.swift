@@ -189,7 +189,8 @@ extension UserDefaults {
 
 // MARK: - Menu
 
-/// Installs "Toggle Vertical Tabs" (⌃⌘S) in the View menu.
+/// Installs "Toggle Vertical Tabs" (⌃⌘S), "Toggle Code Editor" (⌃⌘E) and a ⌘P
+/// command palette shortcut in the View menu.
 final class VerticalTabsMenu: NSObject {
     static let shared = VerticalTabsMenu()
     private var installed = false
@@ -207,7 +208,14 @@ final class VerticalTabsMenu: NSObject {
         item.target = self
         viewMenu.insertItem(item, at: 0)
         EditorPanel.installMenuItem(in: viewMenu, at: 1)
-        viewMenu.insertItem(.separator(), at: 2)
+        // ⌘P opens the command palette too (Ghostty's own shortcut is ⌘⇧P).
+        let palette = NSMenuItem(
+            title: "Go to Tab or Command…",
+            action: #selector(BaseTerminalController.toggleCommandPalette(_:)),
+            keyEquivalent: "p")
+        palette.keyEquivalentModifierMask = [.command]
+        viewMenu.insertItem(palette, at: 2)
+        viewMenu.insertItem(.separator(), at: 3)
     }
 
     @objc func toggle(_ sender: Any?) {

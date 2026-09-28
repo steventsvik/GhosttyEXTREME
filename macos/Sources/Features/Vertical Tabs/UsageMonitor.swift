@@ -167,7 +167,8 @@ final class UsageMonitor: ObservableObject {
 struct UsagePanel: View {
     @ObservedObject private var monitor = UsageMonitor.shared
     let palette: VerticalTabsPalette
-    @AppStorage("GhosttyCustomUsageShowsPercent") private var showsPercent = false
+    static let showsPercentKey = "GhosttyCustomUsageShowsPercent"
+    @AppStorage(UsagePanel.showsPercentKey) private var showsPercent = false
     @State private var now = Date()
     private let clock = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 

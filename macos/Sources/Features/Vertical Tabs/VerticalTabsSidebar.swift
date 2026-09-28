@@ -96,6 +96,13 @@ enum VerticalTabsTestSupport {
                 }
             }
         }
+        // `GHOSTTY_CUSTOM_TEST_PALETTE=1`: open the command palette in the visible tab after 11s.
+        if ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_PALETTE"] == "1" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 11) {
+                let window = controller.window?.tabGroup?.selectedWindow ?? controller.window
+                (window?.windowController as? BaseTerminalController)?.toggleCommandPalette(nil)
+            }
+        }
         // Report which window is the visible tab so a test can capture that one.
         if let path = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_WINDOW_FILE"] {
             DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
