@@ -15,6 +15,8 @@ struct UsageEntry: Equatable, Identifiable {
     let id: String
     let name: String
     let detail: String
+    /// Fits under the name next to the rings.
+    let shortDetail: String
     let agent: VerticalTabAgentKind
     let windows: [UsageWindow]
     /// When the numbers were last reported.
@@ -73,7 +75,7 @@ final class UsageMonitor: ObservableObject {
         guard let data = FileManager.default.contents(atPath: path),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let limits = json["rate_limits"] as? [String: Any] else {
-            return UsageEntry(id: "claude", name: "Claude", detail: "Waiting for Claude Code to report usage",
+            return UsageEntry(id: "claude", name: "Claude", detail: "Waiting for Claude Code to report usage", shortDetail: "",
                               agent: .claude, windows: [], updated: nil)
         }
         func window(_ key: String, _ label: String) -> UsageWindow? {
@@ -84,7 +86,7 @@ final class UsageMonitor: ObservableObject {
         let windows = [window("five_hour", "5h"), window("seven_day", "Week"), window("spend_limit", "Spend")]
             .compactMap { $0 }
         let updated = (json["updated"] as? Double).map { Date(timeIntervalSince1970: $0) }
-        return UsageEntry(id: "claude", name: "Claude", detail: "Claude Code", agent: .claude,
+        return UsageEntry(id: "claude", name: "Claude", detail: "Claude Code", shortDetail: "Code", agent: .claude,
                           windows: windows, updated: updated)
     }
 
@@ -101,7 +103,7 @@ final class UsageMonitor: ObservableObject {
                                        resetsAt: (w["resets_at"] as? Double).map { Date(timeIntervalSince1970: $0) }))
         }
         let plan = (limits["plan_type"] as? String).map(planName) ?? "ChatGPT"
-        return UsageEntry(id: "chatgpt", name: "ChatGPT", detail: "\(plan) · Codex & Hermes", agent: .codex,
+        return UsageEntry(id: "chatgpt", name: "ChatGPT", detail: "\(plan) · Codex & Hermes", shortDetail: plan, agent: .codex,
                           windows: windows, updated: updated)
     }
 
@@ -159,27 +161,41 @@ final class UsageMonitor: ObservableObject {
 
 // MARK: - View
 
-/// Bottom-left of the sidebar: each subscription's usage, with a bar per limit window.
+/// Bottom-left of the sidebar: each subscription's usage as a row of ring gauges, one per
+/// limit window. The rings fill and change color as usage grows; clicking the panel
+/// shows the exact percentages and time until each window resets.
 struct UsagePanel: View {
     @ObservedObject private var monitor = UsageMonitor.shared
     let palette: VerticalTabsPalette
+    @AppStorage("GhosttyCustomUsageShowsPercent") private var showsPercent = false
     @State private var now = Date()
     private let clock = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
     var body: some View {
         if !monitor.entries.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("USAGE")
-                    .font(.system(size: 10, weight: .semibold))
-                    .kerning(0.4)
-                    .foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 9) {
+                HStack {
+                    Text("USAGE")
+                        .font(.system(size: 10, weight: .semibold))
+                        .kerning(0.4)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Image(systemName: showsPercent ? "percent" : "chart.pie")
+                        .font(.system(size: 9.5, weight: .semibold))
+                        .foregroundColor(.secondary.opacity(0.7))
+                }
                 ForEach(monitor.entries) { entry in
-                    UsageRow(entry: entry, palette: palette, now: now)
+                    UsageRow(entry: entry, showsPercent: showsPercent, now: now)
                 }
             }
             .padding(.horizontal, 12)
             .padding(.top, 9)
             .padding(.bottom, 11)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { showsPercent.toggle() }
+            }
+            .help(showsPercent ? "Click to hide percentages" : "Click to show percentages")
             .onReceive(clock) { now = $0 }
         }
     }
@@ -187,26 +203,29 @@ struct UsagePanel: View {
 
 private struct UsageRow: View {
     let entry: UsageEntry
-    let palette: VerticalTabsPalette
+    let showsPercent: Bool
     let now: Date
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                ZStack {
-                    Circle().fill(entry.agent.brandColor)
-                    VerticalTabAgentLogo(kind: entry.agent, tint: entry.agent.glyphOnBrand).frame(width: 9, height: 9)
-                }
-                .frame(width: 15, height: 15)
+        HStack(alignment: .center, spacing: 8) {
+            ZStack {
+                Circle().fill(entry.agent.brandColor)
+                VerticalTabAgentLogo(kind: entry.agent, tint: entry.agent.glyphOnBrand).frame(width: 11, height: 11)
+            }
+            .frame(width: 20, height: 20)
+            VStack(alignment: .leading, spacing: 1) {
                 Text(entry.name).font(.system(size: 12, weight: .semibold))
-                Text(entry.detail).font(.system(size: 10.5)).foregroundColor(.secondary).lineLimit(1)
-                Spacer(minLength: 0)
+                Text(entry.windows.isEmpty ? "No usage yet" : entry.shortDetail)
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
             }
-            if entry.windows.isEmpty {
-                Text("No usage reported yet").font(.system(size: 10.5)).foregroundColor(.secondary)
-            }
-            ForEach(entry.windows, id: \.label) { window in
-                UsageBar(window: window, palette: palette, now: now)
+            .layoutPriority(-1)
+            Spacer(minLength: 4)
+            HStack(alignment: .top, spacing: 7) {
+                ForEach(entry.windows, id: \.label) { window in
+                    UsageRing(window: window, showsPercent: showsPercent, now: now)
+                }
             }
         }
         .help(tooltip)
@@ -225,10 +244,13 @@ private struct UsageRow: View {
     }
 }
 
-private struct UsageBar: View {
+/// One limit window as a ring that fills clockwise with usage.
+private struct UsageRing: View {
     let window: UsageWindow
-    let palette: VerticalTabsPalette
+    let showsPercent: Bool
     let now: Date
+
+    private static let size: CGFloat = 32
 
     /// A window that has already reset shows as unused until new numbers arrive.
     private var used: Double {
@@ -245,31 +267,42 @@ private struct UsageBar: View {
     }
 
     var body: some View {
-        HStack(spacing: 7) {
-            Text(window.label)
-                .font(.system(size: 10.5, weight: .medium))
-                .foregroundColor(.secondary)
-                .frame(width: 30, alignment: .leading)
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Color.primary.opacity(0.1))
-                    Capsule().fill(color).frame(width: max(3, geometry.size.width * used / 100))
+        VStack(spacing: 3) {
+            ZStack {
+                Circle().stroke(Color.primary.opacity(0.1), lineWidth: 4)
+                Circle()
+                    .trim(from: 0, to: max(0.015, used / 100))
+                    .stroke(color, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .shadow(color: color.opacity(0.45), radius: 2)
+                if showsPercent {
+                    Text("\(Int(used.rounded()))%")
+                        .font(.system(size: used >= 100 ? 8.5 : 9.5, weight: .bold).monospacedDigit())
+                        .minimumScaleFactor(0.7)
+                        .transition(.scale(scale: 0.5).combined(with: .opacity))
+                } else {
+                    Circle().fill(color).frame(width: 5, height: 5)
+                        .transition(.scale(scale: 0.5).combined(with: .opacity))
                 }
             }
-            .frame(height: 5)
-            Text("\(Int(used.rounded()))%")
-                .font(.system(size: 10.5, weight: .semibold).monospacedDigit())
-                .frame(width: 32, alignment: .trailing)
-            Text(resetText)
-                .font(.system(size: 10).monospacedDigit())
+            .frame(width: Self.size, height: Self.size)
+            .padding(2)
+            Text(window.label)
+                .font(.system(size: 9.5, weight: .medium))
                 .foregroundColor(.secondary)
-                .frame(width: 44, alignment: .trailing)
+            if showsPercent, let reset = resetText {
+                Text(reset)
+                    .font(.system(size: 9).monospacedDigit())
+                    .foregroundColor(.secondary.opacity(0.8))
+                    .transition(.opacity)
+            }
         }
-        .animation(.easeOut(duration: 0.4), value: used)
+        .frame(minWidth: Self.size + 6)
+        .animation(.easeOut(duration: 0.6), value: used)
     }
 
-    private var resetText: String {
-        guard let resetsAt = window.resetsAt, resetsAt > now else { return "" }
+    private var resetText: String? {
+        guard let resetsAt = window.resetsAt, resetsAt > now else { return nil }
         let seconds = resetsAt.timeIntervalSince(now)
         if seconds < 3600 { return "\(Int(seconds / 60))m" }
         if seconds < 86_400 { return "\(Int(seconds / 3600))h \(Int(seconds.truncatingRemainder(dividingBy: 3600) / 60))m" }
