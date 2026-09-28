@@ -54,7 +54,7 @@ final class AgentRaces: ObservableObject {
     @Published private(set) var races: [AgentRace] = []
     /// Contestant tabs opened in this run of the app, by race id + contestant id.
     private var tabs: [String: Weak<TerminalController>] = [:]
-    private let queue = DispatchQueue(label: "com.steventsvik.ghostty-custom.races", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "com.steventsvik.ghostty-extreme.races", qos: .userInitiated)
 
     static var directory: URL { AgentTools.root.appendingPathComponent("races", isDirectory: true) }
 
@@ -148,7 +148,7 @@ final class AgentRaces: ObservableObject {
                 }
                 // Commit the starting point so each agent's diff shows only its own work.
                 AgentTools.git(["add", "-A"], in: worktree)
-                AgentTools.git(["-c", "user.name=Ghostty Custom", "-c", "user.email=race@ghostty-custom.local",
+                AgentTools.git(["-c", "user.name=GhosttyEXTREME", "-c", "user.email=race@ghostty-extreme.local",
                                 "commit", "-q", "--no-verify", "--allow-empty", "-m", "Race baseline"], in: worktree)
                 let baseline = AgentTools.git(["rev-parse", "HEAD"], in: worktree).output
                     .trimmingCharacters(in: .whitespacesAndNewlines)

@@ -753,7 +753,7 @@ class AppDelegate: NSObject,
         let bellCount = NSApp.windows
             .compactMap { $0.windowController as? BaseTerminalController }
             .reduce(0) { $0 + ($1.bell ? 1 : 0) }
-        // Ghostty Custom: coding agents waiting for permission or an answer count too.
+        // GhosttyEXTREME: coding agents waiting for permission or an answer count too.
         let count = (ghostty.config.bellFeatures.contains(.attention) ? bellCount : 0) + AgentAlerts.shared.waitingCount
         let label = count > 0 ? (count > 99 ? "99+" : String(count)) : nil
         NSApp.dockTile.badgeLabel = label
@@ -862,7 +862,7 @@ class AppDelegate: NSObject,
             DistributedNotificationCenter.default()
                 .postNotificationName(.ghosttyIconDidChange, object: nil, userInfo: nil, deliverImmediately: true)
         }
-        // Ghostty Custom: with the default icon, show the bundle's own (carbon) icon
+        // GhosttyEXTREME: with the default icon, show the bundle's own (carbon) icon
         // file while running, rather than a possibly stale cached copy.
         if case .official = config.macosIcon,
            let name = Bundle.main.object(forInfoDictionaryKey: "CFBundleIconFile") as? String,

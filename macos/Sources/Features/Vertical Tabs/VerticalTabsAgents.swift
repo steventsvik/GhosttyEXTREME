@@ -52,17 +52,17 @@ struct VerticalTabAgentInfo: Equatable {
 
 /// Receives agent status events and remembers the latest state per pane.
 ///
-/// Events arrive as OSC 777 notifications titled `ghostty-custom://agent` with a small
+/// Events arrive as OSC 777 notifications titled `ghostty-extreme://agent` with a small
 /// JSON body, emitted by the agents' hooks (see `agent-hooks/` in the repo root). The
 /// core forwards these without rate limiting; we consume them here so they never
 /// become desktop notifications.
 final class VerticalTabsAgents {
     static let shared = VerticalTabsAgents()
 
-    static let titlePrefix = "ghostty-custom://"
+    static let titlePrefix = "ghostty-extreme://"
     /// Posted (object: the surface) whenever a pane's agent state changes.
-    static let didChange = Notification.Name("com.steventsvik.ghostty-custom.agentDidChange")
-    static let agentTitle = "ghostty-custom://agent"
+    static let didChange = Notification.Name("com.steventsvik.ghostty-extreme.agentDidChange")
+    static let agentTitle = "ghostty-extreme://agent"
 
     private final class Box {
         var info: VerticalTabAgentInfo

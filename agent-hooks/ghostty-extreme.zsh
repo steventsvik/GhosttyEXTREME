@@ -1,11 +1,11 @@
-# Ghostty Custom: tells the vertical tabs sidebar which coding agent a pane is running,
+# GhosttyEXTREME: tells the vertical tabs sidebar which coding agent a pane is running,
 # the way Warp recognizes agents from the command line. Starting `claude`, `codex`, etc.
 # marks the pane with that agent immediately; the mark clears when the command exits,
 # even if the agent crashed. The agents' own hooks (agent-hook.sh) add live status.
 #
-# Sourced from ~/.zshrc. Does nothing outside Ghostty Custom.
+# Sourced from ~/.zshrc. Does nothing outside GhosttyEXTREME.
 
-[[ "${GHOSTTY_CUSTOM_AGENT_EVENTS:-}" == 1 ]] || return 0
+[[ "${GHOSTTY_EXTREME_AGENT_EVENTS:-}" == 1 ]] || return 0
 
 typeset -g _gc_running_agent=""
 
@@ -24,7 +24,7 @@ typeset -gA _gc_agent_commands=(
 )
 
 _gc_agent_event() {
-  printf '\e]777;notify;ghostty-custom://agent;{"agent":"%s","event":"%s"}\a' "$1" "$2" 2>/dev/null >/dev/tty
+  printf '\e]777;notify;ghostty-extreme://agent;{"agent":"%s","event":"%s"}\a' "$1" "$2" 2>/dev/null >/dev/tty
 }
 
 _gc_agent_preexec() {

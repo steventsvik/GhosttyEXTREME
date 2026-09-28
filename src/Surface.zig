@@ -1065,11 +1065,11 @@ pub fn handleMessage(self: *Surface, msg: Message) !void {
             const title = std.mem.sliceTo(&notification.title, 0);
             const body = std.mem.sliceTo(&notification.body, 0);
 
-            // Ghostty Custom: agent status events (e.g. from Claude Code hooks) reuse
+            // GhosttyEXTREME: agent status events (e.g. from Claude Code hooks) reuse
             // the OSC 777 notify sequence but are not user-facing notifications, so
             // they skip the notification setting and rate limits and go straight to
             // the app, which consumes them silently.
-            if (std.mem.startsWith(u8, title, "ghostty-custom://")) {
+            if (std.mem.startsWith(u8, title, "ghostty-extreme://")) {
                 _ = try self.rt_app.performAction(
                     .{ .surface = self },
                     .desktop_notification,

@@ -5,7 +5,7 @@ import SwiftUI
 
 extension Notification.Name {
     /// Posted whenever the set, order, or decoration of tabs may have changed.
-    static let verticalTabsNeedRefresh = Notification.Name("com.steventsvik.ghostty-custom.verticalTabsNeedRefresh")
+    static let verticalTabsNeedRefresh = Notification.Name("com.steventsvik.ghostty-extreme.verticalTabsNeedRefresh")
 }
 
 enum VerticalTabs {

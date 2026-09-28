@@ -9,7 +9,7 @@ import Foundation
 final class AgentFeed {
     typealias Item = [String: Any]
 
-    private let queue = DispatchQueue(label: "com.steventsvik.ghostty-custom.agent-feed", qos: .utility)
+    private let queue = DispatchQueue(label: "com.steventsvik.ghostty-extreme.agent-feed", qos: .utility)
     private var kind: VerticalTabAgentKind = .unknown
     private(set) var path: String?
 

@@ -47,7 +47,7 @@ private struct MissionCard: Identifiable {
 }
 
 private struct MissionControlView: View {
-    @AppStorage("GhosttyCustomMissionControlAllPanes") private var showAllPanes = false
+    @AppStorage("GhosttyExtremeMissionControlAllPanes") private var showAllPanes = false
     @ObservedObject private var races = AgentRaces.shared
     @State private var cards: [MissionCard] = []
     @State private var now = Date()

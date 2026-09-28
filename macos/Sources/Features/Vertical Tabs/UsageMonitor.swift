@@ -26,7 +26,7 @@ struct UsageEntry: Equatable, Identifiable {
 /// Live usage of the user's AI subscriptions, from data the tools themselves record:
 ///
 /// - Claude: `rate_limits` from Claude Code's status line input (Pro/Max plans), which the
-///   status line script saves to ~/.claude/ghostty-custom/claude-usage.json.
+///   status line script saves to ~/.claude/ghostty-extreme/claude-usage.json.
 /// - ChatGPT plan (Codex, and Hermes when it uses the Codex provider): the `rate_limits`
 ///   Codex writes into its session files under ~/.codex/sessions.
 ///
@@ -37,7 +37,7 @@ final class UsageMonitor: ObservableObject {
 
     @Published private(set) var entries: [UsageEntry] = []
 
-    private let queue = DispatchQueue(label: "com.steventsvik.ghostty-custom.usage", qos: .utility)
+    private let queue = DispatchQueue(label: "com.steventsvik.ghostty-extreme.usage", qos: .utility)
     private var timer: Timer?
     private var cancellables: Set<AnyCancellable> = []
 
@@ -71,7 +71,7 @@ final class UsageMonitor: ObservableObject {
     // MARK: Claude
 
     private static func claude() -> UsageEntry? {
-        let path = NSHomeDirectory() + "/.claude/ghostty-custom/claude-usage.json"
+        let path = NSHomeDirectory() + "/.claude/ghostty-extreme/claude-usage.json"
         guard let data = FileManager.default.contents(atPath: path),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let limits = json["rate_limits"] as? [String: Any] else {
@@ -167,7 +167,7 @@ final class UsageMonitor: ObservableObject {
 struct UsagePanel: View {
     @ObservedObject private var monitor = UsageMonitor.shared
     let palette: VerticalTabsPalette
-    static let showsPercentKey = "GhosttyCustomUsageShowsPercent"
+    static let showsPercentKey = "GhosttyExtremeUsageShowsPercent"
     @AppStorage(UsagePanel.showsPercentKey) private var showsPercent = false
     @State private var now = Date()
     private let clock = Timer.publish(every: 30, on: .main, in: .common).autoconnect()

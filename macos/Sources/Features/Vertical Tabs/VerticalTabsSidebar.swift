@@ -59,15 +59,15 @@ struct VerticalTabsLayout<Content: View>: View {
     }
 }
 
-/// Test-only: `GHOSTTY_CUSTOM_TEST_TABS=N` (set by a test launch, never in normal use)
+/// Test-only: `GHOSTTY_EXTREME_TEST_TABS=N` (set by a test launch, never in normal use)
 /// opens N tabs at startup so the sidebar can be exercised without UI scripting.
 enum VerticalTabsTestSupport {
     private static var didOpen = false
 
-    /// `GHOSTTY_CUSTOM_TEST_OVERLAY=hover|menu`: the selected row opens its hover card
+    /// `GHOSTTY_EXTREME_TEST_OVERLAY=hover|menu`: the selected row opens its hover card
     /// or ⋮ menu shortly after launch.
-    static let overlayMode = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_OVERLAY"]
-    static let showOverlay = Notification.Name("com.steventsvik.ghostty-custom.testShowOverlay")
+    static let overlayMode = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_OVERLAY"]
+    static let showOverlay = Notification.Name("com.steventsvik.ghostty-extreme.testShowOverlay")
 
     static func openTestTabsIfRequested(from controller: TerminalController) {
         guard !didOpen else { return }
@@ -77,55 +77,55 @@ enum VerticalTabsTestSupport {
                 NotificationCenter.default.post(name: showOverlay, object: nil)
             }
         }
-        if let name = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_COLOR"],
+        if let name = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_COLOR"],
            let color = TerminalTabColor.allCases.first(where: { $0.localizedName.lowercased() == name }) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { (controller.window as? TerminalWindow)?.tabColor = color }
         }
-        if ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_SESSION"] == "hermes" {
+        if ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_SESSION"] == "hermes" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NewSessionKind.hermes.open(from: controller) }
         }
-        // `GHOSTTY_CUSTOM_TEST_SESSION=docker:<kind>`: open an isolated Docker session.
-        if let value = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_SESSION"], value.hasPrefix("docker:"),
+        // `GHOSTTY_EXTREME_TEST_SESSION=docker:<kind>`: open an isolated Docker session.
+        if let value = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_SESSION"], value.hasPrefix("docker:"),
            let kind = DockerSessionKind(rawValue: String(value.dropFirst("docker:".count))) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 4) { DockerSessions.open(kind, from: controller) }
         }
-        if let file = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_EDITOR"] {
+        if let file = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_EDITOR"] {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 EditorPanel.shared.show(from: controller, folder: (file as NSString).deletingLastPathComponent)
                 EditorPanel.shared.session(for: controller).webView.openFile(file, line: 20)
-                // `GHOSTTY_CUSTOM_TEST_EDITOR_JS`: script run in the editor once it's loaded.
-                if let script = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_EDITOR_JS"] {
+                // `GHOSTTY_EXTREME_TEST_EDITOR_JS`: script run in the editor once it's loaded.
+                if let script = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_EDITOR_JS"] {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                         EditorPanel.shared.session(for: controller).webView.evaluateJavaScript(script)
                     }
                 }
             }
         }
-        // `GHOSTTY_CUSTOM_TEST_PALETTE=1`: open the command palette in the visible tab after 11s.
-        if ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_PALETTE"] == "1" {
+        // `GHOSTTY_EXTREME_TEST_PALETTE=1`: open the command palette in the visible tab after 11s.
+        if ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_PALETTE"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 11) {
                 let window = controller.window?.tabGroup?.selectedWindow ?? controller.window
                 (window?.windowController as? BaseTerminalController)?.toggleCommandPalette(nil)
             }
         }
         let env = ProcessInfo.processInfo.environment
-        // `GHOSTTY_CUSTOM_TEST_MISSION=1`: open Mission Control after 12s.
-        if env["GHOSTTY_CUSTOM_TEST_MISSION"] == "1" {
+        // `GHOSTTY_EXTREME_TEST_MISSION=1`: open Mission Control after 12s.
+        if env["GHOSTTY_EXTREME_TEST_MISSION"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 12) { MissionControl.show() }
         }
-        // `GHOSTTY_CUSTOM_TEST_HANDOFF=review|continue`: hand the first pane off to Claude Code after 6s.
-        if let mode = env["GHOSTTY_CUSTOM_TEST_HANDOFF"] {
+        // `GHOSTTY_EXTREME_TEST_HANDOFF=review|continue`: hand the first pane off to Claude Code after 6s.
+        if let mode = env["GHOSTTY_EXTREME_TEST_HANDOFF"] {
             DispatchQueue.main.asyncAfter(deadline: .now() + 6) {
                 guard let surface = controller.focusedSurface else { return }
                 AgentHandoff.handOff(from: surface, in: controller, to: .claude, mode: mode == "continue" ? .continue : .review)
             }
         }
-        // `GHOSTTY_CUSTOM_TEST_RACE=<task>`: race one Claude and one Codex after 4s; with
-        // `GHOSTTY_CUSTOM_TEST_RACE_KEEP=1`, keep claude-1's changes at 30s and clean up at 36s,
-        // logging to `GHOSTTY_CUSTOM_TEST_LOG`.
-        if let task = env["GHOSTTY_CUSTOM_TEST_RACE"], let folder = env["GHOSTTY_CUSTOM_TEST_RACE_FOLDER"] {
+        // `GHOSTTY_EXTREME_TEST_RACE=<task>`: race one Claude and one Codex after 4s; with
+        // `GHOSTTY_EXTREME_TEST_RACE_KEEP=1`, keep claude-1's changes at 30s and clean up at 36s,
+        // logging to `GHOSTTY_EXTREME_TEST_LOG`.
+        if let task = env["GHOSTTY_EXTREME_TEST_RACE"], let folder = env["GHOSTTY_EXTREME_TEST_RACE_FOLDER"] {
             let log: (String) -> Void = { line in
-                guard let path = env["GHOSTTY_CUSTOM_TEST_LOG"] else { return }
+                guard let path = env["GHOSTTY_EXTREME_TEST_LOG"] else { return }
                 let old = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
                 try? (old + line + "\n").write(toFile: path, atomically: true, encoding: .utf8)
             }
@@ -137,7 +137,7 @@ enum VerticalTabsTestSupport {
                     case .success(let race):
                         log("race \(race.id) " + race.contestants.map { "\($0.id)=\($0.worktree)" }.joined(separator: " "))
                         AgentRaces.show(race, from: controller)
-                        guard env["GHOSTTY_CUSTOM_TEST_RACE_KEEP"] == "1" else { return }
+                        guard env["GHOSTTY_EXTREME_TEST_RACE_KEEP"] == "1" else { return }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 26) {
                             AgentRaces.shared.keep(race.contestants[0], of: race) { error in
                                 log("keep: \(error ?? "ok")")
@@ -152,16 +152,16 @@ enum VerticalTabsTestSupport {
             }
         }
         // Report which window is the visible tab so a test can capture that one.
-        if let path = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_WINDOW_FILE"] {
+        if let path = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_WINDOW_FILE"] {
             DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
                 let window = controller.window?.tabGroup?.selectedWindow ?? controller.window
                 try? String(window?.windowNumber ?? 0).write(toFile: path, atomically: true, encoding: .utf8)
             }
         }
-        // `GHOSTTY_CUSTOM_TEST_RESELECT=1`: switch back to the first tab after 9s and
+        // `GHOSTTY_EXTREME_TEST_RESELECT=1`: switch back to the first tab after 9s and
         // report its window in <window file>.2.
-        if ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_RESELECT"] == "1",
-           let path = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_WINDOW_FILE"] {
+        if ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_RESELECT"] == "1",
+           let path = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_WINDOW_FILE"] {
             DispatchQueue.main.asyncAfter(deadline: .now() + 9) {
                 VerticalTabsActions.select(controller)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
@@ -169,7 +169,7 @@ enum VerticalTabsTestSupport {
                 }
             }
         }
-        guard let value = ProcessInfo.processInfo.environment["GHOSTTY_CUSTOM_TEST_TABS"],
+        guard let value = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_TABS"],
               let count = Int(value), count > 1 else { return }
         for i in 1..<count {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6 * Double(i)) {

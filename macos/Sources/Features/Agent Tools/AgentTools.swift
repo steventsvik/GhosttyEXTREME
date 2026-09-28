@@ -5,7 +5,7 @@ import AppKit
 /// an agent CLI with a long prompt in a new tab or split.
 enum AgentTools {
     /// Where races and handoff prompts are kept (no spaces, so paths paste cleanly into shells).
-    static let root = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".ghostty-custom", isDirectory: true)
+    static let root = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".ghostty-extreme", isDirectory: true)
 
     struct Result {
         let status: Int32
@@ -55,7 +55,7 @@ enum AgentTools {
         return "\(binary) \"$(cat \(shellQuote(promptFile.path)))\"\n"
     }
 
-    /// Saves a prompt under ~/.ghostty-custom/<folder>/ and returns its file.
+    /// Saves a prompt under ~/.ghostty-extreme/<folder>/ and returns its file.
     static func writePrompt(_ text: String, folder: String, name: String) -> URL? {
         let dir = root.appendingPathComponent(folder, isDirectory: true)
         do {

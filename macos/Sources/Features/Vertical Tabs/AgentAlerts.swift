@@ -11,7 +11,7 @@ final class AgentAlerts {
     static let shared = AgentAlerts()
 
     /// Posted when the number of waiting agents changes; the app delegate refreshes the badge.
-    static let waitingCountDidChange = Notification.Name("com.steventsvik.ghostty-custom.agentWaitingCountDidChange")
+    static let waitingCountDidChange = Notification.Name("com.steventsvik.ghostty-extreme.agentWaitingCountDidChange")
 
     private(set) var waitingCount = 0
 

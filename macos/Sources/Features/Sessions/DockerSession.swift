@@ -53,7 +53,7 @@ enum DockerSessionKind: String, CaseIterable, Identifiable {
 
 enum DockerSessions {
     /// Whether isolated sessions get the tab's folder at /workspace (otherwise they start empty).
-    static let shareFolderKey = "GhosttyCustomDockerShareFolder"
+    static let shareFolderKey = "GhosttyExtremeDockerShareFolder"
 
     static var sharesFolder: Bool {
         UserDefaults.standard.object(forKey: shareFolderKey) as? Bool ?? true
@@ -93,7 +93,7 @@ enum DockerSessions {
     private static func installSupportFiles() -> String? {
         let fm = FileManager.default
         guard let support = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return nil }
-        let dir = support.appendingPathComponent("Ghostty Custom/docker", isDirectory: true)
+        let dir = support.appendingPathComponent("GhosttyEXTREME/docker", isDirectory: true)
         do {
             try fm.createDirectory(at: dir, withIntermediateDirectories: true)
             let script = dir.appendingPathComponent("sandbox.sh")
@@ -107,10 +107,10 @@ enum DockerSessions {
     }
 
     /// Image for the sandboxed agents. Bump the tag when this changes so it's rebuilt.
-    private static let agentImage = "ghostty-custom/agent:1"
+    private static let agentImage = "ghostty-extreme/agent:1"
 
     private static let agentDockerfile = """
-    # Ghostty Custom: image for sandboxed Claude Code and Codex sessions.
+    # GhosttyEXTREME: image for sandboxed Claude Code and Codex sessions.
     FROM node:22-bookworm
     RUN apt-get update \\
      && apt-get install -y --no-install-recommends git ripgrep python3 python3-pip less curl ca-certificates \\
@@ -125,7 +125,7 @@ enum DockerSessions {
 
     private static let launcherScript = """
     #!/bin/bash
-    # Ghostty Custom: starts an isolated Docker session.
+    # GhosttyEXTREME: starts an isolated Docker session.
     # Usage: sandbox.sh <ubuntu|python|node|claude|codex> <folder to share | - | -home>
     # Always ends in a normal shell on the Mac, so errors stay readable.
     kind="$1"
@@ -161,7 +161,7 @@ enum DockerSessions {
         fi
         # Logins live in Docker volumes, so you sign in once and your Mac's
         # credentials are never shared with the container.
-        args+=(-v ghostty-custom-claude:/home/node/.claude -v ghostty-custom-codex:/home/node/.codex)
+        args+=(-v ghostty-extreme-claude:/home/node/.claude -v ghostty-extreme-codex:/home/node/.codex)
         cmd=("$kind") ;;
       *) echo "Unknown session type: $kind"; back_to_mac ;;
     esac

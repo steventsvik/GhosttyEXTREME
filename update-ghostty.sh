@@ -50,7 +50,7 @@ fi
 
 # The repo lives under ~/Desktop, where iCloud's File Provider tags new files
 # with xattrs that codesign rejects. Keep Xcode's build output outside it.
-build_cache="$HOME/Library/Caches/ghostty-custom/macos-build"
+build_cache="$HOME/Library/Caches/ghostty-extreme/macos-build"
 if [[ ! -L macos/build ]]; then
   rm -rf macos/build
   mkdir -p "$build_cache"
@@ -58,6 +58,6 @@ if [[ ! -L macos/build ]]; then
 fi
 
 "$zig_bin" build -Doptimize=ReleaseFast -Dxcframework-target=native
-ditto macos/build/ReleaseLocal/Ghostty.app "/Applications/Ghostty Custom.app"
+ditto macos/build/ReleaseLocal/Ghostty.app "/Applications/GhosttyEXTREME.app"
 git push --force-with-lease origin custom
 echo "Updated to $latest and rebuilt."

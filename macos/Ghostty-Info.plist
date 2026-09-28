@@ -54,7 +54,7 @@
 	<dict>
 		<key>GHOSTTY_MAC_LAUNCH_SOURCE</key>
 		<string>app</string>
-		<key>GHOSTTY_CUSTOM_AGENT_EVENTS</key>
+		<key>GHOSTTY_EXTREME_AGENT_EVENTS</key>
 		<string>1</string>
 	</dict>
 	<key>MDItemKeywords</key>

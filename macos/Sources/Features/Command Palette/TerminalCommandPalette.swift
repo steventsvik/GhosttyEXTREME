@@ -137,7 +137,7 @@ struct TerminalCommandPaletteView: View {
             }
     }
 
-    /// Ghostty Custom: new sessions and sidebar/editor toggles.
+    /// GhosttyEXTREME: new sessions and sidebar/editor toggles.
     private var customOptions: [CommandOption] {
         #if os(macOS)
         PaletteExtras.commandOptions(for: surfaceView)

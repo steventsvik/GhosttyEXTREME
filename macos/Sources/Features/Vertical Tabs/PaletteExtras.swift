@@ -2,7 +2,7 @@
 import AppKit
 import SwiftUI
 
-/// Ghostty Custom's additions to the command palette (⌘P / ⌘⇧P): agents waiting on the
+/// GhosttyEXTREME's additions to the command palette (⌘P / ⌘⇧P): agents waiting on the
 /// user, new sessions, and the sidebar, editor and usage toggles. Tabs already appear as
 /// Ghostty's own "Focus:" entries; `agentBadge` adds each one's agent status.
 enum PaletteExtras {
@@ -27,7 +27,7 @@ enum PaletteExtras {
         }
     }
 
-    /// New sessions and Ghostty Custom's own view toggles. Sorted in with Ghostty's commands.
+    /// New sessions and GhosttyEXTREME's own view toggles. Sorted in with Ghostty's commands.
     static func commandOptions(for surfaceView: Ghostty.SurfaceView) -> [CommandOption] {
         var options: [CommandOption] = []
         if let owner = surfaceView.window?.windowController as? TerminalController {

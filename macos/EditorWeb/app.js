@@ -1,4 +1,4 @@
-// Ghostty Custom code editor: a VS Code–style workbench around Monaco.
+// GhosttyEXTREME code editor: a VS Code–style workbench around Monaco.
 // File access goes through the native `fs` message handler (EditorWebView.swift).
 'use strict';
 

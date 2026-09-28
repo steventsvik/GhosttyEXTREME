@@ -33,7 +33,7 @@ final class VerticalTabsGit: ObservableObject {
     private var inFlight: Set<String> = []
 
     private let pollInterval: TimeInterval = 10
-    private let queue = DispatchQueue(label: "com.steventsvik.ghostty-custom.git", qos: .utility)
+    private let queue = DispatchQueue(label: "com.steventsvik.ghostty-extreme.git", qos: .utility)
     private var timer: Timer?
     private var cancellables: Set<AnyCancellable> = []
     private let gitPath: String = ["/opt/homebrew/bin/git", "/usr/local/bin/git"]
