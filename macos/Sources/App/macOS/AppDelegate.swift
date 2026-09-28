@@ -266,6 +266,12 @@ class AppDelegate: NSObject,
         )
         NotificationCenter.default.addObserver(
             self,
+            selector: #selector(agentWaitingCountDidChange(_:)),
+            name: AgentAlerts.waitingCountDidChange,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
             selector: #selector(ghosttyNewWindow(_:)),
             name: Ghostty.Notification.ghosttyNewWindow,
             object: nil)
@@ -678,6 +684,12 @@ class AppDelegate: NSObject,
         syncDockBadge()
     }
 
+    /// The Dock count doesn't need notification permission, so waiting agents show even
+    /// when notifications are turned off.
+    @objc private func agentWaitingCountDidChange(_ notification: Notification) {
+        setDockBadge()
+    }
+
     private func syncDockBadge() {
         let center = UNUserNotificationCenter.current()
         center.getNotificationSettings { settings in
@@ -741,8 +753,9 @@ class AppDelegate: NSObject,
         let bellCount = NSApp.windows
             .compactMap { $0.windowController as? BaseTerminalController }
             .reduce(0) { $0 + ($1.bell ? 1 : 0) }
-        let wantsBadge = ghostty.config.bellFeatures.contains(.attention) && bellCount > 0
-        let label = wantsBadge ? (bellCount > 99 ? "99+" : String(bellCount)) : nil
+        // Ghostty Custom: coding agents waiting for permission or an answer count too.
+        let count = (ghostty.config.bellFeatures.contains(.attention) ? bellCount : 0) + AgentAlerts.shared.waitingCount
+        let label = count > 0 ? (count > 99 ? "99+" : String(count)) : nil
         NSApp.dockTile.badgeLabel = label
         NSApp.dockTile.display()
     }

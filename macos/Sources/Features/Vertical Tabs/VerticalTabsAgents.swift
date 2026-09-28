@@ -78,6 +78,11 @@ final class VerticalTabsAgents {
         states.object(forKey: surface)?.info
     }
 
+    /// How many live panes have an agent matching `predicate`.
+    func count(where predicate: (VerticalTabAgentInfo) -> Bool) -> Int {
+        (states.objectEnumerator()?.allObjects as? [Box] ?? []).filter { predicate($0.info) }.count
+    }
+
     /// Labels a pane with an agent that doesn't report status itself (e.g. a Hermes tab).
     func setStaticAgent(_ kind: VerticalTabAgentKind, task: String?, on surface: Ghostty.SurfaceView) {
         states.setObject(Box(VerticalTabAgentInfo(kind: kind, activity: .ready, task: task, detail: nil, unseen: false)),
@@ -100,7 +105,9 @@ final class VerticalTabsAgents {
             // Unknown or malformed custom event: swallow it rather than show raw JSON.
             return true
         }
+        let before = info(for: surface)?.activity
         apply(event, to: surface)
+        AgentAlerts.shared.agentChanged(on: surface, from: before, to: info(for: surface))
         VerticalTabsTicker.shared.tickNow()
         NotificationCenter.default.post(name: Self.didChange, object: surface)
         return true
