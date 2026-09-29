@@ -15,6 +15,8 @@ final class EditorWebView: WKWebView {
     private(set) var isReady = false
     /// Called (on a background queue) after the editor saves a file.
     var onFileSaved: ((String, String) -> Void)?
+    /// Called when the page's close button is clicked.
+    var onClose: (() -> Void)?
     private var pending: [String] = []
 
     init() {
@@ -25,6 +27,7 @@ final class EditorWebView: WKWebView {
         files.onReady = { [weak self] in self?.didBecomeReady() }
         files.onWrite = { [weak self] path, content in self?.onFileSaved?(path, content) }
         files.onBrowser = { [weak self] body in self?.povBrowser(body) }
+        files.onClose = { [weak self] in self?.onClose?() }
         uiDelegate = self
         setValue(false, forKey: "drawsBackground")
         load(URLRequest(url: URL(string: "\(Self.scheme)://app/index.html")!))
@@ -52,6 +55,12 @@ final class EditorWebView: WKWebView {
     func openFile(_ path: String, line: Int? = nil) {
         if files.root == nil { openFolder((path as NSString).deletingLastPathComponent) }
         run("app.openFile(\(Self.js(path)), \(line.map(String.init) ?? "undefined"))")
+    }
+
+    /// Whether the panel is on screen. While it isn't, the page only records what the agent
+    /// does; when it appears, it reveals the agent's latest work.
+    func setPanelVisible(_ visible: Bool) {
+        run("app.setVisible(\(visible))")
     }
 
     func focusEditor() {
@@ -249,6 +258,7 @@ private final class EditorFileBridge: NSObject, WKScriptMessageHandlerWithReply 
     var onReady: (() -> Void)?
     var onWrite: ((String, String) -> Void)?
     var onBrowser: (([String: Any]) -> Void)?
+    var onClose: (() -> Void)?
 
     private let maxFileSize = 8 * 1024 * 1024
     private let hidden: Set<String> = [".git", ".DS_Store", "node_modules", ".zig-cache", "zig-out", ".build", "build", "DerivedData"]
@@ -276,6 +286,11 @@ private final class EditorFileBridge: NSObject, WKScriptMessageHandlerWithReply 
         }
         if op == "ready" {
             onReady?()
+            replyHandler(true, nil)
+            return
+        }
+        if op == "close" {
+            onClose?()
             replyHandler(true, nil)
             return
         }

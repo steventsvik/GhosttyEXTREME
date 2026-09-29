@@ -225,6 +225,7 @@ private struct VerticalTabsMenuPanel: View {
     let dismiss: () -> Void
 
     @ObservedObject private var pins = VerticalTabsPins.shared
+    @ObservedObject private var editorPanel = EditorPanel.shared
 
     var body: some View {
         let position = VerticalTabsActions.index(of: controller)
@@ -246,8 +247,14 @@ private struct VerticalTabsMenuPanel: View {
             item("Copy working directory", enabled: pane.pwd != nil) {
                 VerticalTabsActions.copy(pane.pwd ?? "")
             }
-            item("Open folder in code editor", enabled: pane.pwd != nil) {
-                EditorPanel.shared.show(from: controller, folder: pane.pwd)
+            if editorPanel.isVisible(controller) {
+                item("Close code editor") {
+                    editorPanel.hide(returningFocusTo: controller)
+                }
+            } else {
+                item("Open folder in code editor", enabled: pane.pwd != nil) {
+                    editorPanel.show(from: controller, folder: pane.pwd)
+                }
             }
             separator
             ForEach(AgentHandoff.Mode.allCases, id: \.self) { mode in

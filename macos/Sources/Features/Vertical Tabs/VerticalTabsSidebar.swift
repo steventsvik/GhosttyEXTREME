@@ -23,7 +23,25 @@ struct VerticalTabsLayout<Content: View>: View {
         self.content = content()
     }
 
+    /// The terminal never gets narrower than this to make room for side panels.
+    private var minTerminalWidth: CGFloat { 320 }
+
     var body: some View {
+        // Side panels have set widths; when the window is narrower than they need (macOS can
+        // hand a window back smaller, e.g. from Stage Manager), the editor gives way so
+        // nothing is pushed past the window's edge.
+        GeometryReader { geometry in
+            layout(maxEditorWidth: maxEditorWidth(in: geometry.size.width))
+        }
+    }
+
+    private func maxEditorWidth(in total: CGFloat) -> CGFloat {
+        let sidebar = visible && ghostty.readiness == .ready ? CGFloat(width) + 1 : 0
+        let history: CGFloat = commandBlocks.isVisible(controller) ? 400 : 0
+        return max(240, total - sidebar - history - minTerminalWidth - 1)
+    }
+
+    private func layout(maxEditorWidth: CGFloat) -> some View {
         HStack(spacing: 0) {
             if visible && ghostty.readiness == .ready {
                 VerticalTabsSidebar(model: model, owner: controller, config: ghostty.config)
@@ -46,7 +64,7 @@ struct VerticalTabsLayout<Content: View>: View {
             }
             // Each tab has its own editor.
             if editorPanel.isVisible(controller) {
-                EditorPanelColumn(controller: controller)
+                EditorPanelColumn(controller: controller, maxWidth: maxEditorWidth)
             }
             if commandBlocks.isVisible(controller) {
                 CommandBlocksColumn(controller: controller)
@@ -104,8 +122,13 @@ enum VerticalTabsTestSupport {
         if let file = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_EDITOR"] {
             let delay = Double(ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_EDITOR_DELAY"] ?? "") ?? 1.5
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                EditorPanel.shared.show(from: controller, folder: (file as NSString).deletingLastPathComponent)
-                EditorPanel.shared.session(for: controller).webView.openFile(file, line: 20)
+                // A folder (trailing slash) opens the editor the way a user does, with no file.
+                if file.hasSuffix("/") {
+                    EditorPanel.shared.show(from: controller)
+                } else {
+                    EditorPanel.shared.show(from: controller, folder: (file as NSString).deletingLastPathComponent)
+                    EditorPanel.shared.session(for: controller).webView.openFile(file, line: 20)
+                }
                 // `GHOSTTY_EXTREME_TEST_EDITOR_JS`: script run in the editor once it's loaded.
                 if let script = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_EDITOR_JS"] {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
@@ -398,6 +421,7 @@ struct VerticalTabsSidebar: View {
             HStack(spacing: 6) {
                 NewSessionMenu(owner: owner, compact: true)
                 Spacer(minLength: 0)
+                EditorHeaderButton(owner: owner)
                 ExtremeIconButton(icon: condensed ? .expand : .condense,
                                   help: condensed ? "Expand view" : "Condense view") { condensed.toggle() }
                 LocalhostHeaderButton()
@@ -409,6 +433,38 @@ struct VerticalTabsSidebar: View {
         .padding(.horizontal, 12)
         .padding(.top, 12)
         .padding(.bottom, 10)
+    }
+}
+
+/// The pane's "Review N" chip when its agent's work is waiting, otherwise `diff`. Watches the
+/// inbox itself, so the chip appears the moment a review is ready.
+private struct ReviewOrDiffChip<Diff: View>: View {
+    let surface: Ghostty.SurfaceView?
+    @ViewBuilder let diff: () -> Diff
+    @ObservedObject private var inbox = ReviewInbox.shared
+
+    var body: some View {
+        if let surface, inbox.item(for: surface)?.stage == .ready {
+            ReviewPaneChip(surface: surface)
+        } else {
+            diff()
+        }
+    }
+}
+
+/// Opens this tab's code editor; while it's open, the same button closes it.
+private struct EditorHeaderButton: View {
+    let owner: TerminalController
+    @ObservedObject private var panel = EditorPanel.shared
+
+    var body: some View {
+        let open = panel.isVisible(owner)
+        ExtremeIconButton(icon: open ? .close : .code,
+                          help: open ? "Close the code editor (⌃⌘E)" : "Open the code editor: watch the agent live (⌃⌘E)",
+                          active: open) {
+            panel.toggle(from: owner)
+        }
+        .disabled(HermesSessions.shared.isHermes(owner))
     }
 }
 
@@ -773,11 +829,7 @@ private struct VerticalTabPaneRow: View {
                     VerticalTabKindLabel(agent: pane.agent, palette: palette)
                     Spacer(minLength: 4)
                     // A pending review already counts the changes.
-                    if let surface = pane.surface, ReviewInbox.shared.item(for: surface)?.stage == .ready {
-                        ReviewPaneChip(surface: surface)
-                    } else {
-                        diffChip
-                    }
+                    ReviewOrDiffChip(surface: pane.surface) { diffChip }
                 }
             }
         }

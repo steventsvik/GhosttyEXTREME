@@ -79,6 +79,9 @@ struct ReviewItem: Identifiable, Equatable {
 
     let id: UUID
     let repoRoot: String
+    /// For a folder that isn't a git repository: the private repository its snapshots are
+    /// kept in (see `ReviewInbox.shadowRepo`). nil for a real repository.
+    var gitDir: String?
     let agent: VerticalTabAgentKind
     var task: String?
     var baseline: String
@@ -90,6 +93,8 @@ struct ReviewItem: Identifiable, Equatable {
     var stage: Stage = .ready
 
     var repoName: String { (repoRoot as NSString).lastPathComponent }
+    /// Commit and pull requests need a real repository.
+    var isRepository: Bool { gitDir == nil }
     var added: Int { files.reduce(0) { $0 + $1.added } }
     var removed: Int { files.reduce(0) { $0 + $1.removed } }
     func decision(_ file: ReviewFile) -> ReviewDecision { decisions[file.path] ?? .pending }
@@ -99,10 +104,11 @@ struct ReviewItem: Identifiable, Equatable {
 /// Collects agents' finished work for review, and applies the user's decisions: undo a
 /// file, send line comments back to the agent, commit, open a pull request.
 ///
-/// A review starts when an agent begins working in a git repository: the working tree is
-/// snapshotted (a tree object written through a temporary index, so the user's own index
-/// is never touched). When the agent stops, everything that differs from the snapshot is
-/// the agent's work.
+/// A review starts when an agent begins working: the working tree is snapshotted (a tree
+/// object written through a temporary index, so the user's own index is never touched).
+/// When the agent stops, everything that differs from the snapshot is the agent's work.
+/// Folders that aren't git repositories are snapshotted into a private repository kept
+/// outside them, so their changes can be reviewed too.
 final class ReviewInbox: ObservableObject {
     static let shared = ReviewInbox()
     static let windowID = "review-inbox"
@@ -113,11 +119,16 @@ final class ReviewInbox: ObservableObject {
     private struct Tracker {
         let id: UUID
         let repoRoot: String
+        var gitDir: String?
         var baseline: String
         weak var surface: Ghostty.SurfaceView?
     }
 
     private var trackers: [ObjectIdentifier: Tracker] = [:]
+    /// Panes whose start-of-work snapshot is still being taken.
+    private var starting: Set<ObjectIdentifier> = []
+    /// Panes whose agent finished before that snapshot was ready.
+    private var finishedWhileStarting: [ObjectIdentifier: (VerticalTabAgentKind, String?)] = [:]
     private var lastActivity: [ObjectIdentifier: VerticalTabAgentActivity] = [:]
     private var cancellables: Set<AnyCancellable> = []
     private let queue = DispatchQueue(label: "com.steventsvik.ghostty-extreme.review", qos: .userInitiated)
@@ -142,9 +153,11 @@ final class ReviewInbox: ObservableObject {
         return items.first { $0.id == tracker.id }
     }
 
-    /// The snapshot the pane's current review started from (usually its agent's first prompt).
+    /// The snapshot the pane's current review started from (usually its agent's first prompt),
+    /// when it's in the pane's own git repository.
     func baseline(for surface: Ghostty.SurfaceView) -> String? {
-        trackers[ObjectIdentifier(surface)]?.baseline
+        guard let tracker = trackers[ObjectIdentifier(surface)], tracker.gitDir == nil else { return nil }
+        return tracker.baseline
     }
 
     func surface(for item: ReviewItem) -> Ghostty.SurfaceView? {
@@ -161,7 +174,8 @@ final class ReviewInbox: ObservableObject {
         guard let info, info.kind != .hermes else { return }
 
         switch info.activity {
-        case .working where previous != .working:
+        case .working, .needsPermission:
+            guard previous != .working, previous != .needsPermission else { return }
             if let tracker = trackers[key] {
                 // Back at work on an existing review.
                 update(tracker.id) { if $0.stage != .feedbackSent { $0.stage = .working } }
@@ -169,8 +183,13 @@ final class ReviewInbox: ObservableObject {
                 beginReview(for: surface, folder: folder)
             }
         case .done, .failed, .needsInput:
-            guard previous == .working || previous == .needsPermission, let tracker = trackers[key] else { return }
-            refresh(tracker, agent: info.kind, task: info.task, announce: true)
+            guard previous != info.activity else { return }
+            if let tracker = trackers[key] {
+                refresh(tracker, agent: info.kind, task: info.task, announce: true)
+            } else if starting.contains(key) {
+                // Finished before the snapshot was taken; review once it is.
+                finishedWhileStarting[key] = (info.kind, info.task)
+            }
         default:
             break
         }
@@ -178,11 +197,23 @@ final class ReviewInbox: ObservableObject {
 
     private func beginReview(for surface: Ghostty.SurfaceView, folder: String) {
         let key = ObjectIdentifier(surface)
+        guard !starting.contains(key) else { return }
+        starting.insert(key)
         queue.async {
-            guard let root = AgentTools.repoRoot(of: folder), let tree = Self.snapshot(root) else { return }
+            var root = AgentTools.repoRoot(of: folder)
+            var gitDir: String?
+            if root == nil, let shadow = Self.shadowRepo(for: folder) {
+                root = folder
+                gitDir = shadow
+            }
+            let tree = root.flatMap { Self.snapshot($0, gitDir: gitDir) }
             DispatchQueue.main.async {
-                guard self.trackers[key] == nil else { return }
-                self.trackers[key] = Tracker(id: UUID(), repoRoot: root, baseline: tree, surface: surface)
+                self.starting.remove(key)
+                let finished = self.finishedWhileStarting.removeValue(forKey: key)
+                guard let root, let tree, self.trackers[key] == nil else { return }
+                let tracker = Tracker(id: UUID(), repoRoot: root, gitDir: gitDir, baseline: tree, surface: surface)
+                self.trackers[key] = tracker
+                if let finished { self.refresh(tracker, agent: finished.0, task: finished.1, announce: true) }
             }
         }
     }
@@ -191,8 +222,8 @@ final class ReviewInbox: ObservableObject {
     private func refresh(_ tracker: Tracker, agent: VerticalTabAgentKind? = nil, task: String? = nil, announce: Bool = false) {
         let baseline = tracker.baseline
         queue.async {
-            guard let current = Self.snapshot(tracker.repoRoot) else { return }
-            let files = Self.diff(from: baseline, to: current, in: tracker.repoRoot)
+            guard let current = Self.snapshot(tracker.repoRoot, gitDir: tracker.gitDir) else { return }
+            let files = Self.diff(from: baseline, to: current, in: tracker.repoRoot, gitDir: tracker.gitDir)
             DispatchQueue.main.async {
                 if let index = self.items.firstIndex(where: { $0.id == tracker.id }) {
                     var item = self.items[index]
@@ -207,8 +238,8 @@ final class ReviewInbox: ObservableObject {
                     }
                     if files.isEmpty { self.items.remove(at: index) } else { self.items[index] = item }
                 } else if !files.isEmpty, let agent {
-                    self.items.insert(ReviewItem(id: tracker.id, repoRoot: tracker.repoRoot, agent: agent,
-                                                 task: task, baseline: baseline, files: files), at: 0)
+                    self.items.insert(ReviewItem(id: tracker.id, repoRoot: tracker.repoRoot, gitDir: tracker.gitDir,
+                                                 agent: agent, task: task, baseline: baseline, files: files), at: 0)
                 }
             }
         }
@@ -245,6 +276,7 @@ final class ReviewInbox: ObservableObject {
     func undo(_ file: ReviewFile, in item: ReviewItem) {
         let root = item.repoRoot
         let baseline = item.baseline
+        let gitDir = item.gitDir
         queue.async {
             let fm = FileManager.default
             let target = (root as NSString).appendingPathComponent(file.path)
@@ -254,10 +286,10 @@ final class ReviewInbox: ObservableObject {
             case .renamed:
                 try? fm.removeItem(atPath: target)
                 if let old = file.oldPath {
-                    AgentTools.git(["restore", "--source=\(baseline)", "--worktree", "--", old], in: root)
+                    Self.git(["restore", "--source=\(baseline)", "--worktree", "--", old], in: root, gitDir: gitDir)
                 }
             case .modified, .deleted:
-                AgentTools.git(["restore", "--source=\(baseline)", "--worktree", "--", file.path], in: root)
+                Self.git(["restore", "--source=\(baseline)", "--worktree", "--", file.path], in: root, gitDir: gitDir)
             }
             DispatchQueue.main.async { self.refreshItem(item) }
         }
@@ -268,7 +300,7 @@ final class ReviewInbox: ObservableObject {
             refresh(tracker)
         } else {
             // The pane is gone; still recompute against the item's own baseline.
-            refresh(Tracker(id: item.id, repoRoot: item.repoRoot, baseline: item.baseline, surface: nil))
+            refresh(Tracker(id: item.id, repoRoot: item.repoRoot, gitDir: item.gitDir, baseline: item.baseline, surface: nil))
         }
     }
 
@@ -277,10 +309,11 @@ final class ReviewInbox: ObservableObject {
         items.removeAll { $0.id == item.id }
         let key = trackers.first { $0.value.id == item.id }?.key
         queue.async {
-            guard let tree = Self.snapshot(item.repoRoot) else { return }
+            guard let tree = Self.snapshot(item.repoRoot, gitDir: item.gitDir) else { return }
             DispatchQueue.main.async {
                 guard let key, var tracker = self.trackers[key] else { return }
-                tracker = Tracker(id: UUID(), repoRoot: tracker.repoRoot, baseline: tree, surface: tracker.surface)
+                tracker = Tracker(id: UUID(), repoRoot: tracker.repoRoot, gitDir: tracker.gitDir, baseline: tree,
+                                  surface: tracker.surface)
                 self.trackers[key] = tracker
             }
         }
@@ -371,20 +404,29 @@ final class ReviewInbox: ObservableObject {
 
     /// A tree object with the working tree's current contents (tracked and untracked files,
     /// respecting .gitignore), written through a copy of the index so the real one is untouched.
-    static func snapshot(_ root: String) -> String? {
-        let indexPath = AgentTools.git(["rev-parse", "--git-path", "index"], in: root).output
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let realIndex = indexPath.hasPrefix("/") ? indexPath : (root as NSString).appendingPathComponent(indexPath)
-        let temp = FileManager.default.temporaryDirectory
-            .appendingPathComponent("ghostty-extreme-review-\(UUID().uuidString).index").path
-        defer { try? FileManager.default.removeItem(atPath: temp) }
-        // Starting from the real index keeps git's stat cache, so only changed files are hashed.
-        if FileManager.default.fileExists(atPath: realIndex) {
-            try? FileManager.default.copyItem(atPath: realIndex, toPath: temp)
+    /// With `gitDir` (a private repository for a folder that isn't one), its own index is used.
+    static func snapshot(_ root: String, gitDir: String? = nil) -> String? {
+        let env: [String: String]
+        var temp: String?
+        if let gitDir {
+            env = ["GIT_INDEX_FILE": gitDir + "/index"]
+        } else {
+            let indexPath = AgentTools.git(["rev-parse", "--git-path", "index"], in: root).output
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let realIndex = indexPath.hasPrefix("/") ? indexPath : (root as NSString).appendingPathComponent(indexPath)
+            let path = FileManager.default.temporaryDirectory
+                .appendingPathComponent("ghostty-extreme-review-\(UUID().uuidString).index").path
+            // Starting from the real index keeps git's stat cache, so only changed files are hashed.
+            if FileManager.default.fileExists(atPath: realIndex) {
+                try? FileManager.default.copyItem(atPath: realIndex, toPath: path)
+            }
+            temp = path
+            env = ["GIT_INDEX_FILE": path]
         }
-        let env = ["GIT_INDEX_FILE": temp]
-        guard gitEnv(["add", "-A"], in: root, env: env).ok else { return nil }
-        let tree = gitEnv(["write-tree"], in: root, env: env)
+        defer { if let temp { try? FileManager.default.removeItem(atPath: temp) } }
+        let prefix = gitArgs(root, gitDir)
+        guard gitEnv(prefix + ["add", "-A"], in: root, env: env).ok else { return nil }
+        let tree = gitEnv(prefix + ["write-tree"], in: root, env: env)
         let sha = tree.output.trimmingCharacters(in: .whitespacesAndNewlines)
         return tree.ok && !sha.isEmpty ? sha : nil
     }
@@ -410,10 +452,65 @@ final class ReviewInbox: ObservableObject {
                                  error: String(decoding: errData, as: UTF8.self))
     }
 
-    static func diff(from base: String, to current: String, in root: String) -> [ReviewFile] {
+    static func diff(from base: String, to current: String, in root: String, gitDir: String? = nil) -> [ReviewFile] {
         guard base != current else { return [] }
-        let text = AgentTools.git(["diff", "--no-color", "--no-ext-diff", "-M", "-U3", base, current], in: root).output
+        let text = git(["diff", "--no-color", "--no-ext-diff", "-M", "-U3", base, current], in: root, gitDir: gitDir).output
         return parse(text)
+    }
+
+    /// Git, against a private repository when there is one.
+    @discardableResult
+    static func git(_ args: [String], in root: String, gitDir: String?) -> AgentTools.Result {
+        AgentTools.git(gitArgs(root, gitDir) + args, in: root)
+    }
+
+    private static func gitArgs(_ root: String, _ gitDir: String?) -> [String] {
+        gitDir.map { ["--git-dir=\($0)", "--work-tree=\(root)"] } ?? []
+    }
+
+    // MARK: Folders that aren't repositories
+
+    /// Build output and dependencies, never part of an agent's reviewable work.
+    private static let shadowExcludes = [
+        ".git/", "node_modules/", ".next/", ".nuxt/", ".svelte-kit/", "dist/", "build/", ".build/", "out/",
+        "target/", ".venv/", "venv/", "__pycache__/", ".pytest_cache/", ".mypy_cache/", ".turbo/", ".cache/",
+        ".parcel-cache/", "coverage/", "DerivedData/", "Pods/", ".gradle/", ".DS_Store", "*.log",
+    ]
+
+    /// A private repository that snapshots `folder` without touching it, kept under
+    /// ~/.ghostty-extreme/review-shadows. nil for folders too broad or too big to snapshot.
+    static func shadowRepo(for folder: String) -> String? {
+        let folder = (folder as NSString).standardizingPath
+        let home = NSHomeDirectory()
+        let broad = ["/", home, home + "/Desktop", home + "/Documents", home + "/Downloads", home + "/Projects",
+                     home + "/Developer", home + "/Library"]
+        guard !broad.contains(folder), !home.hasPrefix(folder + "/"), isSmallProject(folder) else { return nil }
+
+        var hash: UInt64 = 0xcbf29ce484222325
+        for byte in folder.utf8 { hash = (hash ^ UInt64(byte)) &* 0x100000001b3 }
+        let name = (folder as NSString).lastPathComponent.filter { $0.isLetter || $0.isNumber || $0 == "-" }
+        let dir = home + "/.ghostty-extreme/review-shadows/\(name)-\(String(hash, radix: 16)).git"
+        if !FileManager.default.fileExists(atPath: dir + "/HEAD") {
+            try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+            guard AgentTools.git(["init", "--bare", "-q", dir], in: home).ok else { return nil }
+            try? FileManager.default.createDirectory(atPath: dir + "/info", withIntermediateDirectories: true)
+            try? (shadowExcludes.joined(separator: "\n") + "\n").write(toFile: dir + "/info/exclude", atomically: true, encoding: .utf8)
+        }
+        return dir
+    }
+
+    /// Few enough files (outside dependency and build folders) to snapshot quickly.
+    private static func isSmallProject(_ folder: String) -> Bool {
+        let skipped: Set<String> = ["node_modules", ".next", ".git", "dist", "build", ".build", "target", ".venv",
+                                    "venv", "__pycache__", "Pods", "DerivedData", ".cache", "coverage", "out"]
+        let enumerator = FileManager.default.enumerator(atPath: folder)
+        var count = 0
+        while let item = enumerator?.nextObject() as? String {
+            if skipped.contains((item as NSString).lastPathComponent) { enumerator?.skipDescendants(); continue }
+            count += 1
+            if count > 20_000 { return false }
+        }
+        return true
     }
 
     /// Parses `git diff` output into files, hunks and numbered lines.

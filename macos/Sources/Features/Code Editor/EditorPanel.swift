@@ -4,8 +4,9 @@ import Combine
 import SwiftUI
 
 /// The code editor panels. Each terminal tab has its own editor — its own folder, open
-/// files and Agent timeline, following only that tab's terminal — created the first time
-/// it's opened in that tab.
+/// files and Agent timeline, following only that tab's terminal. It's created as soon as an
+/// agent starts in the tab and follows it in the background, so opening the editor mid-prompt
+/// shows what the agent is doing right away.
 final class EditorPanel: ObservableObject {
     static let shared = EditorPanel()
 
@@ -36,7 +37,10 @@ final class EditorPanel: ObservableObject {
             .store(in: &cancellables)
         NotificationCenter.default.publisher(for: VerticalTabsAgents.didChange)
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.followVisible() }
+            .sink { [weak self] note in
+                if let surface = note.object as? Ghostty.SurfaceView { self?.trackAgent(in: surface) }
+                self?.followVisible()
+            }
             .store(in: &cancellables)
     }
 
@@ -85,6 +89,19 @@ final class EditorPanel: ObservableObject {
         if let surface = controller.focusedSurface { Ghostty.moveFocus(to: surface) }
     }
 
+    /// An agent's state changed in a pane: make sure its tab's editor is following it, even
+    /// while the editor is closed.
+    private func trackAgent(in surface: Ghostty.SurfaceView) {
+        guard let controller = surface.window?.windowController as? TerminalController,
+              !HermesSessions.shared.isHermes(controller) else { return }
+        guard let info = VerticalTabsAgents.shared.info(for: surface), info.kind != .hermes else {
+            sessions[ObjectIdentifier(controller)]?.agentMayHaveLeft()
+            return
+        }
+        session(for: controller).track()
+        startFollowing()
+    }
+
     func toggle(from controller: TerminalController?) {
         guard let controller else { return }
         if isVisible(controller) { hide(returningFocusTo: controller) } else { show(from: controller) }
@@ -101,12 +118,15 @@ final class EditorPanel: ObservableObject {
     }
 
     private func followVisible() {
-        if visibleTabs.isEmpty {
+        let active = sessions.filter { visibleTabs.contains($0.key) || $0.value.isTracking }
+        if active.isEmpty {
             followTimer?.invalidate()
             followTimer = nil
             return
         }
-        for id in visibleTabs { sessions[id]?.followIfOnScreen() }
+        for (id, session) in active {
+            if visibleTabs.contains(id) { session.followIfOnScreen() } else { session.follow() }
+        }
     }
 
     /// Terminal colors and font, shared by every editor.
@@ -133,6 +153,11 @@ final class EditorSession {
     private let watcher = AgentChangeWatcher()
     private var lastStatus: [String: String]?
     private var isVisible = false
+    /// Following an agent in the background, while the editor is closed.
+    private(set) var isTracking = false
+    /// When the transcript was last looked up on disk (see `AgentTranscripts`).
+    private var lastLookup = Date.distantPast
+    private var foundTranscript: String?
     /// The transcript the editor last caught up with, so it only happens once per session.
     private var caughtUp: String?
     /// When the agent was last seen working; changes shortly after still animate.
@@ -148,6 +173,8 @@ final class EditorSession {
             self.webView.sendAgentChange(change, live: self.agentIsActive)
         }
         webView.onFileSaved = { [weak self] path, content in self?.watcher.noteOwnWrite(path: path, content: content) }
+        webView.onClose = { [weak self] in EditorPanel.shared.hide(returningFocusTo: self?.controller) }
+        webView.setPanelVisible(false)
     }
 
     private var agentIsActive: Bool {
@@ -157,17 +184,45 @@ final class EditorSession {
 
     func show(folder: String?) {
         isVisible = true
-        if let folder = folder ?? controller?.focusedSurface?.pwd { webView.openFolder(folder) }
+        // Catch up again: the agent may have moved on since the editor was last open.
+        caughtUp = nil
+        if let folder = folder ?? agentSurface?.pwd { webView.openFolder(folder) }
+        webView.setPanelVisible(true)
         follow()
     }
 
     func hide() {
         isVisible = false
+        webView.setPanelVisible(false)
+        caughtUp = nil
+        // Keep following an agent in the background so reopening is instant.
+        if agentSurface.flatMap({ VerticalTabsAgents.shared.info(for: $0) }) != nil {
+            isTracking = true
+        } else {
+            stopFollowing()
+        }
+        if let window = controller?.window { narrow(window) }
+    }
+
+    /// Starts following this tab's agent in the background.
+    func track() {
+        guard !isTracking else { return }
+        isTracking = true
+        follow()
+    }
+
+    /// The agent may have exited: stop background work once no pane has one.
+    func agentMayHaveLeft() {
+        guard !isVisible, agentSurface.flatMap({ VerticalTabsAgents.shared.info(for: $0) }) == nil else { return }
+        stopFollowing()
+    }
+
+    private func stopFollowing() {
+        isTracking = false
         feed.stop()
         watcher.stop()
-        caughtUp = nil
         lastStatus = nil
-        if let window = controller?.window { narrow(window) }
+        foundTranscript = nil
     }
 
     func close() {
@@ -180,20 +235,50 @@ final class EditorSession {
         follow()
     }
 
-    /// Shows this tab's focused pane: its folder in the Explorer, its agent in the panel.
+    /// The pane to follow: the focused one, or else one with an agent in it.
+    private var agentSurface: Ghostty.SurfaceView? {
+        guard let controller else { return nil }
+        if let focused = controller.focusedSurface, VerticalTabsAgents.shared.info(for: focused) != nil { return focused }
+        return controller.surfaceTree.first { VerticalTabsAgents.shared.info(for: $0) != nil } ?? controller.focusedSurface
+    }
+
+    /// The agent's transcript: the one its hooks reported, or else found on disk. Also moves
+    /// to a newer one when the reported transcript goes quiet while the agent works.
+    private func transcript(for info: VerticalTabAgentInfo, in folder: String?) -> String? {
+        let reported = info.transcriptPath
+        guard let folder, info.kind == .claude || info.kind == .codex else { return reported }
+        let quiet = reported.map { !Self.recentlyModified($0, within: 20) } ?? true
+        if (reported == nil || (quiet && info.activity == .working)), Date().timeIntervalSince(lastLookup) > 3 {
+            lastLookup = Date()
+            if let reported {
+                foundTranscript = AgentTranscripts.newer(than: reported, kind: info.kind, folder: folder)
+            } else {
+                foundTranscript = AgentTranscripts.find(kind: info.kind, folder: folder)
+            }
+        }
+        return foundTranscript ?? reported
+    }
+
+    private static func recentlyModified(_ path: String, within seconds: TimeInterval) -> Bool {
+        let date = (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date
+        return date.map { Date().timeIntervalSince($0) < seconds } ?? false
+    }
+
+    /// Shows this tab's agent pane: its folder in the Explorer, its agent in the panel.
     func follow() {
-        guard isVisible, let surface = controller?.focusedSurface else { return }
+        guard isVisible || isTracking, let surface = agentSurface else { return }
         if let pwd = surface.pwd, pwd != webView.currentFolder { webView.openFolder(pwd) }
 
         let info = VerticalTabsAgents.shared.info(for: surface)
-        if let info, let path = info.transcriptPath { feed.follow(path: path, kind: info.kind) }
+        let transcriptPath = info.flatMap { transcript(for: $0, in: surface.pwd) }
+        if let info, let path = transcriptPath { feed.follow(path: path, kind: info.kind) }
         if let info, info.kind != .hermes, let pwd = surface.pwd {
             if info.activity == .working || info.activity == .needsPermission { lastWorking = Date() }
             let repo = VerticalTabsGit.repoRoot(containing: pwd)?.path
             watcher.watch(folder: pwd, repoRoot: repo, baseline: ReviewInbox.shared.baseline(for: surface))
             // Opened mid-session: show what the agent has changed so far.
-            let session = info.transcriptPath ?? pwd
-            if caughtUp != session {
+            let session = transcriptPath ?? pwd
+            if isVisible, caughtUp != session {
                 caughtUp = session
                 watcher.catchUp { [weak self] changes in
                     guard !changes.isEmpty else { return }
@@ -210,7 +295,7 @@ final class EditorSession {
                 "badge": String(describing: info.activity.badge),
                 "task": info.task ?? "",
                 "detail": info.detail ?? "",
-                "live": info.transcriptPath == nil ? "no" : "yes",
+                "live": transcriptPath == nil ? "no" : "yes",
             ]
         }
         guard status != lastStatus else { return }
@@ -246,6 +331,8 @@ final class EditorSession {
 /// A tab's editor as placed in its window's layout: a resize handle and its web view.
 struct EditorPanelColumn: View {
     let controller: TerminalController
+    /// The most room the window has for the editor right now.
+    var maxWidth: CGFloat = .infinity
     @AppStorage(EditorPanel.widthKey) private var width: Double = EditorPanel.defaultWidth
     @State private var startWidth: Double?
     @State private var cursorPushed = false
@@ -268,11 +355,11 @@ struct EditorPanelColumn: View {
                                 .onChanged { value in
                                     let start = startWidth ?? width
                                     startWidth = start
-                                    width = min(max(start - value.translation.width, 320), 1600)
+                                    width = min(max(start - value.translation.width, 320), min(1600, Double(maxWidth)))
                                 }
                                 .onEnded { _ in startWidth = nil }))
             EditorWebViewHost(webView: EditorPanel.shared.session(for: controller).webView)
-                .frame(width: width)
+                .frame(width: min(CGFloat(width), maxWidth))
         }
     }
 }
@@ -301,9 +388,9 @@ private struct EditorWebViewHost: NSViewRepresentable {
 // MARK: - Menu
 
 extension EditorPanel {
-    /// Adds "Toggle Code Editor" (⌃⌘E) to the View menu.
+    /// Adds "Open Code Editor" / "Close Code Editor" (⌃⌘E) to the View menu.
     static func installMenuItem(in menu: NSMenu, at index: Int) {
-        let item = NSMenuItem(title: "Toggle Code Editor", action: #selector(EditorMenuTarget.toggle(_:)), keyEquivalent: "e")
+        let item = NSMenuItem(title: "Open Code Editor", action: #selector(EditorMenuTarget.toggle(_:)), keyEquivalent: "e")
         item.keyEquivalentModifierMask = [.control, .command]
         item.target = EditorMenuTarget.shared
         menu.insertItem(item, at: index)
@@ -319,7 +406,9 @@ final class EditorMenuTarget: NSObject, NSMenuItemValidation {
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         guard let controller = EditorPanel.frontController else { return false }
-        menuItem.state = EditorPanel.shared.isVisible(controller) ? .on : .off
+        let open = EditorPanel.shared.isVisible(controller)
+        menuItem.title = open ? "Close Code Editor" : "Open Code Editor"
+        menuItem.state = .off
         // Hermes tabs show Hermes's own app; there's no terminal folder to edit.
         return !HermesSessions.shared.isHermes(controller)
     }

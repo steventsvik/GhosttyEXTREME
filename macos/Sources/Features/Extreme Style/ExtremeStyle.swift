@@ -233,7 +233,7 @@ struct AgentBadge: View {
 
 /// 9×9 pixel icons for the chrome.
 enum PixelIcon: String {
-    case plus, globe, inbox, grid, condense, expand, close, restart, stop, play, eye, chevronDown, chevronRight, pin, bolt, more, branch, chart
+    case plus, globe, inbox, grid, condense, expand, close, restart, stop, play, eye, chevronDown, chevronRight, pin, bolt, more, branch, chart, code
 
     var rows: [String] {
         switch self {
@@ -254,6 +254,7 @@ enum PixelIcon: String {
         case .chart: return [".......oo", ".......oo", "....oo.oo", "....oo.oo", ".oo.oo.oo", ".oo.oo.oo", ".oo.oo.oo", ".oo.oo.oo", "ooooooooo"]
         case .more: return [".........", ".........", ".........", ".........", "oo.oo.oo.", "oo.oo.oo.", ".........", ".........", "........."]
         case .branch: return [".o.......", ".o.....o.", ".o.....o.", ".o....o..", ".o...o...", ".o..o....", ".oo......", ".o.......", ".o......."]
+        case .code: return [".....o...", ".....o...", "..o.o.o..", ".o..o..o.", "o...o...o", ".o..o..o.", "..o.o.o..", "...o.....", "...o....."]
         case .bolt: return ["....oo...", "...oo....", "..oo.....", ".ooooo...", "...oo....", "..oo.....", ".oo......", "oo.......", "........."]
         }
     }
@@ -479,23 +480,26 @@ struct ExtremeIconButton: View {
     var tint: Color = Extreme.gold
     var badge: Int = 0
     var badgeColor: Color = Extreme.live
+    /// Lit up while the thing it opens is showing.
+    var active: Bool = false
     let action: () -> Void
     @State private var hovering = false
 
     var body: some View {
+        let foreground = active ? Extreme.ink : hovering ? tint : Extreme.text.opacity(0.85)
         Button(action: action) {
             HStack(spacing: 7) {
-                PixelIconView(icon: icon, color: hovering ? tint : Extreme.text.opacity(0.85), pixel: 1.5)
+                PixelIconView(icon: icon, color: foreground, pixel: 1.5)
                 if let label {
                     Text(label.uppercased()).font(Extreme.font(10.5)).kerning(1.4)
-                        .foregroundColor(hovering ? tint : Extreme.text.opacity(0.85))
+                        .foregroundColor(foreground)
                         .fixedSize()
                 }
             }
             .padding(.horizontal, label == nil ? 0 : 9)
             .frame(minWidth: 30, minHeight: 28)
-            .background(hovering ? Extreme.raised : Extreme.panel)
-            .overlay(Rectangle().strokeBorder(hovering ? tint.opacity(0.8) : Extreme.lineStrong, lineWidth: 1))
+            .background(active ? tint.opacity(hovering ? 0.8 : 1) : hovering ? Extreme.raised : Extreme.panel)
+            .overlay(Rectangle().strokeBorder(active || hovering ? tint.opacity(0.8) : Extreme.lineStrong, lineWidth: 1))
             .overlay(alignment: .topTrailing) {
                 if badge > 0 {
                     Text("\(badge)")

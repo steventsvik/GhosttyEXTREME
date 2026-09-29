@@ -87,7 +87,7 @@ private struct ReviewInboxView: View {
         VStack(spacing: 10) {
             ExtremeSigil(size: 56)
             Text("All caught up").font(Extreme.font(16))
-            Text("When Claude Code or Codex finishes working in a git repository, its changes show up here to review: comment on lines and send them back, undo files, commit, or open a pull request.")
+            Text("When Claude Code or Codex finishes working, its changes show up here to review: comment on lines and send them back, or undo files. In a git repository you can also commit or open a pull request.")
                 .font(Extreme.font(12)).foregroundColor(Extreme.muted).multilineTextAlignment(.center).frame(maxWidth: 440)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -227,10 +227,12 @@ private struct ReviewItemView: View {
             if ReviewInbox.shared.surface(for: item) != nil {
                 Button { ReviewInbox.shared.focusAgent(item) } label: { Label("Go to agent", systemImage: "arrow.right.circle") }
             }
-            Button { ReviewInbox.shared.openPullRequest(item) } label: { Label("Pull request", systemImage: "arrow.triangle.pull") }
-                .help("Push this branch and open GitHub's pull request page (in a new tab)")
-            Button { showCommit = true } label: { Label("Commit…", systemImage: "checkmark.circle") }
-                .popover(isPresented: $showCommit, arrowEdge: .top) { commitPopover }
+            if item.isRepository {
+                Button { ReviewInbox.shared.openPullRequest(item) } label: { Label("Pull request", systemImage: "arrow.triangle.pull") }
+                    .help("Push this branch and open GitHub's pull request page (in a new tab)")
+                Button { showCommit = true } label: { Label("Commit…", systemImage: "checkmark.circle") }
+                    .popover(isPresented: $showCommit, arrowEdge: .top) { commitPopover }
+            }
             Button { ReviewInbox.shared.acceptAll(item) } label: { Label("Looks good", systemImage: "hand.thumbsup.fill") }
                 .help("Accept everything; the next review starts from here")
             sendButton

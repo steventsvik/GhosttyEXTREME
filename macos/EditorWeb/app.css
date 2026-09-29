@@ -59,6 +59,11 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg-edi
 #toggle-explorer { flex: none; width: 35px; height: 35px; display: flex; align-items: center; justify-content: center;
   font-size: 16px; color: var(--fg-muted); border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
 #toggle-explorer:hover { color: var(--fg); background: var(--bg-hover); }
+#panel-close { flex: none; height: 35px; display: flex; align-items: center; gap: 6px; padding: 0 12px;
+  color: var(--fg-muted); cursor: default; font-size: 10.5px; letter-spacing: 1.4px;
+  border-left: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+#panel-close .codicon { font-size: 13px; }
+#panel-close:hover { color: var(--x-ink, #0b0a09); background: var(--x-gold, #deb86e); }
 #tabs { flex: 1; min-width: 0; height: 35px; display: flex; background: var(--bg-side); overflow-x: auto; overflow-y: hidden;
   border-bottom: 1px solid var(--border); }
 #tabs::-webkit-scrollbar { height: 3px; }

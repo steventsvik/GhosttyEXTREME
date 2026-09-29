@@ -665,9 +665,9 @@ function agentItems(items, reset) {
     const node = renderItem(item);
     if (node) feed.append(node);
     if (!reset && item.kind === 'prompt' && !item.sub) clearTurn();
-    if (!reset && agent.follow && (item.kind === 'tool' || item.kind === 'result')) followAction(item);
+    if (!reset && agent.follow && panelVisible && (item.kind === 'tool' || item.kind === 'result')) followAction(item);
   }
-  if (reset && agent.follow) {
+  if (reset && agent.follow && panelVisible) {
     // Opened mid-turn: pick up the action the agent is in the middle of.
     const open = [...agent.tools.values()].filter(t => !t.mark.className.includes('mark'));
     const current = open[open.length - 1];
@@ -912,6 +912,15 @@ function agentChange(change) {
   diskChanges.set(key, Date.now());
   // New and deleted files show up in (or leave) the Explorer right away.
   if (change.created || change.deleted) refreshExplorer();
+  if (change.live && !panelVisible) {
+    // The editor is closed: remember the change; it's revealed when the editor opens.
+    rememberTurnChange(change);
+    markFile(change.path, 'edit');
+    if (!change.deleted) pendingReveal = change;
+    const open = state.tabs.find(t => samePath(t.path, change.path));
+    if (open) reloadFromDisk(open);
+    return;
+  }
   if (!change.live) {
     // No agent working: keep open tabs current, but don't animate.
     const open = state.tabs.find(t => samePath(t.path, change.path));
@@ -1422,6 +1431,8 @@ async function revisitChange(change) {
 /** The editor opened mid-turn: show everything the agent changed so far, newest first. */
 async function agentCatchUp(changes) {
   if (!changes.length) return;
+  revealedAt = Date.now();
+  pendingReveal = null;
   changes.forEach(c => turn.files.set(canonical(c.path), { ...c, time: c.mtime * 1000 }));
   renderTurnStrip();
   changes.forEach(c => markFile(c.path, 'edit'));
@@ -1451,6 +1462,41 @@ async function reloadFromDisk(tab) {
   reloading = false;
   tab.savedVersion = tab.model.getAlternativeVersionId();
 }
+
+// ---------- Opening the panel -----------------------------------------------
+
+// The app keeps this page following the agent while the panel is closed, but only records
+// what happens then. Opening the panel reveals where the agent is.
+let panelVisible = true;
+let pendingReveal = null; // the latest change made while the panel was closed
+let revealedAt = 0;       // when a catch-up last showed the agent's changes
+
+async function panelShown() {
+  // Let the app's catch-up (sent as the panel opens) land first.
+  await sleep(900);
+  if (!panelVisible || !agent.follow || userIsEditing()) return;
+  if (Date.now() - revealedAt < 3000) return;
+  if ([...lanes.values()].some(l => l.busy || l.queue.length)) return;
+  if (pendingReveal) {
+    const change = pendingReveal;
+    pendingReveal = null;
+    enqueue(laneEditing(change.path), { change: { ...change, live: true } });
+    return;
+  }
+  if (state.active) return;
+  // Nothing changed yet: go to what the agent is looking at or editing.
+  for (const { item } of [...agent.tools.values()].reverse()) {
+    if (item.action === 'edit' || item.action === 'write') {
+      const path = agentAbs(item.path);
+      if (path) { await openFile(path, { focus: false }); return; }
+      continue;
+    }
+    const looks = await looksFor(item);
+    if (looks.length) { enqueue(laneFor(item), { look: looks[looks.length - 1], item }); return; }
+  }
+}
+
+$('panel-close').onclick = () => fs('close');
 
 // Panel chrome: resize, collapse, follow toggle, clear.
 (() => {
@@ -1502,6 +1548,11 @@ window.app = {
   agentChange(change) { agentChange(change); },
   agentCatchUp(changes) { agentCatchUp(changes); },
   agentStatus(status) { agentStatus(status); },
+  setVisible(visible) {
+    const was = panelVisible;
+    panelVisible = visible;
+    if (visible && !was) panelShown();
+  },
   focus() { (editor?.getModel() ? editor : $('tree')).focus(); },
 };
 
