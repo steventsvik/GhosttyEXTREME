@@ -24,6 +24,7 @@ final class EditorWebView: WKWebView {
         configuration.userContentController.addScriptMessageHandler(files, contentWorld: .page, name: "fs")
         files.onReady = { [weak self] in self?.didBecomeReady() }
         files.onWrite = { [weak self] path, content in self?.onFileSaved?(path, content) }
+        files.onBrowser = { [weak self] body in self?.povBrowser(body) }
         uiDelegate = self
         setValue(false, forKey: "drawsBackground")
         load(URLRequest(url: URL(string: "\(Self.scheme)://app/index.html")!))
@@ -128,6 +129,42 @@ final class EditorWebView: WKWebView {
         run("app.agentStatus(\(json))")
     }
 
+    // MARK: AI POV browser
+
+    /// A real browser laid over AI POV's browser pane, showing the page the agent visits.
+    /// (Web pages mostly refuse to load inside another page, so this is a native view.)
+    private var browser: WKWebView?
+    private var browserURL: String?
+
+    private func povBrowser(_ body: [String: Any]) {
+        if body["hide"] as? Bool == true {
+            browser?.isHidden = true
+            return
+        }
+        guard let x = body["x"] as? Double, let y = body["y"] as? Double,
+              let w = body["w"] as? Double, let h = body["h"] as? Double, w > 20, h > 20 else { return }
+        let view: WKWebView
+        if let browser {
+            view = browser
+        } else {
+            let configuration = WKWebViewConfiguration()
+            configuration.websiteDataStore = .nonPersistent()
+            view = WKWebView(frame: .zero, configuration: configuration)
+            view.setValue(false, forKey: "drawsBackground")
+            addSubview(view)
+            browser = view
+        }
+        // Page coordinates are top-down; convert when this view isn't flipped.
+        let top = isFlipped ? y : bounds.height - y - h
+        view.frame = NSRect(x: x, y: top, width: w, height: h)
+        view.isHidden = false
+        if let url = body["url"] as? String, url != browserURL, let target = URL(string: url),
+           target.scheme == "https" || target.scheme == "http" {
+            browserURL = url
+            view.load(URLRequest(url: target))
+        }
+    }
+
     /// Applies the terminal's colors and font (see `EditorTheme`).
     func setTheme(_ json: String) {
         run("app.setTheme(\(json))")
@@ -211,6 +248,7 @@ private final class EditorFileBridge: NSObject, WKScriptMessageHandlerWithReply 
     var allowedFiles: Set<String> = []
     var onReady: (() -> Void)?
     var onWrite: ((String, String) -> Void)?
+    var onBrowser: (([String: Any]) -> Void)?
 
     private let maxFileSize = 8 * 1024 * 1024
     private let hidden: Set<String> = [".git", ".DS_Store", "node_modules", ".zig-cache", "zig-out", ".build", "build", "DerivedData"]
@@ -238,6 +276,11 @@ private final class EditorFileBridge: NSObject, WKScriptMessageHandlerWithReply 
         }
         if op == "ready" {
             onReady?()
+            replyHandler(true, nil)
+            return
+        }
+        if op == "browser" {
+            onBrowser?(body)
             replyHandler(true, nil)
             return
         }

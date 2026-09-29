@@ -478,11 +478,13 @@ function applyTheme(t) {
     '--bg-hover': mix(bg, fg, 0.08),
     '--bg-selected': mix(bg, fg, 0.14),
     '--bg-input': mix(bg, fg, 0.1),
-    '--border': mix(bg, fg, 0.12),
+    '--border': mix(bg, '#967446', 0.32),
     '--fg': fg,
     '--fg-muted': mix(fg, bg, 0.35),
     '--fg-dim': mix(fg, bg, 0.55),
-    '--accent': pick(12, 4, 13),
+    // GhosttyEXTREME: gold accent and bronze hairlines on the terminal's own background.
+    '--accent': '#deb86e',
+    '--font-ui': '"JetBrains Mono", Menlo, monospace',
     '--modified': pick(11, 3),
     '--font-mono': `${t.fontFamily ? `"${t.fontFamily}", ` : ''}"JetBrains Mono", Menlo, monospace`,
   };
@@ -657,6 +659,7 @@ function renderItem(item) {
 function agentItems(items, reset) {
   const feed = $('agent-feed');
   if (reset) { feed.replaceChildren(); agent.tools.clear(); }
+  if (window.pov) { if (reset) window.pov.reset(items); else items.forEach(i => window.pov.item(i, false)); }
   const stick = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 40;
   for (const item of items) {
     const node = renderItem(item);
@@ -686,6 +689,7 @@ function agentItems(items, reset) {
 
 function agentStatus(status) {
   agent.status = status;
+  window.pov?.status(status);
   const logo = $('agent-logo'), pill = $('agent-pill');
   if (!status) {
     logo.style.display = 'none';
@@ -915,6 +919,7 @@ function agentChange(change) {
     return;
   }
   rememberTurnChange(change);
+  window.pov?.diskChange(change);
   if (!agent.follow) { markFile(change.path, 'edit'); return; }
   enqueue(laneEditing(change.path), { change });
 }
