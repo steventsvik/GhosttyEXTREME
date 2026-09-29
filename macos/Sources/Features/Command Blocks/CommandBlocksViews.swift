@@ -3,9 +3,9 @@ import AppKit
 import SwiftUI
 
 private enum BlockColors {
-    static let success = Color(red: 0.25, green: 0.85, blue: 0.5)
-    static let failure = Color(red: 1.0, green: 0.36, blue: 0.4)
-    static let neutral = Color(red: 0.55, green: 0.6, blue: 0.7)
+    static let success = Extreme.live
+    static let failure = Extreme.danger
+    static let neutral = Extreme.muted
 
     static func color(_ block: CommandBlock) -> Color {
         guard let code = block.exitCode else { return neutral }
@@ -45,19 +45,14 @@ struct CommandFailureChip: View {
 
     private func chip(_ block: CommandBlock, compact: Bool) -> some View {
         HStack(spacing: 10) {
-            ZStack {
-                Circle().fill(BlockColors.failure)
-                Image(systemName: "xmark").font(.system(size: 10, weight: .black)).foregroundColor(.white)
-            }
-            .frame(width: 22, height: 22)
-            .shadow(color: BlockColors.failure.opacity(0.7), radius: 6)
+            PixelDot(color: BlockColors.failure, blinking: true, size: 8, interval: 0.4)
             VStack(alignment: .leading, spacing: 1) {
                 Text(block.command)
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .font(Extreme.font(12))
                     .lineLimit(1).truncationMode(.middle)
                     .frame(maxWidth: compact ? 150 : 260, alignment: .leading)
                 Text("failed · exit \(block.exitCode ?? 1) · \(block.durationText)")
-                    .font(.system(size: 10.5)).foregroundColor(BlockColors.failure)
+                    .font(Extreme.font(10.5)).foregroundColor(BlockColors.failure)
             }
             ForEach(AgentHandoff.targets, id: \.self) { kind in
                 Button {
@@ -67,11 +62,11 @@ struct CommandFailureChip: View {
                         VerticalTabAgentLogo(kind: kind, tint: .white).frame(width: 11, height: 11)
                         Text(compact ? "Fix" : kind == .claude ? "Fix with Claude" : "Fix with Codex")
                     }
-                    .font(.system(size: 11.5, weight: .semibold))
+                    .font(Extreme.font(11.5))
                     .foregroundColor(.white)
                     .padding(.horizontal, compact ? 8 : 10).padding(.vertical, 5)
-                    .background(Capsule().fill(BlockColors.agentButton(kind)))
-                    .contentShape(Capsule())
+                    .background(Rectangle().fill(BlockColors.agentButton(kind)))
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help("Opens \(kind.displayName) in a split with the command and its output")
@@ -81,29 +76,23 @@ struct CommandFailureChip: View {
                     CommandBlocksPanel.shared.show(controller)
                 }
             } label: {
-                Image(systemName: "list.bullet.rectangle").font(.system(size: 12, weight: .semibold))
+                Image(systemName: "list.bullet.rectangle").font(Extreme.font(12))
             }
             .buttonStyle(.plain)
-            .foregroundColor(.secondary)
+            .foregroundColor(Extreme.muted)
             .help("Show command history (⌃⌘B)")
             Button { store.dismissFailure(on: surfaceView) } label: {
-                Image(systemName: "xmark").font(.system(size: 10, weight: .bold))
+                Image(systemName: "xmark").font(Extreme.font(10))
             }
             .buttonStyle(.plain)
-            .foregroundColor(.secondary)
+            .foregroundColor(Extreme.muted)
             .help("Dismiss")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
-        .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 12).fill(.ultraThickMaterial)
-                RoundedRectangle(cornerRadius: 12).fill(BlockColors.failure.opacity(0.1))
-            })
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(LinearGradient(colors: [BlockColors.failure, .orange.opacity(0.6)], startPoint: .leading, endPoint: .trailing), lineWidth: 1.2))
-        .shadow(color: .black.opacity(0.35), radius: 14, y: 6)
+        .background(Extreme.ink)
+        .overlay(Rectangle().strokeBorder(BlockColors.failure.opacity(0.8), lineWidth: 1))
+        .shadow(color: .black.opacity(0.6), radius: 14, y: 6)
         .fixedSize()
     }
 }
@@ -139,8 +128,8 @@ struct CommandBlocksColumn: View {
             }
         }
         .frame(width: 400)
-        .background(Color(nsColor: .windowBackgroundColor).opacity(0.97))
-        .overlay(alignment: .leading) { Rectangle().fill(Color.primary.opacity(0.1)).frame(width: 1) }
+        .background(Extreme.ink)
+        .overlay(alignment: .leading) { Rectangle().fill(Extreme.text.opacity(0.1)).frame(width: 1) }
         .onReceive(timer) { _ in
             // Follow the focused pane as it changes.
             if focused !== controller.focusedSurface { focused = controller.focusedSurface }
@@ -149,12 +138,10 @@ struct CommandBlocksColumn: View {
 
     private func header(count: Int, failures: Int, surface: Ghostty.SurfaceView?) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: "list.bullet.rectangle.portrait.fill")
-                .foregroundStyle(LinearGradient(colors: [.cyan, .blue], startPoint: .top, endPoint: .bottom))
-            VStack(alignment: .leading, spacing: 0) {
-                Text("Command History").font(.system(size: 13, weight: .semibold))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("COMMAND HISTORY").font(Extreme.font(11)).kerning(2).foregroundColor(Extreme.gold)
                 Text("\(count) command\(count == 1 ? "" : "s")\(failures > 0 ? " · \(failures) failed" : "") in this pane")
-                    .font(.system(size: 10.5)).foregroundColor(.secondary)
+                    .font(Extreme.font(10.5)).foregroundColor(Extreme.muted)
             }
             Spacer()
             Picker("", selection: $failedOnly) {
@@ -179,10 +166,10 @@ struct CommandBlocksColumn: View {
 
     private var empty: some View {
         VStack(spacing: 8) {
-            Image(systemName: "terminal").font(.system(size: 30)).foregroundColor(.secondary)
-            Text(failedOnly ? "No failed commands" : "No commands yet").font(.system(size: 13, weight: .semibold))
+            Image(systemName: "terminal").font(Extreme.font(30)).foregroundColor(Extreme.muted)
+            Text(failedOnly ? "No failed commands" : "No commands yet").font(Extreme.font(13))
             Text("Commands you run in this pane show up here with their output, exit code and time. Failed ones can be sent to an agent to fix.")
-                .font(.system(size: 11.5)).foregroundColor(.secondary).multilineTextAlignment(.center)
+                .font(Extreme.font(11.5)).foregroundColor(Extreme.muted).multilineTextAlignment(.center)
         }
         .padding(30)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -200,9 +187,9 @@ private struct CommandBlockCard: View {
         let lines = block.output.split(separator: "\n", omittingEmptySubsequences: false)
         VStack(alignment: .leading, spacing: 7) {
             HStack(alignment: .top, spacing: 8) {
-                Text("$").font(.system(size: 12, weight: .bold, design: .monospaced)).foregroundColor(color)
+                Text("$").font(Extreme.font(12)).foregroundColor(color)
                 Text(block.command)
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .font(Extreme.font(12))
                     .lineLimit(3)
                     .textSelection(.enabled)
                 Spacer(minLength: 4)
@@ -216,12 +203,12 @@ private struct CommandBlockCard: View {
                 }
                 Spacer()
             }
-            .font(.system(size: 10.5))
-            .foregroundColor(.secondary)
+            .font(Extreme.font(10.5))
+            .foregroundColor(Extreme.muted)
             if !block.output.isEmpty && !block.isInteractive {
                 let preview = Text((expanded ? lines[...] : lines.suffix(6)).joined(separator: "\n"))
-                    .font(.system(size: 10.5, design: .monospaced))
-                    .foregroundColor(.primary.opacity(0.8))
+                    .font(Extreme.font(10.5))
+                    .foregroundColor(Extreme.text.opacity(0.8))
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -233,11 +220,11 @@ private struct CommandBlockCard: View {
                     }
                 }
                 .padding(8)
-                .background(RoundedRectangle(cornerRadius: 6).fill(Color.black.opacity(0.28)))
+                .background(Rectangle().fill(Color.black.opacity(0.28)))
                 if lines.count > 6 {
                     Button(expanded ? "Show less" : "Show all \(lines.count) lines") { expanded.toggle() }
                         .buttonStyle(.plain)
-                        .font(.system(size: 10.5, weight: .medium))
+                        .font(Extreme.font(10.5))
                         .foregroundColor(.accentColor)
                 }
             }
@@ -246,11 +233,11 @@ private struct CommandBlockCard: View {
             }
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: 9).fill(Color.primary.opacity(hovering ? 0.07 : 0.045)))
+        .background(Rectangle().fill(Extreme.text.opacity(hovering ? 0.07 : 0.045)))
         .overlay(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 2).fill(color).frame(width: 3).padding(.vertical, 6)
+            Rectangle().fill(color).frame(width: 3).padding(.vertical, 6)
         }
-        .overlay(RoundedRectangle(cornerRadius: 9).stroke(block.failed ? color.opacity(0.45) : Color.primary.opacity(0.07)))
+        .overlay(Rectangle().stroke(block.failed ? color.opacity(0.45) : Extreme.text.opacity(0.07)))
         .onHover { hovering = $0 }
     }
 
@@ -262,10 +249,10 @@ private struct CommandBlockCard: View {
             label = "done"
         }
         return Text(label)
-            .font(.system(size: 10, weight: .bold, design: .monospaced))
+            .font(Extreme.font(10))
             .foregroundColor(color)
             .padding(.horizontal, 6).padding(.vertical, 1.5)
-            .background(Capsule().fill(color.opacity(0.16)))
+            .background(Rectangle().fill(color.opacity(0.16)))
     }
 
     private func actions(_ surface: Ghostty.SurfaceView) -> some View {
@@ -284,10 +271,10 @@ private struct CommandBlockCard: View {
                         VerticalTabAgentLogo(kind: kind, tint: .white).frame(width: 10, height: 10)
                         Text(block.failed ? "Fix" : "Explain")
                     }
-                    .font(.system(size: 10.5, weight: .semibold))
+                    .font(Extreme.font(10.5))
                     .foregroundColor(.white)
                     .padding(.horizontal, 8).padding(.vertical, 3)
-                    .background(Capsule().fill(BlockColors.agentButton(kind)))
+                    .background(Rectangle().fill(BlockColors.agentButton(kind)))
                 }
                 .buttonStyle(.plain)
                 .help("\(block.failed ? "Fix" : "Explain") with \(kind.displayName)")
@@ -298,9 +285,9 @@ private struct CommandBlockCard: View {
     private func small(_ title: String, _ symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(title, systemImage: symbol)
-                .font(.system(size: 10.5, weight: .medium))
+                .font(Extreme.font(10.5))
                 .padding(.horizontal, 7).padding(.vertical, 3)
-                .background(Capsule().fill(Color.primary.opacity(0.08)))
+                .background(Rectangle().fill(Extreme.text.opacity(0.08)))
         }
         .buttonStyle(.plain)
     }

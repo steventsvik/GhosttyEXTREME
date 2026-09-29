@@ -59,6 +59,11 @@ fi
 
 "$zig_bin" build -Doptimize=ReleaseFast -Dxcframework-target=native
 ditto macos/build/ReleaseLocal/Ghostty.app "/Applications/GhosttyEXTREME.app"
+# Sign with a stable identity (if one is set up) so macOS keeps the app's permissions
+# across updates; an ad-hoc signature changes with every build.
+if [[ -n "${GHOSTTY_EXTREME_SIGNING_IDENTITY:-}" ]]; then
+  codesign --force --deep --sign "$GHOSTTY_EXTREME_SIGNING_IDENTITY" "/Applications/GhosttyEXTREME.app"
+fi
 ./agent-hooks/install.sh
 git push --force-with-lease origin custom
 echo "Updated to $latest and rebuilt."

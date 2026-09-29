@@ -167,36 +167,38 @@ final class UsageMonitor: ObservableObject {
 struct UsagePanel: View {
     @ObservedObject private var monitor = UsageMonitor.shared
     let palette: VerticalTabsPalette
-    static let showsPercentKey = "GhosttyExtremeUsageShowsPercent"
-    @AppStorage(UsagePanel.showsPercentKey) private var showsPercent = false
+    static let showsPercentKey = "GhosttyExtremeUsageShowPercentages"
+    /// Percentages, or when each limit resets.
+    @AppStorage(UsagePanel.showsPercentKey) private var showsPercent = true
     @State private var now = Date()
     private let clock = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
     var body: some View {
         if !monitor.entries.isEmpty {
             VStack(alignment: .leading, spacing: 9) {
-                HStack {
-                    Text("USAGE")
-                        .font(.system(size: 10, weight: .semibold))
-                        .kerning(0.4)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    Image(systemName: showsPercent ? "percent" : "chart.pie")
-                        .font(.system(size: 9.5, weight: .semibold))
-                        .foregroundColor(.secondary.opacity(0.7))
+                ExtremeSectionLabel("Usage") {
+                    Button(action: ActivityDashboard.toggle) {
+                        HStack(spacing: 5) {
+                            PixelIconView(icon: .chart, color: Extreme.gold, pixel: 1)
+                            Text("GRAPHS").font(Extreme.font(9.5)).kerning(1.2).foregroundColor(Extreme.gold)
+                        }
+                        .padding(.horizontal, 6).padding(.vertical, 3)
+                        .overlay(Rectangle().strokeBorder(Extreme.lineStrong, lineWidth: 1))
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Agent activity and usage graphs (⌃⌘A)")
                 }
                 ForEach(monitor.entries) { entry in
                     UsageRow(entry: entry, showsPercent: showsPercent, now: now)
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.top, 9)
-            .padding(.bottom, 11)
+            .padding(.top, 10)
+            .padding(.bottom, 12)
             .contentShape(Rectangle())
-            .onTapGesture {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { showsPercent.toggle() }
-            }
-            .help(showsPercent ? "Click to hide percentages" : "Click to show percentages")
+            .onTapGesture { showsPercent.toggle() }
+            .help(showsPercent ? "Click to show when limits reset" : "Click to show percentages")
             .onReceive(clock) { now = $0 }
         }
     }
@@ -208,25 +210,20 @@ private struct UsageRow: View {
     let now: Date
 
     var body: some View {
-        HStack(alignment: .center, spacing: 8) {
-            ZStack {
-                Circle().fill(entry.agent.brandColor)
-                VerticalTabAgentLogo(kind: entry.agent, tint: entry.agent.glyphOnBrand).frame(width: 11, height: 11)
-            }
-            .frame(width: 20, height: 20)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(entry.name).font(.system(size: 12, weight: .semibold))
-                Text(entry.windows.isEmpty ? "No usage yet" : entry.shortDetail)
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 7) {
+                AgentSprite(kind: entry.agent == .codex ? .codex : entry.agent, pixel: 1.5)
+                    .frame(width: 20, height: 14)
+                Text(entry.name.uppercased())
+                    .font(Extreme.font(10)).kerning(1.4)
+                    .foregroundColor(Extreme.text)
+                Text(entry.windows.isEmpty ? "no usage yet" : entry.shortDetail)
+                    .font(Extreme.font(9.5))
+                    .foregroundColor(Extreme.dim)
                     .lineLimit(1)
             }
-            .layoutPriority(-1)
-            Spacer(minLength: 4)
-            HStack(alignment: .top, spacing: 7) {
-                ForEach(entry.windows, id: \.label) { window in
-                    UsageRing(window: window, showsPercent: showsPercent, now: now)
-                }
+            ForEach(entry.windows, id: \.label) { window in
+                UsageBar(window: window, showsPercent: showsPercent, now: now)
             }
         }
         .help(tooltip)
@@ -245,13 +242,13 @@ private struct UsageRow: View {
     }
 }
 
-/// One limit window as a ring that fills clockwise with usage.
-private struct UsageRing: View {
+/// One limit window as a segmented pixel bar, like a retro meter.
+private struct UsageBar: View {
     let window: UsageWindow
     let showsPercent: Bool
     let now: Date
 
-    private static let size: CGFloat = 32
+    private static let segments = 16
 
     /// A window that has already reset shows as unused until new numbers arrive.
     private var used: Double {
@@ -259,55 +256,37 @@ private struct UsageRing: View {
         return min(max(window.usedPercent, 0), 100)
     }
 
-    /// Fixed traffic-light colors: usage levels need to read the same in every theme
-    /// (some themes' "green" palette slot isn't green).
     private var color: Color {
-        used >= 90 ? Color(red: 0.96, green: 0.36, blue: 0.33)
-            : used >= 70 ? Color(red: 0.98, green: 0.76, blue: 0.25)
-            : Color(red: 0.35, green: 0.80, blue: 0.47)
+        used >= 90 ? Extreme.danger : used >= 70 ? Extreme.warn : Extreme.gold
     }
 
     var body: some View {
-        VStack(spacing: 3) {
-            ZStack {
-                Circle().stroke(Color.primary.opacity(0.1), lineWidth: 4)
-                Circle()
-                    .trim(from: 0, to: max(0.015, used / 100))
-                    .stroke(color, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                    .shadow(color: color.opacity(0.45), radius: 2)
-                if showsPercent {
-                    Text("\(Int(used.rounded()))%")
-                        .font(.system(size: used >= 100 ? 8.5 : 9.5, weight: .bold).monospacedDigit())
-                        .minimumScaleFactor(0.7)
-                        .transition(.scale(scale: 0.5).combined(with: .opacity))
-                } else {
-                    Circle().fill(color).frame(width: 5, height: 5)
-                        .transition(.scale(scale: 0.5).combined(with: .opacity))
+        HStack(spacing: 8) {
+            Text(window.label.uppercased())
+                .font(Extreme.font(9)).kerning(1)
+                .foregroundColor(Extreme.muted)
+                .frame(width: 34, alignment: .leading)
+            HStack(spacing: 2) {
+                let lit = Int((used / 100 * Double(Self.segments)).rounded(.up))
+                ForEach(0..<Self.segments, id: \.self) { index in
+                    Rectangle()
+                        .fill(index < lit ? color : Extreme.line)
+                        .frame(height: 6)
                 }
             }
-            .frame(width: Self.size, height: Self.size)
-            .padding(2)
-            Text(window.label)
-                .font(.system(size: 9.5, weight: .medium))
-                .foregroundColor(.secondary)
-            if showsPercent, let reset = resetText {
-                Text(reset)
-                    .font(.system(size: 9).monospacedDigit())
-                    .foregroundColor(.secondary.opacity(0.8))
-                    .transition(.opacity)
-            }
+            Text(showsPercent ? "\(Int(used.rounded()))%" : resetText)
+                .font(Extreme.font(9.5))
+                .foregroundColor(used >= 70 ? color : Extreme.muted)
+                .frame(width: 38, alignment: .trailing)
         }
-        .frame(minWidth: Self.size + 6)
-        .animation(.easeOut(duration: 0.6), value: used)
     }
 
-    private var resetText: String? {
-        guard let resetsAt = window.resetsAt, resetsAt > now else { return nil }
-        let seconds = resetsAt.timeIntervalSince(now)
-        if seconds < 3600 { return "\(Int(seconds / 60))m" }
-        if seconds < 86_400 { return "\(Int(seconds / 3600))h \(Int(seconds.truncatingRemainder(dividingBy: 3600) / 60))m" }
-        return "\(Int(seconds / 86_400))d \(Int(seconds.truncatingRemainder(dividingBy: 86_400) / 3600))h"
+    private var resetText: String {
+        guard let resetsAt = window.resetsAt, resetsAt > now else { return "—" }
+        let minutes = Int(resetsAt.timeIntervalSince(now) / 60)
+        if minutes < 60 { return "\(minutes)m" }
+        if minutes < 48 * 60 { return "\(minutes / 60)h" }
+        return "\(minutes / 1440)d"
     }
 }
 #endif

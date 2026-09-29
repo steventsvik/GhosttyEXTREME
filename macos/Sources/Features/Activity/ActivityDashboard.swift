@@ -174,26 +174,13 @@ private struct ActivityDashboardView: View {
             }
         }
         .frame(minWidth: 900, minHeight: 600)
-        .background(
-            LinearGradient(colors: [Color.blue.opacity(0.05), Color.purple.opacity(0.04), .clear],
-                           startPoint: .topLeading, endPoint: .bottomTrailing))
         .onAppear { model.load() }
     }
 
     private var header: some View {
         HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 9)
-                    .fill(LinearGradient(colors: [Color(red: 0.36, green: 0.55, blue: 1.0), .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
-                Image(systemName: "chart.bar.xaxis").font(.system(size: 15, weight: .bold)).foregroundColor(.white)
-            }
-            .frame(width: 34, height: 34)
-            .shadow(color: .blue.opacity(0.4), radius: 8)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Agent Activity").font(.system(size: 17, weight: .bold))
-                Text("From Claude Code and Codex session history on this Mac")
-                    .font(.system(size: 12)).foregroundColor(.secondary)
-            }
+            ExtremeWindowTitle(icon: nil, title: "Agent Activity",
+                               subtitle: "From Claude Code and Codex session history on this Mac", sigil: true)
             Spacer()
             if model.loading { ProgressView().controlSize(.small) }
             Picker("", selection: $model.range) {
@@ -223,32 +210,26 @@ private struct ActivityDashboardView: View {
         ]
         return LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 12)], spacing: 12) {
             ForEach(Array(items.enumerated()), id: \.offset) { index, item in
-                let colors = ActivityColors.tiles[index % ActivityColors.tiles.count]
                 VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 6) {
-                        Image(systemName: item.0).font(.system(size: 12, weight: .bold))
-                        Text(item.1).font(.system(size: 11.5, weight: .semibold))
-                    }
-                    .foregroundColor(.white.opacity(0.9))
-                    Text(item.2).font(.system(size: 26, weight: .heavy, design: .rounded)).foregroundColor(.white)
-                    Text(item.3).font(.system(size: 11)).foregroundColor(.white.opacity(0.8))
+                    Text(item.1.uppercased()).font(Extreme.font(9.5)).kerning(1.6).foregroundColor(Extreme.muted)
+                    Text(item.2).font(Extreme.font(26)).foregroundColor(index == 0 ? Extreme.core : Extreme.gold)
+                    Text(item.3).font(Extreme.font(10)).foregroundColor(Extreme.dim)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(14)
-                .background(RoundedRectangle(cornerRadius: 14).fill(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)))
-                .shadow(color: colors[0].opacity(0.35), radius: 10, y: 4)
+                .extremePanel(active: index == 0)
             }
         }
     }
 
     private func card<Content: View>(_ title: String, _ symbol: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label(title, systemImage: symbol).font(.system(size: 13, weight: .semibold))
+            ExtremeSectionLabel(title)
             content()
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color(nsColor: .controlBackgroundColor).opacity(0.75)))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.primary.opacity(0.08)))
+        .background(Rectangle().fill(Extreme.panel.opacity(0.75)))
+        .overlay(Rectangle().stroke(Extreme.text.opacity(0.08)))
     }
 
     private var dailyChart: some View {
@@ -263,7 +244,7 @@ private struct ActivityDashboardView: View {
             .chartForegroundStyleScale(["Claude Code": ActivityColors.claude, "Codex": ActivityColors.codex])
             .chartYAxis {
                 AxisMarks { value in
-                    AxisGridLine().foregroundStyle(Color.primary.opacity(0.08))
+                    AxisGridLine().foregroundStyle(Extreme.text.opacity(0.08))
                     AxisValueLabel { if let minutes = value.as(Double.self) { Text(formatDuration(minutes * 60)) } }
                 }
             }
@@ -284,9 +265,9 @@ private struct ActivityDashboardView: View {
             VStack(alignment: .leading, spacing: 14) {
                 GeometryReader { geometry in
                     HStack(spacing: 2) {
-                        RoundedRectangle(cornerRadius: 5).fill(ActivityColors.claude)
+                        Rectangle().fill(ActivityColors.claude)
                             .frame(width: max(4, geometry.size.width * claude / total))
-                        RoundedRectangle(cornerRadius: 5).fill(ActivityColors.codex)
+                        Rectangle().fill(ActivityColors.codex)
                     }
                 }
                 .frame(height: 16)
@@ -294,18 +275,14 @@ private struct ActivityDashboardView: View {
                     let kind = VerticalTabAgentKind(id: agent)
                     let list = model.sessions.filter { $0.agent == agent }
                     HStack(spacing: 10) {
-                        ZStack {
-                            Circle().fill(ActivityColors.agent(agent))
-                            VerticalTabAgentLogo(kind: kind, tint: .white).frame(width: 13, height: 13)
-                        }
-                        .frame(width: 28, height: 28)
+                        AgentBadge(kind: kind, size: 28)
                         VStack(alignment: .leading, spacing: 1) {
-                            Text(kind.displayName).font(.system(size: 12.5, weight: .semibold))
+                            Text(kind.displayName).font(Extreme.font(12.5))
                             Text("\(list.count) sessions · \(list.map(\.prompts).reduce(0, +)) prompts")
-                                .font(.system(size: 10.5)).foregroundColor(.secondary)
+                                .font(Extreme.font(10.5)).foregroundColor(Extreme.muted)
                         }
                         Spacer()
-                        Text(formatDuration(seconds)).font(.system(size: 14, weight: .bold, design: .rounded))
+                        Text(formatDuration(seconds)).font(Extreme.font(14))
                             .foregroundColor(ActivityColors.agent(agent))
                     }
                 }
@@ -323,10 +300,8 @@ private struct ActivityDashboardView: View {
                 HStack(spacing: 4) {
                     ForEach(0..<24, id: \.self) { hour in
                         let level = hours[hour] / peak
-                        RoundedRectangle(cornerRadius: 5)
-                            .fill(level == 0 ? AnyShapeStyle(Color.primary.opacity(0.06))
-                                  : AnyShapeStyle(LinearGradient(colors: [Color.cyan.opacity(0.35 + level * 0.65), Color.purple.opacity(0.3 + level * 0.7)],
-                                                                 startPoint: .bottom, endPoint: .top)))
+                        Rectangle()
+                            .fill(level == 0 ? Extreme.line : Extreme.gold.opacity(0.2 + level * 0.8))
                             .frame(height: 34)
                             .help("\(hour):00 · \(formatDuration(hours[hour]))")
                     }
@@ -334,7 +309,7 @@ private struct ActivityDashboardView: View {
                 HStack {
                     ForEach([0, 6, 12, 18, 23], id: \.self) { hour in
                         Text(hour == 0 ? "12am" : hour == 12 ? "12pm" : hour < 12 ? "\(hour)am" : "\(hour - 12)pm")
-                            .font(.system(size: 9.5)).foregroundColor(.secondary)
+                            .font(Extreme.font(9.5)).foregroundColor(Extreme.muted)
                         if hour != 23 { Spacer() }
                     }
                 }
@@ -345,25 +320,25 @@ private struct ActivityDashboardView: View {
     private var projectsTable: some View {
         card("Projects", "folder.fill") {
             if model.projects.isEmpty {
-                Text("No agent activity in this period.").font(.system(size: 12)).foregroundColor(.secondary)
+                Text("No agent activity in this period.").font(Extreme.font(12)).foregroundColor(Extreme.muted)
             }
             let peak = max(model.projects.first?.total ?? 1, 1)
             VStack(spacing: 10) {
                 ForEach(model.projects.prefix(12)) { project in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Circle().fill(LocalhostProject(folder: project.name).color).frame(width: 8, height: 8)
-                            Text(project.name).font(.system(size: 12.5, weight: .semibold)).lineLimit(1)
+                            Rectangle().fill(LocalhostProject(folder: project.name).color).frame(width: 6, height: 6)
+                            Text(project.name).font(Extreme.font(12.5)).lineLimit(1)
                             Spacer()
                             Text("\(project.prompts) prompts · \(project.files) files · \(formatCount(project.lines)) lines")
-                                .font(.system(size: 10.5)).foregroundColor(.secondary)
-                            Text(formatDuration(project.total)).font(.system(size: 12, weight: .bold, design: .rounded))
+                                .font(Extreme.font(10.5)).foregroundColor(Extreme.muted)
+                            Text(formatDuration(project.total)).font(Extreme.font(12))
                                 .frame(width: 58, alignment: .trailing)
                         }
                         GeometryReader { geometry in
                             HStack(spacing: 1) {
-                                Capsule().fill(ActivityColors.claude).frame(width: geometry.size.width * project.claude / peak)
-                                Capsule().fill(ActivityColors.codex).frame(width: geometry.size.width * project.codex / peak)
+                                Rectangle().fill(ActivityColors.claude).frame(width: geometry.size.width * project.claude / peak)
+                                Rectangle().fill(ActivityColors.codex).frame(width: geometry.size.width * project.codex / peak)
                                 Spacer(minLength: 0)
                             }
                         }
@@ -377,7 +352,7 @@ private struct ActivityDashboardView: View {
     private var recentSessions: some View {
         card("Recent sessions", "list.bullet.rectangle.fill") {
             if model.sessions.isEmpty {
-                Text("No sessions in this period.").font(.system(size: 12)).foregroundColor(.secondary)
+                Text("No sessions in this period.").font(Extreme.font(12)).foregroundColor(Extreme.muted)
             }
             VStack(spacing: 6) {
                 ForEach(model.sessions.prefix(14)) { session in
@@ -395,13 +370,9 @@ private struct ActivitySessionRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            ZStack {
-                Circle().fill(ActivityColors.agent(session.agent))
-                VerticalTabAgentLogo(kind: session.kind, tint: .white).frame(width: 11, height: 11)
-            }
-            .frame(width: 24, height: 24)
+            AgentBadge(kind: session.kind, size: 24)
             VStack(alignment: .leading, spacing: 1) {
-                Text(session.label).font(.system(size: 12, weight: .medium)).lineLimit(1)
+                Text(session.label).font(Extreme.font(12)).lineLimit(1)
                 HStack(spacing: 6) {
                     Text(session.project)
                     if let end = session.end {
@@ -409,7 +380,7 @@ private struct ActivitySessionRow: View {
                     }
                     if !session.files.isEmpty { Text("· \(session.files.count) files") }
                 }
-                .font(.system(size: 10.5)).foregroundColor(.secondary).lineLimit(1)
+                .font(Extreme.font(10.5)).foregroundColor(Extreme.muted).lineLimit(1)
             }
             Spacer(minLength: 6)
             if hovering, session.cwd != nil {
@@ -417,13 +388,13 @@ private struct ActivitySessionRow: View {
                     .controlSize(.small)
                     .help("Continue this session in a new tab")
             } else {
-                Text(formatDuration(active)).font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                Text(formatDuration(active)).font(Extreme.font(11.5))
                     .foregroundColor(ActivityColors.agent(session.agent))
             }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(hovering ? 0.07 : 0.03)))
+        .background(Rectangle().fill(Extreme.text.opacity(hovering ? 0.07 : 0.03)))
         .onHover { hovering = $0 }
     }
 

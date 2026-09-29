@@ -105,13 +105,8 @@ private struct VerticalTabsPanelStyle: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .background(
-                ZStack {
-                    RoundedRectangle(cornerRadius: 9).fill(palette.background)
-                    RoundedRectangle(cornerRadius: 9).fill(Color.white.opacity(0.07))
-                })
-            .overlay(RoundedRectangle(cornerRadius: 9).stroke(Color.white.opacity(0.12), lineWidth: 1))
-            .shadow(color: .black.opacity(0.45), radius: 14, y: 6)
+            .extremePanel(active: true, fill: Extreme.ink)
+            .shadow(color: .black.opacity(0.6), radius: 14, y: 6)
     }
 }
 
@@ -144,51 +139,51 @@ private struct VerticalTabsHoverCard: View {
             if let label = pane.badge.pillLabel, let symbol = pane.badge.symbol {
                 let color = pane.badge.color(palette)
                 HStack(spacing: 6) {
-                    Image(systemName: symbol).font(.system(size: 11, weight: .bold))
-                    Text(label).font(.system(size: 12, weight: .medium))
+                    Image(systemName: symbol).font(Extreme.font(11))
+                    Text(label).font(Extreme.font(12))
                 }
                 .foregroundColor(color)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(RoundedRectangle(cornerRadius: 5).fill(color.opacity(0.16)))
+                .background(Rectangle().fill(color.opacity(0.16)))
             }
 
             if let pwd = pane.pwd {
                 HStack(spacing: 6) {
                     Text(VerticalTabsHoverCard.abbreviate(pwd))
-                        .foregroundColor(.primary)
+                        .foregroundColor(Extreme.text)
                     if let info = git.info(for: pwd) {
-                        Text("•").foregroundColor(.secondary)
-                        Image(systemName: "arrow.triangle.branch").font(.system(size: 11))
-                            .foregroundColor(.secondary)
-                        Text(info.branch).foregroundColor(.primary)
+                        Text("•").foregroundColor(Extreme.muted)
+                        Image(systemName: "arrow.triangle.branch").font(Extreme.font(11))
+                            .foregroundColor(Extreme.muted)
+                        Text(info.branch).foregroundColor(Extreme.text)
                         if info.added > 0 { Text("+\(info.added)").foregroundColor(palette.green) }
                         if info.removed > 0 { Text("-\(info.removed)").foregroundColor(palette.red) }
                     }
                 }
-                .font(.system(size: 12.5, design: .monospaced))
+                .font(Extreme.font(12.5))
                 .lineLimit(1)
                 .truncationMode(.head)
             }
 
             Text(pane.title.isEmpty ? hover.tabTitle : pane.title)
-                .font(.system(size: 15, design: .monospaced))
-                .foregroundColor(.primary.opacity(0.85))
+                .font(Extreme.font(15))
+                .foregroundColor(Extreme.text.opacity(0.85))
                 .lineLimit(2)
 
             if let agent = pane.agent {
                 if let task = agent.task {
                     Text(task)
-                        .font(.system(size: 12.5))
-                        .foregroundColor(.secondary)
+                        .font(Extreme.font(12.5))
+                        .foregroundColor(Extreme.muted)
                         .lineLimit(3)
                 }
                 if let detail = agent.detail {
                     HStack(alignment: .top, spacing: 6) {
-                        Image(systemName: "arrow.turn.down.right").font(.system(size: 10))
+                        Image(systemName: "arrow.turn.down.right").font(Extreme.font(10))
                         Text(detail).lineLimit(2)
                     }
-                    .font(.system(size: 12, design: .monospaced))
+                    .font(Extreme.font(12))
                     .foregroundColor(agent.activity.badge.color(palette))
                 }
                 HStack(spacing: 6) {
@@ -196,15 +191,15 @@ private struct VerticalTabsHoverCard: View {
                         .frame(width: 14, height: 14)
                     Text(agent.kind.displayName)
                 }
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
+                .font(Extreme.font(12))
+                .foregroundColor(Extreme.muted)
             } else {
                 HStack(spacing: 6) {
-                    Text(">_").font(.system(size: 11, weight: .bold, design: .monospaced))
+                    Text(">_").font(Extreme.font(11))
                     Text("Terminal")
                 }
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
+                .font(Extreme.font(12))
+                .foregroundColor(Extreme.muted)
             }
         }
         .padding(14)
@@ -316,8 +311,8 @@ private struct VerticalTabsMenuPanel: View {
                         if let ns = color.displayColor {
                             Circle().fill(Color(nsColor: ns))
                         } else {
-                            Circle().stroke(Color.primary.opacity(0.6), lineWidth: 1.5)
-                            Rectangle().fill(Color.primary.opacity(0.6)).frame(width: 1.5).rotationEffect(.degrees(45))
+                            Circle().stroke(Extreme.text.opacity(0.6), lineWidth: 1.5)
+                            Rectangle().fill(Extreme.text.opacity(0.6)).frame(width: 1.5).rotationEffect(.degrees(45))
                         }
                     }
                     .frame(width: 16, height: 16)
@@ -343,13 +338,13 @@ private struct VerticalTabsMenuItem: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 13))
-                .foregroundColor(enabled ? .primary : .secondary.opacity(0.6))
+                .font(Extreme.font(13))
+                .foregroundColor(enabled ? .primary : Extreme.muted.opacity(0.6))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 5)
                 .background(
-                    RoundedRectangle(cornerRadius: 5)
+                    Rectangle()
                         .fill(Color.white.opacity(hovering && enabled ? 0.1 : 0))
                         .padding(.horizontal, 5))
                 .contentShape(Rectangle())

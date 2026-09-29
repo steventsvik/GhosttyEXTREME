@@ -264,7 +264,7 @@ private struct VerticalTabsResizeHandle: View {
 
     var body: some View {
         Rectangle()
-            .fill(Color.primary.opacity(0.1))
+            .fill(Extreme.line)
             .frame(width: 1)
             .overlay(
                 Color.clear
@@ -323,18 +323,17 @@ struct VerticalTabsSidebar: View {
         let localhostTabs = model.tabs.filter(isLocalhost)
 
         VStack(spacing: 0) {
-            // Full labels when there's room, compact ones in a narrow sidebar.
-            ViewThatFits(in: .horizontal) {
-                headerButtons(compact: false)
-                headerButtons(compact: true)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 10)
-
-            Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 1)
+            header
+            Rectangle().fill(Extreme.line).frame(height: 1)
 
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
+                LazyVStack(alignment: .leading, spacing: 6) {
+                    ExtremeSectionLabel("Sessions") {
+                        Text("\(model.tabs.count - localhostTabs.count)")
+                            .font(Extreme.font(10)).foregroundColor(Extreme.dim)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.top, 10)
                     ForEach(Array(model.tabs.enumerated()), id: \.element.id) { index, entry in
                         if let controller = entry.controller, !isLocalhost(entry) {
                             VerticalTabGroup(
@@ -346,93 +345,72 @@ struct VerticalTabsSidebar: View {
                                 collapsed: collapse.collapsed.contains(entry.id),
                                 palette: palette,
                                 onToggleCollapse: { collapse.toggle(entry.id) })
-                            Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 1)
                         }
                     }
                 }
+                .padding(.bottom, 10)
             }
 
             // Localhost sessions stay in view, whatever else is open.
             if !localhostTabs.isEmpty {
-                Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 1)
+                Rectangle().fill(Extreme.line).frame(height: 1)
                 LocalhostSidebarSection(entries: localhostTabs, owner: owner)
             }
 
             // Bottom left: live usage of the user's AI subscriptions.
-            Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 1)
+            Rectangle().fill(Extreme.line).frame(height: 1)
             UsagePanel(palette: palette)
         }
         .background(sidebarBackground)
+        .onAppear { Extreme.registerFonts() }
     }
 
+    /// The terminal's own background, a shade deeper.
     private var sidebarBackground: some View {
         ZStack {
             config.backgroundColor.opacity(config.backgroundOpacity)
-            Color.primary.opacity(0.04)
+            Color.black.opacity(0.28)
         }
     }
 
-    private func headerButtons(compact: Bool) -> some View {
-        HStack(spacing: 8) {
-            VerticalTabsHeaderButton(
-                symbol: condensed ? "list.bullet.below.rectangle" : "line.3.horizontal",
-                title: compact ? (condensed ? "Expand" : "Condense") : (condensed ? "Expand view" : "Condense view")
-            ) { condensed.toggle() }
-            NewSessionMenu(owner: owner, compact: compact)
-            LocalhostHeaderButton()
-            ReviewHeaderButton()
-            MissionControlButton()
+    /// The sigil and wordmark, then the tools.
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 9) {
+                ExtremeSigil(size: 26)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("GHOSTTY·EXTREME")
+                        .font(Extreme.font(11.5))
+                        .kerning(2.2)
+                        .foregroundColor(Extreme.gold)
+                    Text("Α Ι · ΣΥΣΤΗΜΑ")
+                        .font(Extreme.font(9))
+                        .kerning(2.4)
+                        .foregroundColor(Extreme.dim)
+                }
+                Spacer(minLength: 0)
+            }
+            HStack(spacing: 6) {
+                NewSessionMenu(owner: owner, compact: true)
+                Spacer(minLength: 0)
+                ExtremeIconButton(icon: condensed ? .expand : .condense,
+                                  help: condensed ? "Expand view" : "Condense view") { condensed.toggle() }
+                LocalhostHeaderButton()
+                ReviewHeaderButton()
+                ExtremeIconButton(icon: .chart, help: "Agent activity and usage graphs (⌃⌘A)", action: ActivityDashboard.toggle)
+                MissionControlButton()
+            }
         }
+        .padding(.horizontal, 12)
+        .padding(.top, 12)
+        .padding(.bottom, 10)
     }
 }
 
 /// Opens Mission Control (⌃⌘M); a dot shows when an agent is waiting.
 private struct MissionControlButton: View {
-    @State private var hovering = false
-
     var body: some View {
-        Button(action: MissionControl.toggle) {
-            Image(systemName: "square.grid.2x2")
-                .font(.system(size: 12, weight: .semibold))
-                .frame(width: 30, height: 26)
-                .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(hovering ? 0.08 : 0.03)))
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.primary.opacity(0.14), lineWidth: 1))
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
-        .help("Mission Control (⌃⌘M)")
-    }
-}
-
-private struct VerticalTabsHeaderButton: View {
-    let symbol: String
-    let title: String
-    var shortcut: String?
-    let action: () -> Void
-    @State private var hovering = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: symbol).font(.system(size: 11, weight: .semibold))
-                Text(title).font(.system(size: 12, weight: .medium)).lineLimit(1).fixedSize()
-                if let shortcut {
-                    Text(shortcut).font(.system(size: 11)).foregroundColor(.secondary)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.primary.opacity(hovering ? 0.08 : 0.03)))
-            .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(Color.primary.opacity(0.14), lineWidth: 1))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
+        ExtremeIconButton(icon: .grid, help: "Mission Control (⌃⌘M)", action: MissionControl.toggle)
     }
 }
 
@@ -450,53 +428,32 @@ struct VerticalTabAvatar: View {
     var size: CGFloat = 22
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            circle
-                .frame(width: size * 0.76, height: size * 0.76)
-
-            if let symbol = badge.symbol {
-                ZStack {
-                    // Same layers as the sidebar background, so the ring reads as a cutout.
-                    Circle().fill(palette.background)
-                    Circle().fill(Color.primary.opacity(0.04 + rowHighlight))
-                    Image(systemName: symbol)
-                        .resizable()
-                        .scaledToFit()
-                        .fontWeight(.bold)
-                        .foregroundColor(badge.color(palette))
-                        .frame(width: size * 0.3, height: size * 0.3)
-                }
-                .frame(width: size * 0.57, height: size * 0.57)
-                .offset(x: size * 0.43, y: size * 0.43)
+        ZStack(alignment: .bottomTrailing) {
+            AgentSprite(kind: agent, pixel: size >= 22 ? 2 : 1.5)
+                .frame(width: size, height: size)
+                .background(Extreme.ink.opacity(0.6))
+                .overlay(Rectangle().strokeBorder(Extreme.line, lineWidth: 1))
+            switch badge {
+            case .none:
+                EmptyView()
+            case .working:
+                PixelSpinner(color: Extreme.core, pixel: size >= 22 ? 3 : 2.5)
+                    .padding(2)
+                    .background(Extreme.ink)
+                    .overlay(Rectangle().strokeBorder(Extreme.core.opacity(0.4), lineWidth: 1))
+                    .offset(x: 6, y: 6)
+            default:
+                // Waiting on you blinks fast; finished or failed stays lit.
+                let urgent = badge == .permission || badge == .input || badge == .bell
+                PixelDot(color: badge.color(palette), blinking: urgent, size: size >= 22 ? 7 : 5,
+                         interval: urgent ? 0.3 : 0.5)
+                    .padding(2)
+                    .background(Extreme.ink)
+                    .offset(x: 3, y: 3)
             }
         }
-        .frame(width: size, height: size, alignment: .topLeading)
+        .frame(width: size, height: size)
         .help(badge.helpText)
-    }
-
-    @ViewBuilder
-    private var circle: some View {
-        if let agent {
-            ZStack {
-                Circle().fill(agent.brandColor)
-                if agent.logoAsset != nil {
-                    VerticalTabAgentLogo(kind: agent, tint: agent.glyphOnBrand)
-                        .frame(width: size * (agent.logoIsTemplate ? 0.43 : 0.62),
-                               height: size * (agent.logoIsTemplate ? 0.43 : 0.62))
-                } else {
-                    Image(systemName: "sparkle")
-                        .font(.system(size: size * 0.34, weight: .bold))
-                        .foregroundColor(agent.glyphOnBrand)
-                }
-            }
-        } else {
-            ZStack {
-                Circle().fill(Color.primary.opacity(0.12))
-                Text(">_")
-                    .font(.system(size: size * 0.3, weight: .bold, design: .monospaced))
-                    .foregroundColor(.secondary)
-            }
-        }
     }
 }
 
@@ -508,15 +465,14 @@ private struct VerticalTabKindLabel: View {
     var body: some View {
         HStack(spacing: 5) {
             if let agent {
-                VerticalTabAgentLogo(kind: agent.kind, tint: agent.kind.standaloneLogoColor)
-                    .frame(width: 12, height: 12)
                 Text(agent.kind.displayName)
+                    .foregroundColor(agent.kind == .claude ? Extreme.claude : Extreme.text.opacity(0.8))
                     .fixedSize()
                 if agent.activity != .ready {
                     Text("·").fixedSize()
                     Text(agent.activity.label)
                         .foregroundColor(agent.activity.badge == .none
-                            ? .secondary : agent.activity.badge.color(palette))
+                            ? Extreme.muted : agent.activity.badge.color(palette))
                         .fixedSize()
                 }
                 if let detail = agent.detail {
@@ -527,12 +483,11 @@ private struct VerticalTabKindLabel: View {
                         .layoutPriority(-1)
                 }
             } else {
-                Text(">_").font(.system(size: 10, weight: .bold, design: .monospaced))
                 Text("Terminal")
             }
         }
-        .font(.system(size: 11))
-        .foregroundColor(.secondary)
+        .font(Extreme.font(10.5))
+        .foregroundColor(Extreme.muted)
         .lineLimit(1)
     }
 }
@@ -570,14 +525,13 @@ private struct VerticalTabGroup: View {
                             palette: palette)
                     }
                 }
-                .padding(.horizontal, 8)
-                .padding(.bottom, 10)
+                .padding(.horizontal, 6)
+                .padding(.bottom, 6)
             }
         }
-        .background(colorCard)
-        // Colored tabs sit as a card inset from the sidebar edges, like Warp.
-        .padding(.horizontal, tabColor.displayColor == nil ? 0 : 6)
-        .padding(.vertical, tabColor.displayColor == nil ? 0 : 5)
+        .extremePanel(active: isSelected, fill: isSelected ? Extreme.panel : Color.clear)
+        .overlay(alignment: .leading) { colorCard }
+        .padding(.horizontal, 8)
         .onAppear(perform: update)
         .onReceive(VerticalTabsTicker.shared.publisher) {
             // Every tab window carries a sidebar, but only the one on screen needs
@@ -590,56 +544,46 @@ private struct VerticalTabGroup: View {
     private var header: some View {
         HStack(spacing: 6) {
             if pins.isPinned(controller) {
-                Image(systemName: "pin.fill")
-                    .font(.system(size: 9))
-                    .foregroundColor(.secondary)
-                    .rotationEffect(.degrees(45))
+                PixelIconView(icon: .pin, color: Extreme.bronze, pixel: 1)
             }
             Text(Self.cleanTitle(snapshot.title).uppercased())
-                .font(.system(size: 10.5, weight: .semibold))
-                .kerning(0.4)
-                .foregroundColor(isSelected ? .primary : (tabColor.displayColor == nil ? .secondary : .primary.opacity(0.85)))
+                .font(Extreme.font(10))
+                .kerning(1.6)
+                .foregroundColor(isSelected ? Extreme.gold : Extreme.muted)
                 .lineLimit(1)
                 .truncationMode(.tail)
             if snapshot.hasUnseen {
-                Circle().fill(palette.green).frame(width: 6, height: 6)
+                PixelDot(color: Extreme.live, blinking: true, size: 6)
                     .help("Agent finished while you were away")
             }
             Spacer(minLength: 4)
             if index <= 9 {
-                Text("⌘\(index)").font(.system(size: 10)).foregroundColor(.secondary.opacity(0.7))
+                Text("⌘\(index)").font(Extreme.font(9.5)).foregroundColor(Extreme.dim)
             }
             Text(snapshot.panes.count == 1 ? "1 pane" : "\(snapshot.panes.count) panes")
-                .font(.system(size: 10.5))
-                .foregroundColor(.secondary.opacity(0.8))
+                .font(Extreme.font(9.5))
+                .foregroundColor(Extreme.dim)
                 .fixedSize()
             Button(action: onToggleCollapse) {
-                Image(systemName: collapsed ? "chevron.right" : "chevron.down")
-                    .font(.system(size: 9, weight: .semibold))
+                PixelIconView(icon: collapsed ? .chevronRight : .chevronDown, color: Extreme.muted, pixel: 1.25)
                     .frame(width: 14, height: 14)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .foregroundColor(.secondary)
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 10)
-        .padding(.bottom, collapsed ? 10 : 6)
+        .padding(.horizontal, 10)
+        .padding(.top, 8)
+        .padding(.bottom, collapsed ? 8 : 5)
         .contentShape(Rectangle())
         .onTapGesture { select() }
         .contextMenu { contextMenu }
     }
 
-    /// A colored tab is filled with a light, translucent tint of its color and outlined in
-    /// it, so the whole tab reads as that color while its text stays legible.
+    /// A colored tab carries its color as a bar down its left edge.
     @ViewBuilder
     private var colorCard: some View {
         if let ns = tabColor.displayColor {
-            // A softened, pastel version of the color, as Warp uses.
-            let pastel = Color(nsColor: ns.usingColorSpace(.sRGB)?.blended(withFraction: 0.3, of: .white) ?? ns)
-            RoundedRectangle(cornerRadius: 9)
-                .fill(pastel.opacity(isSelected ? 0.55 : 0.44))
-                .overlay(RoundedRectangle(cornerRadius: 9).stroke(pastel.opacity(isSelected ? 0.95 : 0.7), lineWidth: 1))
+            Rectangle().fill(Color(nsColor: ns)).frame(width: 2).padding(.vertical, 1)
         }
     }
 
@@ -712,13 +656,19 @@ private struct VerticalTabPaneRow: View {
             if condensed { condensedBody } else { expandedBody }
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, condensed ? 5 : 8)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.primary.opacity(isSelected ? 0.09 : (hovering ? 0.05 : 0))))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.primary.opacity(isSelected ? 0.18 : 0), lineWidth: 1))
+        .padding(.vertical, condensed ? 5 : 7)
+        .background(isSelected ? Extreme.raised : (hovering ? Extreme.raised.opacity(0.6) : Color.clear))
+        .overlay(Rectangle().strokeBorder(isSelected ? Extreme.lineStrong : Color.clear, lineWidth: 1))
+        .overlay(alignment: .leading) {
+            if isSelected { Rectangle().fill(Extreme.gold).frame(width: 2) }
+        }
+        .overlay(alignment: .bottom) {
+            if pane.badge == .working {
+                PixelActivityBar(color: Extreme.core).padding(.horizontal, 8).padding(.bottom, 2)
+            } else if pane.badge == .permission || pane.badge == .input {
+                Rectangle().fill(Extreme.warn).frame(height: 2).padding(.horizontal, 8).padding(.bottom, 1)
+            }
+        }
         .overlay(alignment: .topTrailing) {
             if hovering || overlay.menu?.pane.id == pane.id { hoverChip.padding(.top, 4).padding(.trailing, 4) }
         }
@@ -767,7 +717,7 @@ private struct VerticalTabPaneRow: View {
     /// Warp's floating ⋮ / × controls shown on the hovered row.
     private var hoverChip: some View {
         HStack(spacing: 0) {
-            chipButton("ellipsis", rotated: true, help: "More") {
+            chipButton(.more, help: "More") {
                 overlay.dismissAll()
                 overlay.menu = .init(
                     controller: controller,
@@ -775,7 +725,7 @@ private struct VerticalTabPaneRow: View {
                     tabColor: tabColor,
                     anchor: CGRect(x: frame.maxX - 56, y: frame.minY + 4, width: 26, height: 26))
             }
-            chipButton("xmark", help: controller.surfaceTree.count > 1 ? "Close Pane" : "Close Tab") {
+            chipButton(.close, help: controller.surfaceTree.count > 1 ? "Close Pane" : "Close Tab") {
                 overlay.dismissAll()
                 if controller.surfaceTree.count > 1, let surface = pane.surface {
                     controller.closeSurface(surface)
@@ -785,24 +735,17 @@ private struct VerticalTabPaneRow: View {
             }
         }
         .padding(2)
-        .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 6).fill(palette.background)
-                RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.09))
-            })
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.14), lineWidth: 1))
+        .background(Extreme.ink)
+        .overlay(Rectangle().strokeBorder(Extreme.lineStrong, lineWidth: 1))
     }
 
-    private func chipButton(_ symbol: String, rotated: Bool = false, help: String, action: @escaping () -> Void) -> some View {
+    private func chipButton(_ icon: PixelIcon, help: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 11, weight: .semibold))
-                .rotationEffect(.degrees(rotated ? 90 : 0))
+            PixelIconView(icon: icon, color: Extreme.muted, pixel: 1)
                 .frame(width: 22, height: 20)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .foregroundColor(.secondary)
         .help(help)
     }
 
@@ -824,8 +767,12 @@ private struct VerticalTabPaneRow: View {
                 HStack(spacing: 6) {
                     VerticalTabKindLabel(agent: pane.agent, palette: palette)
                     Spacer(minLength: 4)
-                    ReviewPaneChip(surface: pane.surface)
-                    diffChip
+                    // A pending review already counts the changes.
+                    if let surface = pane.surface, ReviewInbox.shared.item(for: surface)?.stage == .ready {
+                        ReviewPaneChip(surface: surface)
+                    } else {
+                        diffChip
+                    }
                 }
             }
         }
@@ -847,18 +794,16 @@ private struct VerticalTabPaneRow: View {
                 .lineLimit(1)
                 .truncationMode(.head)
             if let gitInfo {
-                Text("•").foregroundColor(.secondary)
-                Image(systemName: "arrow.triangle.branch")
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
+                PixelIconView(icon: .branch, color: Extreme.bronze, pixel: 1)
                 Text(gitInfo.branch)
+                    .foregroundColor(Extreme.bronze)
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .layoutPriority(1)
             }
         }
-        .font(.system(size: 12))
-        .foregroundColor(.primary.opacity(0.9))
+        .font(Extreme.font(11.5))
+        .foregroundColor(Extreme.text)
     }
 
     /// What the pane is doing: the agent's task, or the terminal's title/command.
@@ -866,14 +811,14 @@ private struct VerticalTabPaneRow: View {
     private var primaryLine: some View {
         if let agent = pane.agent {
             Text(agent.task ?? VerticalTabGroup.cleanTitle(pane.title))
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
+                .font(Extreme.font(11))
+                .foregroundColor(Extreme.muted)
                 .lineLimit(1)
                 .truncationMode(.tail)
         } else {
             Text(pane.title.isEmpty ? "Terminal" : pane.title)
-                .font(.system(size: 12, design: .monospaced))
-                .foregroundColor(.secondary)
+                .font(Extreme.font(11))
+                .foregroundColor(Extreme.muted)
                 .lineLimit(1)
                 .truncationMode(.tail)
         }
@@ -883,13 +828,14 @@ private struct VerticalTabPaneRow: View {
     private var diffChip: some View {
         if let gitInfo, gitInfo.added > 0 || gitInfo.removed > 0 {
             HStack(spacing: 3) {
-                if gitInfo.added > 0 { Text("+\(gitInfo.added)").foregroundColor(palette.green) }
-                if gitInfo.removed > 0 { Text("-\(gitInfo.removed)").foregroundColor(palette.red) }
+                if gitInfo.added > 0 { Text("+\(gitInfo.added)").foregroundColor(Extreme.live) }
+                if gitInfo.removed > 0 { Text("-\(gitInfo.removed)").foregroundColor(Extreme.danger) }
             }
-            .font(.system(size: 11).monospacedDigit())
+            .font(Extreme.font(10.5))
+            .overlay(Rectangle().strokeBorder(Extreme.line, lineWidth: 1).padding(-1))
             .padding(.horizontal, 5)
             .padding(.vertical, 1)
-            .background(RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.06)))
+            .background(Rectangle().fill(Extreme.ink))
             .fixedSize()
         }
     }

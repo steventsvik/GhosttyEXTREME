@@ -54,26 +54,13 @@ private struct LocalhostManagerView: View {
             }
         }
         .frame(minWidth: 620, minHeight: 420)
-        .background(
-            LinearGradient(colors: [Color.cyan.opacity(0.05), Color.purple.opacity(0.05), .clear],
-                           startPoint: .topLeading, endPoint: .bottomTrailing))
         .onAppear { store.scanOthers = true }
         .onDisappear { store.scanOthers = false }
     }
 
     private var header: some View {
         HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 9)
-                    .fill(LinearGradient(colors: [.cyan, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
-                Image(systemName: "globe").font(.system(size: 17, weight: .bold)).foregroundColor(.white)
-            }
-            .frame(width: 34, height: 34)
-            .shadow(color: .cyan.opacity(0.4), radius: 8)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Localhost").font(.system(size: 17, weight: .bold))
-                Text(summary).font(.system(size: 12)).foregroundColor(.secondary)
-            }
+            ExtremeWindowTitle(icon: .globe, title: "Localhost", subtitle: summary)
             Spacer()
             if store.sessions.contains(where: \.isRunning) {
                 Button(role: .destructive) { store.stopAll() } label: { Label("Stop all", systemImage: "stop.fill") }
@@ -82,8 +69,8 @@ private struct LocalhostManagerView: View {
                 let owner = TerminalController.all.first { $0.window?.isKeyWindow == true } ?? TerminalController.all.first
                 LocalhostManager.showNewServer(folder: owner?.focusedSurface?.pwd, from: owner)
             } label: { Label("New server", systemImage: "plus") }
-                .buttonStyle(.borderedProminent)
-                .tint(.cyan)
+                .buttonStyle(ExtremeButtonStyle(prominent: true))
+                
         }
         .padding(.horizontal, 18)
         .padding(.top, 30)
@@ -102,12 +89,10 @@ private struct LocalhostManagerView: View {
 
     private var emptyState: some View {
         VStack(spacing: 10) {
-            Image(systemName: "globe.americas.fill")
-                .font(.system(size: 40))
-                .foregroundStyle(LinearGradient(colors: [.cyan, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
-            Text("No localhost sessions").font(.system(size: 15, weight: .semibold))
+            PixelIconView(icon: .globe, color: Extreme.bronze, pixel: 4)
+            Text("No localhost sessions").font(Extreme.font(15))
             Text("When Claude Code starts a dev server it opens here, in its own tab that keeps running after the agent is done. You can also start one yourself, or move a server that's already running.")
-                .font(.system(size: 12)).foregroundColor(.secondary).multilineTextAlignment(.center)
+                .font(Extreme.font(12)).foregroundColor(Extreme.muted).multilineTextAlignment(.center)
                 .frame(maxWidth: 420)
         }
         .frame(maxWidth: .infinity)
@@ -117,10 +102,10 @@ private struct LocalhostManagerView: View {
     private func projectSection(_ project: LocalhostProject, _ sessions: [LocalhostSession]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                RoundedRectangle(cornerRadius: 3).fill(project.color).frame(width: 4, height: 18)
-                Text(project.name).font(.system(size: 14, weight: .bold))
+                Rectangle().fill(project.color).frame(width: 4, height: 18)
+                Text(project.name).font(Extreme.font(14))
                 Text((project.root as NSString).abbreviatingWithTildeInPath)
-                    .font(.system(size: 11, design: .monospaced)).foregroundColor(.secondary)
+                    .font(Extreme.font(11)).foregroundColor(Extreme.muted)
                     .lineLimit(1).truncationMode(.middle)
                 Spacer()
                 Button {
@@ -145,10 +130,10 @@ private struct LocalhostManagerView: View {
         if !store.others.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
-                    Image(systemName: "dot.radiowaves.left.and.right").foregroundColor(.orange)
-                    Text("Other servers on this Mac").font(.system(size: 14, weight: .bold))
+                    PixelDot(color: Extreme.warn, size: 6)
+                    Text("Other servers on this Mac").font(Extreme.font(14))
                     Text("not in a localhost session, so they stop when whatever started them does")
-                        .font(.system(size: 11)).foregroundColor(.secondary)
+                        .font(Extreme.font(11)).foregroundColor(Extreme.muted)
                 }
                 VStack(spacing: 8) {
                     ForEach(store.others) { server in
@@ -171,19 +156,19 @@ private struct LocalhostManagerCard: View {
                 HStack(spacing: 8) {
                     LocalhostPulse(color: session.statusColor, active: session.state == .live, size: 8)
                     Text(session.statusLabel)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(Extreme.font(12))
                         .foregroundColor(session.statusColor)
                     if session.state == .live, let since = session.liveSince {
                         Text("for \(localhostUptime(since: since, now: context.date))")
-                            .font(.system(size: 11)).foregroundColor(.secondary)
+                            .font(Extreme.font(11)).foregroundColor(Extreme.muted)
                     }
                     Spacer()
                     LocalhostFrameworkBadge(framework: session.framework)
                 }
                 LocalhostURLPill(session: session, large: true)
                 Text("$ " + session.command)
-                    .font(.system(size: 11.5, design: .monospaced))
-                    .foregroundColor(.primary.opacity(0.8))
+                    .font(Extreme.font(11.5))
+                    .foregroundColor(Extreme.text.opacity(0.8))
                     .lineLimit(2)
                     .textSelection(.enabled)
                 HStack(spacing: 12) {
@@ -201,8 +186,8 @@ private struct LocalhostManagerCard: View {
                         }
                     }
                 }
-                .font(.system(size: 10.5))
-                .foregroundColor(.secondary)
+                .font(Extreme.font(10.5))
+                .foregroundColor(Extreme.muted)
                 .lineLimit(1)
                 Divider().opacity(0.5)
                 HStack(spacing: 6) {
@@ -232,17 +217,7 @@ private struct LocalhostManagerCard: View {
             }
         }
         .padding(14)
-        .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 12).fill(Color(nsColor: .controlBackgroundColor).opacity(0.7))
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(LinearGradient(colors: [accent.opacity(hovering ? 0.2 : 0.12), .clear], startPoint: .topLeading, endPoint: .bottomTrailing))
-            })
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(LinearGradient(colors: [accent.opacity(0.8), Color.cyan.opacity(0.35)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                        lineWidth: 1))
-        .shadow(color: session.state == .live ? accent.opacity(0.25) : .clear, radius: 8)
+        .extremePanel(active: hovering || session.state == .live, fill: hovering ? Extreme.raised : Extreme.panel)
         .onHover { hovering = $0 }
     }
 }
@@ -253,17 +228,17 @@ private struct LocalhostOtherRow: View {
     var body: some View {
         let color = server.project?.color ?? .orange
         HStack(spacing: 10) {
-            RoundedRectangle(cornerRadius: 2).fill(color).frame(width: 3, height: 34)
+            Rectangle().fill(color).frame(width: 3, height: 34)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
-                    Text(server.displayName).font(.system(size: 13, weight: .semibold))
+                    Text(server.displayName).font(Extreme.font(13))
                     LocalhostFrameworkBadge(framework: server.framework, compact: true)
                     Text(server.ports.map { ":\($0)" }.joined(separator: " "))
-                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .font(Extreme.font(12))
                         .foregroundColor(color)
                 }
                 Text(server.rootCommand)
-                    .font(.system(size: 11, design: .monospaced)).foregroundColor(.secondary)
+                    .font(Extreme.font(11)).foregroundColor(Extreme.muted)
                     .lineLimit(1).truncationMode(.middle)
             }
             Spacer()
@@ -284,8 +259,8 @@ private struct LocalhostOtherRow: View {
         }
         .controlSize(.small)
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.045)))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.primary.opacity(0.08)))
+        .background(Rectangle().fill(Extreme.text.opacity(0.045)))
+        .overlay(Rectangle().stroke(Extreme.text.opacity(0.08)))
     }
 
     private func confirm(_ title: String, _ detail: String, button: String, action: () -> Void) {
@@ -311,25 +286,24 @@ private struct LocalhostNewServerView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
-                Image(systemName: "globe").font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(LinearGradient(colors: [.cyan, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
+                PixelIconView(icon: .globe, color: Extreme.gold, pixel: 2)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("New localhost server").font(.system(size: 17, weight: .semibold))
+                    Text("New localhost server").font(Extreme.font(17))
                     Text("Runs in its own tab and keeps running until you stop it.")
-                        .font(.system(size: 12)).foregroundColor(.secondary)
+                        .font(Extreme.font(12)).foregroundColor(Extreme.muted)
                 }
             }
             HStack {
                 Text((folder as NSString).abbreviatingWithTildeInPath)
-                    .font(.system(size: 12, design: .monospaced)).lineLimit(1).truncationMode(.head)
+                    .font(Extreme.font(12)).lineLimit(1).truncationMode(.head)
                 Spacer()
                 Button("Choose…") { chooseFolder() }.controlSize(.small)
             }
             .padding(8)
-            .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.05)))
+            .background(Rectangle().fill(Extreme.text.opacity(0.05)))
 
             if !scripts.isEmpty {
-                Text("From package.json").font(.system(size: 12, weight: .semibold))
+                Text("From package.json").font(Extreme.font(12))
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], spacing: 8) {
                     ForEach(scripts, id: \.name) { script in
                         let run = manager == "npm" || manager == "bun" ? "\(manager) run \(script.name)" : "\(manager) \(script.name)"
@@ -337,13 +311,13 @@ private struct LocalhostNewServerView: View {
                             command = run
                         } label: {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(run).font(.system(size: 12, weight: .semibold, design: .monospaced))
-                                Text(script.body).font(.system(size: 10, design: .monospaced)).foregroundColor(.secondary).lineLimit(1)
+                                Text(run).font(Extreme.font(12))
+                                Text(script.body).font(Extreme.font(10)).foregroundColor(Extreme.muted).lineLimit(1)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(8)
-                            .background(RoundedRectangle(cornerRadius: 8).fill(command == run ? Color.cyan.opacity(0.2) : Color.primary.opacity(0.05)))
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(command == run ? Color.cyan : Color.primary.opacity(0.1)))
+                            .background(Rectangle().fill(command == run ? Color.cyan.opacity(0.2) : Extreme.text.opacity(0.05)))
+                            .overlay(Rectangle().stroke(command == run ? Color.cyan : Extreme.text.opacity(0.1)))
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -351,10 +325,10 @@ private struct LocalhostNewServerView: View {
                 }
             }
             VStack(alignment: .leading, spacing: 5) {
-                Text("Command").font(.system(size: 12, weight: .semibold))
+                Text("Command").font(Extreme.font(12))
                 TextField("npm run dev", text: $command)
                     .textFieldStyle(.roundedBorder)
-                    .font(.system(size: 13, design: .monospaced))
+                    .font(Extreme.font(13))
                     .onSubmit(start)
             }
             Spacer(minLength: 0)
@@ -363,8 +337,8 @@ private struct LocalhostNewServerView: View {
                 Button("Cancel") { AgentToolWindows.close(id: "localhost-new") }.keyboardShortcut(.cancelAction)
                 Button("Start server", action: start)
                     .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent)
-                    .tint(.cyan)
+                    .buttonStyle(ExtremeButtonStyle(prominent: true))
+                    
                     .disabled(command.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
@@ -453,11 +427,11 @@ private struct LocalhostPreviewView: View {
                     Image(systemName: "globe").foregroundColor(.cyan)
                     TextField("", text: $model.address)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 12, design: .monospaced))
+                        .font(Extreme.font(12))
                         .onSubmit { model.go() }
                 }
                 .padding(.horizontal, 10).padding(.vertical, 5)
-                .background(Capsule().fill(Color.primary.opacity(0.07)))
+                .background(Rectangle().fill(Extreme.text.opacity(0.07)))
                 Button { if let url = model.webView.url { NSWorkspace.shared.open(url) } } label: {
                     Label("Open in browser", systemImage: "safari")
                 }

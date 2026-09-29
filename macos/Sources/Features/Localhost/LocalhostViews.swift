@@ -4,54 +4,31 @@ import SwiftUI
 
 // MARK: - Shared pieces
 
-/// A dot that radiates while the server is live.
+/// A square status light that blinks in steps while the server is live.
 struct LocalhostPulse: View {
     let color: Color
     let active: Bool
-    var size: CGFloat = 8
-    @State private var animate = false
+    var size: CGFloat = 6
 
     var body: some View {
-        ZStack {
-            if active {
-                Circle()
-                    .fill(color.opacity(0.55))
-                    .frame(width: size, height: size)
-                    .scaleEffect(animate ? 2.6 : 1)
-                    .opacity(animate ? 0 : 0.9)
-            }
-            Circle().fill(color).frame(width: size, height: size)
-                .shadow(color: active ? color.opacity(0.8) : .clear, radius: 3)
-        }
-        .frame(width: size * 2.6, height: size * 2.6)
-        .onAppear {
-            guard active else { return }
-            withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) { animate = true }
-        }
-        .onChange(of: active) { now in
-            animate = false
-            guard now else { return }
-            withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) { animate = true }
-        }
+        PixelDot(color: color, blinking: active, size: size)
     }
 }
 
-/// The framework's badge: symbol and name in its color.
+/// The framework's badge: its name in its color, in a hairline box.
 struct LocalhostFrameworkBadge: View {
     let framework: LocalhostFramework
     var compact = false
 
     var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: framework.symbol).font(.system(size: compact ? 9 : 10, weight: .bold))
-            if !compact { Text(framework.name).font(.system(size: 10.5, weight: .semibold)) }
-        }
-        .foregroundColor(framework.color)
-        .padding(.horizontal, compact ? 5 : 7)
-        .padding(.vertical, 2.5)
-        .background(Capsule().fill(framework.color.opacity(0.16)))
-        .overlay(Capsule().stroke(framework.color.opacity(0.35), lineWidth: 0.5))
-        .fixedSize()
+        Text(compact ? String(framework.name.prefix(3)).uppercased() : framework.name.uppercased())
+            .font(Extreme.font(8.5))
+            .kerning(1.2)
+            .foregroundColor(framework.color == .white ? Extreme.text : framework.color)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1.5)
+            .overlay(Rectangle().strokeBorder(Extreme.line, lineWidth: 1))
+            .fixedSize()
     }
 }
 
@@ -62,33 +39,24 @@ struct LocalhostURLPill: View {
     @State private var hovering = false
 
     var body: some View {
-        let accent = session.project.color
         Button {
             LocalhostSessions.shared.openInBrowser(session.url)
         } label: {
             HStack(spacing: 5) {
-                Image(systemName: "globe").font(.system(size: large ? 12 : 10, weight: .semibold))
                 if let port = session.ports.first {
-                    Text("localhost").foregroundColor(.primary.opacity(0.75))
-                        + Text(verbatim: ":\(port)").foregroundColor(.primary).bold()
+                    Text("localhost").foregroundColor(Extreme.muted)
+                        + Text(verbatim: ":\(port)").foregroundColor(Extreme.gold)
+                    Text("↗").foregroundColor(hovering ? Extreme.gold : Extreme.dim)
                 } else {
-                    Text(session.state == .starting ? "starting…" : "not listening")
-                        .foregroundColor(.secondary)
-                }
-                if session.url != nil {
-                    Image(systemName: "arrow.up.right").font(.system(size: large ? 10 : 8.5, weight: .bold))
-                        .foregroundColor(accent)
+                    Text(session.state == .starting ? "starting…" : "not listening").foregroundColor(Extreme.dim)
                 }
             }
-            .font(.system(size: large ? 14 : 12, design: .monospaced))
-            .padding(.horizontal, large ? 12 : 9)
-            .padding(.vertical, large ? 6 : 4)
-            .background(
-                Capsule().fill(
-                    LinearGradient(colors: [accent.opacity(hovering ? 0.36 : 0.24), Color.cyan.opacity(hovering ? 0.22 : 0.12)],
-                                   startPoint: .leading, endPoint: .trailing)))
-            .overlay(Capsule().stroke(accent.opacity(0.55), lineWidth: 1))
-            .contentShape(Capsule())
+            .font(Extreme.font(large ? 13 : 11))
+            .padding(.horizontal, large ? 10 : 7)
+            .padding(.vertical, large ? 5 : 3)
+            .background(hovering ? Extreme.raised : Extreme.ink)
+            .overlay(Rectangle().strokeBorder(hovering ? Extreme.lineStrong : Extreme.line, lineWidth: 1))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(session.url == nil)
@@ -97,23 +65,40 @@ struct LocalhostURLPill: View {
     }
 }
 
-/// Round icon button used on cards.
+/// Square icon button used on cards (takes an SF Symbol name for the manager's controls).
 struct LocalhostIconButton: View {
     let symbol: String
     let help: String
-    var tint: Color = .secondary
+    var tint: Color = Extreme.gold
     var size: CGFloat = 22
     let action: () -> Void
     @State private var hovering = false
 
+    private var pixelIcon: PixelIcon? {
+        switch symbol {
+        case "arrow.clockwise": return .restart
+        case "stop.fill": return .stop
+        case "play.fill": return .play
+        case "xmark": return .close
+        case "eye": return .eye
+        default: return nil
+        }
+    }
+
     var body: some View {
         Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: size * 0.46, weight: .bold))
-                .foregroundColor(hovering ? tint : .secondary)
-                .frame(width: size, height: size)
-                .background(Circle().fill(Color.primary.opacity(hovering ? 0.14 : 0.06)))
-                .contentShape(Circle())
+            Group {
+                if let pixelIcon {
+                    PixelIconView(icon: pixelIcon, color: hovering ? tint : Extreme.muted, pixel: 1)
+                } else {
+                    Image(systemName: symbol).font(.system(size: size * 0.42, weight: .bold))
+                        .foregroundColor(hovering ? tint : Extreme.muted)
+                }
+            }
+            .frame(width: size, height: size)
+            .background(hovering ? Extreme.raised : Color.clear)
+            .overlay(Rectangle().strokeBorder(hovering ? Extreme.lineStrong : Extreme.line, lineWidth: 1))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
@@ -131,62 +116,58 @@ func localhostUptime(since date: Date?, now: Date) -> String {
 
 // MARK: - Sidebar
 
-/// The "LOCALHOST" block at the end of the sidebar: one card per session tab.
+/// The LOCALHOST block above the usage panel: one row per session tab.
 struct LocalhostSidebarSection: View {
     let entries: [VerticalTabEntry]
     let owner: TerminalController
     @ObservedObject private var store = LocalhostSessions.shared
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Image(systemName: "globe").font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(LinearGradient(colors: [.cyan, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
-                Text("LOCALHOST").font(.system(size: 10.5, weight: .semibold)).kerning(0.4)
+        VStack(alignment: .leading, spacing: 4) {
+            ExtremeSectionLabel("Localhost") {
                 if store.liveCount > 0 {
-                    Text("\(store.liveCount) live")
-                        .font(.system(size: 9.5, weight: .bold))
-                        .foregroundColor(.black.opacity(0.8))
-                        .padding(.horizontal, 5).padding(.vertical, 1)
-                        .background(Capsule().fill(Color(red: 0.25, green: 0.92, blue: 0.55)))
+                    Text("\(store.liveCount) LIVE").font(Extreme.font(9)).kerning(1.2).foregroundColor(Extreme.live)
                 }
-                Spacer()
-                Button("Manage") { LocalhostManager.show() }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 10.5, weight: .medium))
-                    .foregroundColor(.accentColor)
-                    .help("Localhost manager (⌃⌘L)")
+                Button { LocalhostManager.show() } label: {
+                    PixelIconView(icon: .grid, color: Extreme.muted, pixel: 1).frame(width: 16, height: 16)
+                }
+                .buttonStyle(.plain)
+                .help("Localhost manager (⌃⌘L)")
+                Button { LocalhostManager.showNewServer(folder: owner.focusedSurface?.pwd, from: owner) } label: {
+                    PixelIconView(icon: .plus, color: Extreme.muted, pixel: 1).frame(width: 16, height: 16)
+                }
+                .buttonStyle(.plain)
+                .help("New localhost server")
             }
-            .foregroundColor(.secondary)
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 12)
             .padding(.top, 10)
+            .padding(.bottom, 2)
 
-            // Two cards show at once; more scroll.
-            if entries.count > 2 {
-                ScrollView { cards.padding(.vertical, 4) }.frame(height: 300)
+            // Four rows show at once; more scroll.
+            if entries.count > 4 {
+                ScrollView { rows }.frame(height: 4 * 44)
             } else {
-                cards
+                rows
             }
         }
-        .padding(.bottom, 10)
-        .animation(.spring(response: 0.4, dampingFraction: 0.75), value: entries.map(\.id))
+        .padding(.bottom, 8)
+        .animation(.easeOut(duration: 0.15), value: entries.map(\.id))
     }
 
-    private var cards: some View {
-        VStack(spacing: 8) {
+    private var rows: some View {
+        VStack(spacing: 2) {
             ForEach(entries) { entry in
                 if let controller = entry.controller, let session = store.session(for: controller) {
                     LocalhostTabCard(session: session, controller: controller, isSelected: controller === owner)
                         .padding(.horizontal, 8)
-                        .transition(.asymmetric(insertion: .scale(scale: 0.9).combined(with: .opacity),
-                                                removal: .opacity))
+                        .transition(.opacity)
                 }
             }
         }
     }
 }
 
-/// A localhost session in the sidebar: a glowing card with the URL front and center.
+/// A localhost session in the sidebar: status light, project and port; controls on hover.
 struct LocalhostTabCard: View {
     let session: LocalhostSession
     let controller: TerminalController
@@ -194,83 +175,56 @@ struct LocalhostTabCard: View {
     @State private var hovering = false
 
     var body: some View {
-        let accent = session.project.color
         let live = session.state == .live
         TimelineView(.periodic(from: .now, by: 1)) { context in
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 8) {
-                    ZStack(alignment: .bottomTrailing) {
-                        Circle()
-                            .fill(LinearGradient(colors: [accent, .cyan.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                            .frame(width: 26, height: 26)
-                            .overlay(Image(systemName: "globe").font(.system(size: 13, weight: .bold)).foregroundColor(.white))
-                        LocalhostPulse(color: session.statusColor, active: live, size: 7)
-                            .offset(x: 7, y: 7)
+                    if session.state == .starting {
+                        PixelSpinner(color: Extreme.warn, pixel: 2)
+                    } else {
+                        PixelDot(color: session.statusColor, size: 6)
                     }
-                    .frame(width: 30, height: 30)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(session.project.name)
-                            .font(.system(size: 13, weight: .semibold))
-                            .lineLimit(1)
-                        HStack(spacing: 4) {
-                            Text(session.statusLabel).foregroundColor(session.statusColor)
-                            if live, let since = session.liveSince {
-                                Text("· \(localhostUptime(since: since, now: context.date))").foregroundColor(.secondary)
-                            }
-                        }
-                        .font(.system(size: 10.5, weight: .medium))
-                    }
-                    Spacer(minLength: 4)
-                    LocalhostFrameworkBadge(framework: session.framework)
-                }
-
-                HStack(spacing: 6) {
-                    LocalhostURLPill(session: session)
-                    ForEach(session.ports.dropFirst().prefix(2), id: \.self) { port in
-                        Text(verbatim: ":\(port)")
-                            .font(.system(size: 10.5, design: .monospaced))
-                            .foregroundColor(.secondary)
-                    }
-                    Spacer(minLength: 0)
-                }
-
-                HStack(spacing: 6) {
-                    Text("$ " + session.command)
-                        .font(.system(size: 10.5, design: .monospaced))
-                        .foregroundColor(.secondary)
+                    Text(session.project.name)
+                        .font(Extreme.font(12))
+                        .foregroundColor(isSelected ? Extreme.text : Extreme.text.opacity(0.85))
                         .lineLimit(1)
-                        .truncationMode(.tail)
                     Spacer(minLength: 4)
                     if hovering {
                         controls
-                    } else if let agent = session.agent {
-                        HStack(spacing: 3) {
-                            VerticalTabAgentLogo(kind: agent, tint: agent.standaloneLogoColor).frame(width: 10, height: 10)
-                            Text("by \(agent.displayName)")
+                    } else if let port = session.ports.first {
+                        Button { LocalhostSessions.shared.openInBrowser(session.url) } label: {
+                            Text(verbatim: ":\(port)").font(Extreme.font(12)).foregroundColor(Extreme.gold)
                         }
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                        .fixedSize()
+                        .buttonStyle(.plain)
+                        .help("Open \(session.url?.absoluteString ?? "") in your browser")
+                    } else {
+                        Text(session.statusLabel.lowercased()).font(Extreme.font(10)).foregroundColor(session.statusColor)
                     }
                 }
-                .frame(height: 22)
+                HStack(spacing: 6) {
+                    Text(session.framework.name.uppercased()).kerning(1)
+                        .foregroundColor(session.framework.color == .white ? Extreme.muted : session.framework.color.opacity(0.85))
+                    if live, let since = session.liveSince {
+                        Text("· \(localhostUptime(since: since, now: context.date))")
+                    } else if !live {
+                        Text("· \(session.statusLabel.lowercased())")
+                    }
+                    if let agent = session.agent {
+                        Text("· by \(agent.displayName)")
+                    }
+                    Spacer(minLength: 0)
+                }
+                .font(Extreme.font(9))
+                .foregroundColor(Extreme.dim)
+                .lineLimit(1)
+                .padding(.leading, 14)
             }
         }
-        .padding(10)
-        .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 11).fill(Color.black.opacity(0.18))
-                RoundedRectangle(cornerRadius: 11)
-                    .fill(LinearGradient(colors: [accent.opacity(isSelected ? 0.22 : 0.13), Color.cyan.opacity(0.05)],
-                                         startPoint: .topLeading, endPoint: .bottomTrailing))
-            })
-        .overlay(
-            RoundedRectangle(cornerRadius: 11)
-                .stroke(LinearGradient(colors: [accent.opacity(isSelected ? 0.95 : 0.6), Color.cyan.opacity(isSelected ? 0.7 : 0.35)],
-                                       startPoint: .topLeading, endPoint: .bottomTrailing),
-                        lineWidth: isSelected ? 1.5 : 1))
-        .shadow(color: live ? accent.opacity(isSelected ? 0.45 : 0.25) : .clear, radius: isSelected ? 10 : 6)
-        .contentShape(RoundedRectangle(cornerRadius: 11))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(isSelected ? Extreme.raised : (hovering ? Extreme.raised.opacity(0.6) : Color.clear))
+        .overlay(Rectangle().strokeBorder(isSelected ? Extreme.live.opacity(0.7) : Color.clear, lineWidth: 1))
+        .contentShape(Rectangle())
         .onHover { hovering = $0 }
         .onTapGesture { LocalhostSessions.shared.focus(session) }
         .contextMenu { menu }
@@ -278,24 +232,21 @@ struct LocalhostTabCard: View {
     }
 
     private var controls: some View {
-        HStack(spacing: 4) {
-            LocalhostIconButton(symbol: "eye", help: "Preview in GhosttyEXTREME", tint: .cyan, size: 20) {
+        HStack(spacing: 3) {
+            LocalhostIconButton(symbol: "eye", help: "Preview in GhosttyEXTREME", tint: Extreme.core, size: 18) {
                 if let url = session.url { LocalhostPreview.show(url, title: session.project.name) }
             }
             .disabled(session.url == nil)
+            LocalhostIconButton(symbol: session.isRunning ? "arrow.clockwise" : "play.fill",
+                                help: session.isRunning ? "Restart" : "Start again", tint: Extreme.warn, size: 18) {
+                LocalhostSessions.shared.restart(session)
+            }
             if session.isRunning {
-                LocalhostIconButton(symbol: "arrow.clockwise", help: "Restart", tint: .orange, size: 20) {
-                    LocalhostSessions.shared.restart(session)
-                }
-                LocalhostIconButton(symbol: "stop.fill", help: "Stop the server (the tab stays)", tint: .red, size: 20) {
+                LocalhostIconButton(symbol: "stop.fill", help: "Stop the server (the tab stays)", tint: Extreme.danger, size: 18) {
                     LocalhostSessions.shared.stop(session)
                 }
-            } else {
-                LocalhostIconButton(symbol: "play.fill", help: "Start again", tint: .green, size: 20) {
-                    LocalhostSessions.shared.restart(session)
-                }
             }
-            LocalhostIconButton(symbol: "xmark", help: "Stop and close the tab", tint: .red, size: 20) {
+            LocalhostIconButton(symbol: "xmark", help: "Stop and close the tab", tint: Extreme.danger, size: 18) {
                 LocalhostSessions.shared.close(session)
             }
         }
@@ -321,33 +272,11 @@ struct LocalhostTabCard: View {
 /// Sidebar header button: opens the localhost manager, with the live count.
 struct LocalhostHeaderButton: View {
     @ObservedObject private var store = LocalhostSessions.shared
-    @State private var hovering = false
 
     var body: some View {
-        Button(action: LocalhostManager.toggle) {
-            ZStack(alignment: .topTrailing) {
-                Image(systemName: "globe")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(store.liveCount > 0
-                        ? AnyShapeStyle(LinearGradient(colors: [.cyan, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
-                        : AnyShapeStyle(Color.primary))
-                    .frame(width: 30, height: 26)
-                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(hovering ? 0.08 : 0.03)))
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.primary.opacity(0.14), lineWidth: 1))
-                if store.liveCount > 0 {
-                    Text("\(store.liveCount)")
-                        .font(.system(size: 8.5, weight: .heavy))
-                        .foregroundColor(.black)
-                        .frame(minWidth: 13, minHeight: 13)
-                        .background(Circle().fill(Color(red: 0.25, green: 0.92, blue: 0.55)))
-                        .offset(x: 4, y: -4)
-                }
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
-        .help("Localhost manager (⌃⌘L)")
+        ExtremeIconButton(icon: .globe, help: "Localhost manager (⌃⌘L)",
+                          tint: Extreme.live, badge: store.liveCount, badgeColor: Extreme.live,
+                          action: LocalhostManager.toggle)
     }
 }
 
@@ -359,38 +288,26 @@ struct LocalhostToastView: View {
     let dismiss: () -> Void
 
     var body: some View {
-        let accent = session.project.color
         HStack(spacing: 12) {
-            ZStack {
-                Circle().fill(LinearGradient(colors: [accent, .cyan], startPoint: .topLeading, endPoint: .bottomTrailing))
-                Image(systemName: "globe").font(.system(size: 17, weight: .bold)).foregroundColor(.white)
-            }
-            .frame(width: 38, height: 38)
-            .shadow(color: accent.opacity(0.6), radius: 8)
+            PixelIconView(icon: .globe, color: Extreme.live, pixel: 2)
             VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text("\(session.project.name) is live").font(.system(size: 13, weight: .semibold))
+                HStack(spacing: 8) {
+                    Text("\(session.project.name.uppercased()) IS LIVE")
+                        .font(Extreme.font(11)).kerning(1.6).foregroundColor(Extreme.gold)
                     LocalhostFrameworkBadge(framework: session.framework, compact: true)
                 }
-                Text(session.agent.map { "Started by \($0.displayName) in its own tab · keeps running after it's done" }
-                     ?? "Running in its own tab")
-                    .font(.system(size: 11)).foregroundColor(.secondary).lineLimit(1)
+                Text(session.agent.map { "started by \($0.displayName) · its own tab · keeps running" } ?? "running in its own tab")
+                    .font(Extreme.font(10)).foregroundColor(Extreme.muted).lineLimit(1)
             }
             LocalhostURLPill(session: session, large: true)
-            LocalhostIconButton(symbol: "xmark", help: "Dismiss", size: 20, action: dismiss)
+            Button(action: dismiss) { PixelIconView(icon: .close, color: Extreme.dim, pixel: 1) }
+                .buttonStyle(.plain)
+                .help("Dismiss")
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-        .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 14).fill(.ultraThickMaterial)
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(LinearGradient(colors: [accent.opacity(0.2), Color.cyan.opacity(0.08)], startPoint: .leading, endPoint: .trailing))
-            })
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(LinearGradient(colors: [accent, .cyan.opacity(0.6)], startPoint: .leading, endPoint: .trailing), lineWidth: 1.2))
-        .shadow(color: .black.opacity(0.4), radius: 18, y: 8)
+        .padding(.vertical, 10)
+        .extremePanel(active: true, fill: Extreme.ink)
+        .shadow(color: .black.opacity(0.6), radius: 18, y: 8)
         .fixedSize()
     }
 }

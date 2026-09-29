@@ -721,10 +721,10 @@ extension LocalhostSession {
 
     var statusColor: Color {
         switch state {
-        case .starting: return Color(red: 1.0, green: 0.78, blue: 0.25)
-        case .live: return Color(red: 0.25, green: 0.92, blue: 0.55)
-        case .stopped(let code): return Self.isCleanExit(code) ? .secondary : Color(red: 1.0, green: 0.38, blue: 0.38)
-        case .detached: return .secondary
+        case .starting: return Extreme.warn
+        case .live: return Extreme.live
+        case .stopped(let code): return Self.isCleanExit(code) ? Extreme.muted : Extreme.danger
+        case .detached: return Extreme.muted
         }
     }
 }

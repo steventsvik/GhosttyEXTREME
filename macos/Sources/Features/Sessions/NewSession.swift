@@ -54,61 +54,79 @@ enum NewSessionKind: CaseIterable, Identifiable {
     }
 }
 
-/// "+ New" in the sidebar header: a menu of session kinds with their logos.
+/// "+ New" in the sidebar header: a pixel button that opens a menu of session kinds.
+/// (SwiftUI menus drop custom label drawing on macOS, so this pops up an NSMenu instead.)
 struct NewSessionMenu: View {
     let owner: TerminalController
     let compact: Bool
-    @State private var hovering = false
 
     var body: some View {
-        Menu {
-            ForEach(NewSessionKind.allCases) { kind in
-                if kind == .hermes || kind == .cloudClaude { Divider() }
-                Button {
-                    kind.open(from: owner)
-                } label: {
-                    Label {
-                        Text(kind.title)
-                    } icon: {
-                        icon(for: kind)
-                    }
-                }
-                if kind == .codex {
-                    DockerSessionMenu(owner: owner)
-                }
-            }
-            Divider()
-            Button {
-                LocalhostManager.showNewServer(folder: owner.focusedSurface?.pwd, from: owner)
-            } label: {
-                Label("Localhost Server…", systemImage: "globe")
-            }
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "plus").font(.system(size: 11, weight: .semibold))
-                Text(compact ? "New" : "New tab").font(.system(size: 12, weight: .medium)).lineLimit(1).fixedSize()
-                Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).foregroundColor(.secondary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(hovering ? 0.08 : 0.03)))
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.primary.opacity(0.14), lineWidth: 1))
-            .contentShape(Rectangle())
+        ExtremeIconButton(icon: .plus, label: compact ? "New" : "New tab", help: "New session", tint: Extreme.gold) {
+            NewSessionMenuBuilder.popUp(for: owner)
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .onHover { hovering = $0 }
+    }
+}
+
+enum NewSessionMenuBuilder {
+    static func popUp(for owner: TerminalController) {
+        let menu = NSMenu()
+        for kind in NewSessionKind.allCases {
+            if kind == .hermes || kind == .cloudClaude { menu.addItem(.separator()) }
+            menu.addItem(ClosureMenuItem(kind.title, image: icon(for: kind)) { kind.open(from: owner) })
+            if kind == .codex { menu.addItem(dockerItem(owner)) }
+        }
+        menu.addItem(.separator())
+        menu.addItem(ClosureMenuItem("Localhost Server…", image: NSImage(systemSymbolName: "globe", accessibilityDescription: nil)) {
+            LocalhostManager.showNewServer(folder: owner.focusedSurface?.pwd, from: owner)
+        })
+        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
     }
 
-    /// Menu item icons are rendered as images, so draw each logo into one.
-    private func icon(for kind: NewSessionKind) -> Image {
+    private static func dockerItem(_ owner: TerminalController) -> NSMenuItem {
+        let item = NSMenuItem(title: "Isolated Session (Docker)", action: nil, keyEquivalent: "")
+        item.image = NSImage(systemSymbolName: "shippingbox", accessibilityDescription: nil)
+        let submenu = NSMenu()
+        for kind in DockerSessionKind.allCases {
+            if kind == .claude { submenu.addItem(.separator()) }
+            submenu.addItem(ClosureMenuItem("\(kind.title) — \(kind.detail)", image: nil) { DockerSessions.open(kind, from: owner) })
+        }
+        submenu.addItem(.separator())
+        let share = ClosureMenuItem("Share this tab's folder", image: nil) {
+            let defaults = UserDefaults.standard
+            defaults.set(!(defaults.object(forKey: DockerSessions.shareFolderKey) as? Bool ?? true), forKey: DockerSessions.shareFolderKey)
+        }
+        share.state = (UserDefaults.standard.object(forKey: DockerSessions.shareFolderKey) as? Bool ?? true) ? .on : .off
+        submenu.addItem(share)
+        item.submenu = submenu
+        return item
+    }
+
+    /// Menu item icons are images, so draw each logo into one.
+    private static func icon(for kind: NewSessionKind) -> NSImage? {
         if let agent = kind.agent, let asset = agent.logoAsset, let image = NSImage(named: asset) {
             let copy = image.copy() as! NSImage
             copy.size = NSSize(width: 16, height: 16)
             copy.isTemplate = agent.logoIsTemplate
-            return Image(nsImage: copy)
+            return copy
         }
-        return Image(systemName: kind == .cloudClaude ? "cloud" : "apple.terminal")
+        return NSImage(systemSymbolName: kind == .cloudClaude ? "cloud" : "apple.terminal", accessibilityDescription: nil)
     }
+}
+
+/// A menu item that runs a closure.
+final class ClosureMenuItem: NSMenuItem {
+    private let handler: () -> Void
+
+    init(_ title: String, image: NSImage?, handler: @escaping () -> Void) {
+        self.handler = handler
+        super.init(title: title, action: #selector(fire), keyEquivalent: "")
+        self.target = self
+        self.image = image
+    }
+
+    @available(*, unavailable)
+    required init(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    @objc private func fire() { handler() }
 }
 #endif

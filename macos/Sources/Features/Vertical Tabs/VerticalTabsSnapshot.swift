@@ -112,11 +112,11 @@ enum VerticalTabBadge: Int, Comparable {
 
     func color(_ palette: VerticalTabsPalette) -> Color {
         switch self {
-        case .none: return .secondary
-        case .working: return palette.magenta
-        case .done: return palette.green
-        case .bell, .input, .permission: return palette.yellow
-        case .error: return palette.red
+        case .none: return Extreme.muted
+        case .working: return Extreme.core
+        case .done: return Extreme.live
+        case .bell, .input, .permission: return Extreme.warn
+        case .error: return Extreme.danger
         }
     }
 }

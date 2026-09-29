@@ -28,9 +28,9 @@ final class ReviewSelection: ObservableObject {
 }
 
 private enum ReviewColors {
-    static let added = Color(red: 0.25, green: 0.85, blue: 0.5)
-    static let removed = Color(red: 1.0, green: 0.4, blue: 0.42)
-    static let accent = Color(red: 0.62, green: 0.45, blue: 1.0)
+    static let added = Extreme.live
+    static let removed = Extreme.danger
+    static let accent = Extreme.gold
 
     static func status(_ status: ReviewFile.Status) -> Color {
         switch status {
@@ -73,19 +73,9 @@ private struct ReviewInboxView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 9)
-                    .fill(LinearGradient(colors: [ReviewColors.accent, .pink], startPoint: .topLeading, endPoint: .bottomTrailing))
-                Image(systemName: "tray.full.fill").font(.system(size: 15, weight: .bold)).foregroundColor(.white)
-            }
-            .frame(width: 34, height: 34)
-            .shadow(color: ReviewColors.accent.opacity(0.4), radius: 8)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Review Changes").font(.system(size: 17, weight: .bold))
-                Text(inbox.items.isEmpty ? "Nothing waiting" :
-                        "\(inbox.items.count) agent\(inbox.items.count == 1 ? "" : "s") with changes · \(inbox.unseenCount) new")
-                    .font(.system(size: 12)).foregroundColor(.secondary)
-            }
+            ExtremeWindowTitle(icon: .inbox, title: "Review Changes",
+                               subtitle: inbox.items.isEmpty ? "Nothing waiting" :
+                                   "\(inbox.items.count) agent\(inbox.items.count == 1 ? "" : "s") with changes · \(inbox.unseenCount) new")
             Spacer()
         }
         .padding(.horizontal, 18)
@@ -95,12 +85,10 @@ private struct ReviewInboxView: View {
 
     private var emptyState: some View {
         VStack(spacing: 10) {
-            Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 42))
-                .foregroundStyle(LinearGradient(colors: [ReviewColors.added, .cyan], startPoint: .topLeading, endPoint: .bottomTrailing))
-            Text("All caught up").font(.system(size: 16, weight: .semibold))
+            ExtremeSigil(size: 56)
+            Text("All caught up").font(Extreme.font(16))
             Text("When Claude Code or Codex finishes working in a git repository, its changes show up here to review: comment on lines and send them back, undo files, commit, or open a pull request.")
-                .font(.system(size: 12)).foregroundColor(.secondary).multilineTextAlignment(.center).frame(maxWidth: 440)
+                .font(Extreme.font(12)).foregroundColor(Extreme.muted).multilineTextAlignment(.center).frame(maxWidth: 440)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -118,7 +106,7 @@ private struct ReviewInboxView: View {
             }
             .padding(10)
         }
-        .background(Color.primary.opacity(0.025))
+        .background(Extreme.text.opacity(0.025))
     }
 }
 
@@ -129,35 +117,31 @@ private struct ReviewItemRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 7) {
-                ZStack {
-                    Circle().fill(item.agent.brandColor)
-                    VerticalTabAgentLogo(kind: item.agent, tint: item.agent.glyphOnBrand).frame(width: 11, height: 11)
-                }
-                .frame(width: 22, height: 22)
-                Text(item.repoName).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                AgentBadge(kind: item.agent, size: 22)
+                Text(item.repoName).font(Extreme.font(13)).lineLimit(1)
                 Spacer(minLength: 4)
                 if item.unseen && item.stage == .ready {
-                    Circle().fill(ReviewColors.accent).frame(width: 7, height: 7)
+                    PixelDot(color: ReviewColors.accent, blinking: true, size: 6)
                 }
             }
             if let task = item.task {
-                Text(task).font(.system(size: 11.5)).foregroundColor(.primary.opacity(0.8)).lineLimit(2)
+                Text(task).font(Extreme.font(11.5)).foregroundColor(Extreme.text.opacity(0.8)).lineLimit(2)
             }
             HStack(spacing: 6) {
                 stageChip
-                Text("\(item.files.count) file\(item.files.count == 1 ? "" : "s")").foregroundColor(.secondary)
+                Text("\(item.files.count) file\(item.files.count == 1 ? "" : "s")").foregroundColor(Extreme.muted)
                 Text("+\(item.added)").foregroundColor(ReviewColors.added)
                 Text("−\(item.removed)").foregroundColor(ReviewColors.removed)
                 Spacer(minLength: 0)
                 Text(RelativeDateTimeFormatter().localizedString(for: item.updated, relativeTo: Date()))
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Extreme.muted)
             }
-            .font(.system(size: 10.5).monospacedDigit())
+            .font(Extreme.font(10.5).monospacedDigit())
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: 10).fill(selected ? ReviewColors.accent.opacity(0.16) : Color.primary.opacity(0.04)))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(selected ? ReviewColors.accent.opacity(0.7) : Color.primary.opacity(0.08)))
-        .contentShape(RoundedRectangle(cornerRadius: 10))
+        .background(Rectangle().fill(selected ? ReviewColors.accent.opacity(0.16) : Extreme.text.opacity(0.04)))
+        .overlay(Rectangle().stroke(selected ? ReviewColors.accent.opacity(0.7) : Extreme.text.opacity(0.08)))
+        .contentShape(Rectangle())
     }
 
     @ViewBuilder
@@ -170,10 +154,10 @@ private struct ReviewItemRow: View {
             }
         }()
         Text(label)
-            .font(.system(size: 9.5, weight: .bold))
+            .font(Extreme.font(9.5))
             .foregroundColor(color)
             .padding(.horizontal, 6).padding(.vertical, 1.5)
-            .background(Capsule().fill(color.opacity(0.16)))
+            .background(Rectangle().fill(color.opacity(0.16)))
     }
 }
 
@@ -210,10 +194,10 @@ private struct ReviewItemView: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 3) {
                 if let task = item.task {
-                    Text(task).font(.system(size: 12, weight: .semibold)).lineLimit(3)
+                    Text(task).font(Extreme.font(12)).lineLimit(3)
                 }
                 Text((item.repoRoot as NSString).abbreviatingWithTildeInPath)
-                    .font(.system(size: 10.5, design: .monospaced)).foregroundColor(.secondary).lineLimit(1).truncationMode(.head)
+                    .font(Extreme.font(10.5)).foregroundColor(Extreme.muted).lineLimit(1).truncationMode(.head)
             }
             .padding(12)
             Divider()
@@ -227,17 +211,17 @@ private struct ReviewItemView: View {
                 .padding(6)
             }
         }
-        .background(Color.primary.opacity(0.02))
+        .background(Extreme.text.opacity(0.02))
     }
 
     private var actionBar: some View {
         HStack(spacing: 10) {
             if let message {
-                Text(message).font(.system(size: 11.5)).foregroundColor(.orange).lineLimit(2).textSelection(.enabled)
+                Text(message).font(Extreme.font(11.5)).foregroundColor(.orange).lineLimit(2).textSelection(.enabled)
             } else {
                 let reviewed = item.files.filter { item.decision($0) == .accepted }.count
                 Text("\(reviewed)/\(item.files.count) files approved · \(item.comments.count) comment\(item.comments.count == 1 ? "" : "s")")
-                    .font(.system(size: 11.5)).foregroundColor(.secondary)
+                    .font(Extreme.font(11.5)).foregroundColor(Extreme.muted)
             }
             Spacer()
             if ReviewInbox.shared.surface(for: item) != nil {
@@ -254,7 +238,7 @@ private struct ReviewItemView: View {
         .controlSize(.regular)
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(Color.primary.opacity(0.03))
+        .background(Extreme.text.opacity(0.03))
     }
 
     private var sendButton: some View {
@@ -268,18 +252,15 @@ private struct ReviewItemView: View {
                 ReviewInbox.shared.focusAgent(item)
             }
         } label: {
-            HStack(spacing: 6) {
-                VerticalTabAgentLogo(kind: item.agent, tint: .white).frame(width: 12, height: 12)
-                Text(count == 0 ? "Send feedback" : "Send \(count) comment\(count == 1 ? "" : "s") to \(item.agent.displayName)")
-                    .font(.system(size: 12.5, weight: .semibold))
+            HStack(spacing: 7) {
+                AgentSprite(kind: item.agent, pixel: 1.2)
+                Text(count == 0 ? "SEND FEEDBACK" : "SEND \(count) COMMENT\(count == 1 ? "" : "S") TO \(item.agent.displayName.uppercased())")
+                    .font(Extreme.font(10.5)).kerning(1.2)
             }
-            .foregroundColor(.white)
+            .foregroundColor(canSend ? Extreme.ink : Extreme.dim)
             .padding(.horizontal, 12).padding(.vertical, 6)
-            .background(
-                Capsule().fill(canSend
-                    ? AnyShapeStyle(LinearGradient(colors: [item.agent == .codex ? Color(red: 0.06, green: 0.64, blue: 0.5) : item.agent.brandColor, ReviewColors.accent],
-                                                   startPoint: .leading, endPoint: .trailing))
-                    : AnyShapeStyle(Color.gray.opacity(0.35))))
+            .background(canSend ? Extreme.gold : Extreme.panel)
+            .overlay(Rectangle().strokeBorder(canSend ? Extreme.gold : Extreme.line, lineWidth: 1))
         }
         .buttonStyle(.plain)
         .disabled(!canSend)
@@ -288,11 +269,11 @@ private struct ReviewItemView: View {
 
     private var commitPopover: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Commit \(item.files.count) file\(item.files.count == 1 ? "" : "s")").font(.system(size: 13, weight: .semibold))
+            Text("Commit \(item.files.count) file\(item.files.count == 1 ? "" : "s")").font(Extreme.font(13))
             TextEditor(text: $commitMessage)
-                .font(.system(size: 12))
+                .font(Extreme.font(12))
                 .frame(width: 340, height: 90)
-                .overlay(RoundedRectangle(cornerRadius: 5).stroke(Color.primary.opacity(0.15)))
+                .overlay(Rectangle().stroke(Extreme.text.opacity(0.15)))
             HStack {
                 Spacer()
                 Button("Cancel") { showCommit = false }
@@ -319,14 +300,14 @@ private struct ReviewFileRow: View {
     var body: some View {
         HStack(spacing: 7) {
             Text(file.status.rawValue)
-                .font(.system(size: 9.5, weight: .heavy, design: .monospaced))
+                .font(Extreme.font(9.5))
                 .foregroundColor(.black.opacity(0.75))
                 .frame(width: 15, height: 15)
-                .background(RoundedRectangle(cornerRadius: 3.5).fill(ReviewColors.status(file.status)))
+                .background(Rectangle().fill(ReviewColors.status(file.status)))
             VStack(alignment: .leading, spacing: 0) {
-                Text(file.name).font(.system(size: 12, weight: .medium)).lineLimit(1)
+                Text(file.name).font(Extreme.font(12)).lineLimit(1)
                 if !file.folder.isEmpty {
-                    Text(file.folder).font(.system(size: 10)).foregroundColor(.secondary).lineLimit(1).truncationMode(.head)
+                    Text(file.folder).font(Extreme.font(10)).foregroundColor(Extreme.muted).lineLimit(1).truncationMode(.head)
                 }
             }
             Spacer(minLength: 4)
@@ -336,21 +317,21 @@ private struct ReviewFileRow: View {
                     Image(systemName: "text.bubble.fill")
                     Text("\(comments)")
                 }
-                .font(.system(size: 9.5, weight: .bold))
+                .font(Extreme.font(9.5))
                 .foregroundColor(ReviewColors.accent)
             }
             VStack(alignment: .trailing, spacing: 0) {
                 Text("+\(file.added)").foregroundColor(ReviewColors.added)
                 Text("−\(file.removed)").foregroundColor(ReviewColors.removed)
             }
-            .font(.system(size: 9.5).monospacedDigit())
+            .font(Extreme.font(9.5).monospacedDigit())
             Image(systemName: item.decision(file) == .accepted ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 12))
-                .foregroundColor(item.decision(file) == .accepted ? ReviewColors.added : .secondary.opacity(0.5))
+                .font(Extreme.font(12))
+                .foregroundColor(item.decision(file) == .accepted ? ReviewColors.added : Extreme.muted.opacity(0.5))
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .background(RoundedRectangle(cornerRadius: 7).fill(selected ? ReviewColors.accent.opacity(0.16) : .clear))
+        .background(Rectangle().fill(selected ? ReviewColors.accent.opacity(0.16) : .clear))
         .contentShape(Rectangle())
     }
 }
@@ -367,13 +348,13 @@ private struct ReviewDiffView: View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 Text(file.status.rawValue)
-                    .font(.system(size: 10, weight: .heavy, design: .monospaced))
+                    .font(Extreme.font(10))
                     .foregroundColor(.black.opacity(0.75))
                     .frame(width: 17, height: 17)
-                    .background(RoundedRectangle(cornerRadius: 4).fill(ReviewColors.status(file.status)))
-                Text(file.path).font(.system(size: 12.5, weight: .semibold, design: .monospaced)).lineLimit(1).truncationMode(.middle)
+                    .background(Rectangle().fill(ReviewColors.status(file.status)))
+                Text(file.path).font(Extreme.font(12.5)).lineLimit(1).truncationMode(.middle)
                 if let old = file.oldPath {
-                    Text("← \(old)").font(.system(size: 11, design: .monospaced)).foregroundColor(.secondary).lineLimit(1)
+                    Text("← \(old)").font(Extreme.font(11)).foregroundColor(Extreme.muted).lineLimit(1)
                 }
                 Spacer()
                 Button {
@@ -388,7 +369,7 @@ private struct ReviewDiffView: View {
                     Label(accepted ? "Approved" : "Approve", systemImage: accepted ? "checkmark.circle.fill" : "checkmark.circle")
                 }
                 .tint(ReviewColors.added)
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(ExtremeButtonStyle(prominent: true))
                 .opacity(accepted ? 1 : 0.9)
             }
             .controlSize(.small)
@@ -396,13 +377,13 @@ private struct ReviewDiffView: View {
             .padding(.vertical, 8)
             Divider()
             if file.isBinary {
-                Text("Binary file changed.").foregroundColor(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
+                Text("Binary file changed.").foregroundColor(Extreme.muted).frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView([.vertical]) {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(file.hunks) { hunk in
                             Text(hunk.header)
-                                .font(.system(size: 10.5, design: .monospaced))
+                                .font(Extreme.font(10.5))
                                 .foregroundColor(ReviewColors.accent)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.horizontal, 10).padding(.vertical, 4)
@@ -430,33 +411,33 @@ private struct ReviewDiffView: View {
     private func commentBubble(_ comment: ReviewComment) -> some View {
         HStack(alignment: .top, spacing: 8) {
             ZStack {
-                Circle().fill(LinearGradient(colors: [ReviewColors.accent, .pink], startPoint: .topLeading, endPoint: .bottomTrailing))
-                Image(systemName: "person.fill").font(.system(size: 9)).foregroundColor(.white)
+                Rectangle().fill(Extreme.raised)
+                Text("YOU").font(Extreme.font(7)).foregroundColor(Extreme.gold)
             }
             .frame(width: 20, height: 20)
-            Text(comment.text).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+            Text(comment.text).font(Extreme.font(12)).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
             Spacer()
             Button { ReviewInbox.shared.removeComment(comment, in: item) } label: { Image(systemName: "trash") }
                 .buttonStyle(.borderless)
-                .foregroundColor(.secondary)
+                .foregroundColor(Extreme.muted)
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: 8).fill(ReviewColors.accent.opacity(0.12)))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(ReviewColors.accent.opacity(0.5)))
+        .background(Rectangle().fill(ReviewColors.accent.opacity(0.12)))
+        .overlay(Rectangle().stroke(ReviewColors.accent.opacity(0.5)))
         .padding(.leading, 96).padding(.trailing, 14).padding(.vertical, 4)
     }
 
     private func composer(for line: ReviewLine) -> some View {
         VStack(alignment: .trailing, spacing: 6) {
             TextEditor(text: $draft)
-                .font(.system(size: 12))
+                .font(Extreme.font(12))
                 .frame(height: 64)
                 .padding(4)
-                .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .textBackgroundColor)))
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(ReviewColors.accent.opacity(0.7), lineWidth: 1.2))
+                .background(Rectangle().fill(Extreme.ink))
+                .overlay(Rectangle().stroke(ReviewColors.accent.opacity(0.7), lineWidth: 1.2))
             HStack {
                 Text("Line \(line.anchor.line) · sent to \(item.agent.displayName) with your other comments")
-                    .font(.system(size: 10.5)).foregroundColor(.secondary)
+                    .font(Extreme.font(10.5)).foregroundColor(Extreme.muted)
                 Spacer()
                 Button("Cancel") { composing = nil }
                 Button("Add comment") {
@@ -464,14 +445,14 @@ private struct ReviewDiffView: View {
                     composing = nil
                 }
                 .keyboardShortcut(.return, modifiers: .command)
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(ExtremeButtonStyle(prominent: true))
                 .tint(ReviewColors.accent)
                 .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             .controlSize(.small)
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.05)))
+        .background(Rectangle().fill(Extreme.text.opacity(0.05)))
         .padding(.leading, 96).padding(.trailing, 14).padding(.vertical, 4)
     }
 
@@ -511,10 +492,10 @@ private struct ReviewLineRow: View {
                 if hovering {
                     Button(action: onComment) {
                         Image(systemName: "plus")
-                            .font(.system(size: 9, weight: .heavy))
+                            .font(Extreme.font(9))
                             .foregroundColor(.white)
                             .frame(width: 17, height: 17)
-                            .background(RoundedRectangle(cornerRadius: 4).fill(ReviewColors.accent))
+                            .background(Rectangle().fill(ReviewColors.accent))
                     }
                     .buttonStyle(.plain)
                     .help("Comment on this line")
@@ -527,12 +508,12 @@ private struct ReviewLineRow: View {
                 .foregroundColor(color ?? .secondary)
                 .frame(width: 16)
             Text(line.text.isEmpty ? " " : line.text)
-                .foregroundColor(.primary.opacity(line.kind == .context ? 0.72 : 0.95))
+                .foregroundColor(Extreme.text.opacity(line.kind == .context ? 0.72 : 0.95))
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .font(.system(size: 11.5, design: .monospaced))
-        .foregroundColor(.secondary)
+        .font(Extreme.font(11.5))
+        .foregroundColor(Extreme.muted)
         .padding(.vertical, 1)
         .background((color ?? .clear).opacity(hovering ? 0.2 : 0.11))
         .overlay(alignment: .leading) {
@@ -548,33 +529,10 @@ private struct ReviewLineRow: View {
 /// Sidebar header button: opens the review window, with the number of new reviews.
 struct ReviewHeaderButton: View {
     @ObservedObject private var inbox = ReviewInbox.shared
-    @State private var hovering = false
 
     var body: some View {
-        Button(action: ReviewInbox.toggle) {
-            ZStack(alignment: .topTrailing) {
-                Image(systemName: inbox.items.isEmpty ? "tray" : "tray.full.fill")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(inbox.unseenCount > 0
-                        ? AnyShapeStyle(LinearGradient(colors: [ReviewColors.accent, .pink], startPoint: .topLeading, endPoint: .bottomTrailing))
-                        : AnyShapeStyle(Color.primary))
-                    .frame(width: 30, height: 26)
-                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(hovering ? 0.08 : 0.03)))
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.primary.opacity(0.14), lineWidth: 1))
-                if inbox.unseenCount > 0 {
-                    Text("\(inbox.unseenCount)")
-                        .font(.system(size: 8.5, weight: .heavy))
-                        .foregroundColor(.white)
-                        .frame(minWidth: 13, minHeight: 13)
-                        .background(Circle().fill(ReviewColors.accent))
-                        .offset(x: 4, y: -4)
-                }
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
-        .help("Review changes (⌃⌘I)")
+        ExtremeIconButton(icon: .inbox, help: "Review changes (⌃⌘I)", tint: Extreme.gold,
+                          badge: inbox.unseenCount, badgeColor: Extreme.gold, action: ReviewInbox.toggle)
     }
 }
 
@@ -588,14 +546,14 @@ struct ReviewPaneChip: View {
             Button {
                 ReviewInbox.show(selecting: item)
             } label: {
-                HStack(spacing: 3) {
-                    Image(systemName: "tray.full.fill").font(.system(size: 8.5, weight: .bold))
-                    Text("Review \(item.files.count)")
+                HStack(spacing: 4) {
+                    PixelIconView(icon: .inbox, color: Extreme.ink, pixel: 0.8)
+                    Text("REVIEW \(item.files.count)").kerning(1)
                 }
-                .font(.system(size: 10.5, weight: .semibold))
-                .foregroundColor(.white)
-                .padding(.horizontal, 6).padding(.vertical, 1.5)
-                .background(Capsule().fill(LinearGradient(colors: [ReviewColors.accent, .pink], startPoint: .leading, endPoint: .trailing)))
+                .font(Extreme.font(9.5))
+                .foregroundColor(Extreme.ink)
+                .padding(.horizontal, 5).padding(.vertical, 1.5)
+                .background(Extreme.gold)
                 .fixedSize()
             }
             .buttonStyle(.plain)

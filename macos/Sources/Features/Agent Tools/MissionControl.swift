@@ -86,8 +86,7 @@ private struct MissionControlView: View {
 
     private var header: some View {
         HStack(spacing: 14) {
-            Image(systemName: "square.grid.2x2.fill").font(.system(size: 18)).foregroundColor(.accentColor)
-            Text("Mission Control").font(.system(size: 16, weight: .semibold))
+            ExtremeWindowTitle(icon: .grid, title: "Mission Control")
             summary
             Spacer()
             Picker("", selection: $showAllPanes) {
@@ -117,8 +116,8 @@ private struct MissionControlView: View {
         return HStack(spacing: 10) {
             ForEach(counts.filter { $0.1 > 0 }, id: \.0) { label, count, color in
                 HStack(spacing: 4) {
-                    Circle().fill(color).frame(width: 7, height: 7)
-                    Text("\(count) \(label)").font(.system(size: 12)).foregroundColor(.secondary)
+                    PixelDot(color: color, size: 6)
+                    Text("\(count) \(label)").font(Extreme.font(12)).foregroundColor(Extreme.muted)
                 }
             }
         }
@@ -126,11 +125,11 @@ private struct MissionControlView: View {
 
     private var emptyState: some View {
         VStack(spacing: 10) {
-            Image(systemName: "sparkles.rectangle.stack").font(.system(size: 34)).foregroundColor(.secondary)
+            ExtremeSigil(size: 56)
             Text(showAllPanes ? "No panes open" : "No agents running")
-                .font(.system(size: 15, weight: .semibold))
+                .font(Extreme.font(15))
             Text("Start Claude Code or Codex in a tab (or race several at once) and they'll show up here live.")
-                .font(.system(size: 12)).foregroundColor(.secondary).multilineTextAlignment(.center)
+                .font(Extreme.font(12)).foregroundColor(Extreme.muted).multilineTextAlignment(.center)
         }
         .frame(maxWidth: 380)
         .padding(.vertical, 90)
@@ -139,7 +138,7 @@ private struct MissionControlView: View {
 
     private var racesSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("RACES").font(.system(size: 10.5, weight: .semibold)).kerning(0.4).foregroundColor(.secondary)
+            Text("RACES").font(Extreme.font(10.5)).kerning(0.4).foregroundColor(Extreme.muted)
             ForEach(races.races) { race in
                 Button {
                     AgentRaces.show(race, from: TerminalController.all.first)
@@ -148,11 +147,11 @@ private struct MissionControlView: View {
                         Image(systemName: "flag.checkered.2.crossed").foregroundColor(.purple)
                         Text(race.task).lineLimit(1)
                         Spacer()
-                        Text("\(race.contestants.count) agents · \(race.repoName)").foregroundColor(.secondary)
+                        Text("\(race.contestants.count) agents · \(race.repoName)").foregroundColor(Extreme.muted)
                     }
-                    .font(.system(size: 12))
+                    .font(Extreme.font(12))
                     .padding(10)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.05)))
+                    .background(Rectangle().fill(Extreme.text.opacity(0.05)))
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -209,9 +208,9 @@ private struct MissionCardView: View {
             HStack(spacing: 9) {
                 avatar
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(card.agent?.kind.displayName ?? "Terminal").font(.system(size: 13, weight: .semibold))
+                    Text(card.agent?.kind.displayName ?? "Terminal").font(Extreme.font(13))
                     Text([card.tabTitle, card.folder].compactMap { $0 }.joined(separator: " · "))
-                        .font(.system(size: 11)).foregroundColor(.secondary).lineLimit(1).truncationMode(.middle)
+                        .font(Extreme.font(11)).foregroundColor(Extreme.muted).lineLimit(1).truncationMode(.middle)
                 }
                 Spacer(minLength: 6)
                 if let agent = card.agent, agent.kind != .hermes {
@@ -219,58 +218,49 @@ private struct MissionCardView: View {
                 }
             }
             if let task = card.agent?.task, !task.isEmpty {
-                Text(task).font(.system(size: 12.5, weight: .medium)).lineLimit(2)
+                Text(task).font(Extreme.font(12.5)).lineLimit(2)
             }
             if let agent = card.agent, agent.kind != .hermes {
                 HStack(spacing: 5) {
                     Image(systemName: AgentAlerts.isWaiting(agent.activity) ? "hand.raised.fill" : "bolt.fill")
-                        .font(.system(size: 9)).foregroundColor(AgentStatusPill.color(agent.activity))
+                        .font(Extreme.font(9)).foregroundColor(AgentStatusPill.color(agent.activity))
                     Text(actionLine(agent)).lineLimit(1).truncationMode(.middle)
                     Spacer(minLength: 4)
                     Text(elapsed(since: agent.since)).monospacedDigit()
                 }
-                .font(.system(size: 11)).foregroundColor(.secondary)
+                .font(Extreme.font(11)).foregroundColor(Extreme.muted)
             }
             if !card.preview.isEmpty {
                 Text(card.preview)
-                    .font(.system(size: 9.5, design: .monospaced))
-                    .foregroundColor(.primary.opacity(0.75))
+                    .font(Extreme.font(9.5))
+                    .foregroundColor(Extreme.text.opacity(0.75))
                     .lineLimit(9)
                     .frame(maxWidth: .infinity, minHeight: 118, alignment: .bottomLeading)
                     .padding(8)
-                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.black.opacity(0.35)))
+                    .background(Rectangle().fill(Color.black.opacity(0.35)))
                     .clipped()
             }
             actions
         }
         .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.primary.opacity(hovering ? 0.08 : 0.045)))
+            Rectangle()
+                .fill(Extreme.text.opacity(hovering ? 0.08 : 0.045)))
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
+            Rectangle()
                 .stroke(borderColor, lineWidth: card.rank == 0 ? 1.5 : 1))
-        .contentShape(RoundedRectangle(cornerRadius: 10))
+        .contentShape(Rectangle())
         .onTapGesture(perform: focus)
         .onHover { hovering = $0 }
     }
 
     private var borderColor: Color {
         if card.rank == 0 { return AgentStatusPill.color(card.agent?.activity).opacity(0.8) }
-        return card.tabColor?.opacity(0.6) ?? Color.primary.opacity(0.12)
+        return card.tabColor?.opacity(0.6) ?? Extreme.text.opacity(0.12)
     }
 
     private var avatar: some View {
-        ZStack {
-            if let kind = card.agent?.kind {
-                Circle().fill(kind.brandColor)
-                VerticalTabAgentLogo(kind: kind, tint: kind.glyphOnBrand).frame(width: 13, height: 13)
-            } else {
-                Circle().fill(Color.primary.opacity(0.12))
-                Image(systemName: "terminal").font(.system(size: 11))
-            }
-        }
-        .frame(width: 26, height: 26)
+        AgentBadge(kind: card.agent?.kind, size: 26)
     }
 
     private var actions: some View {

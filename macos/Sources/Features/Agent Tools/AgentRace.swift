@@ -307,10 +307,12 @@ enum AgentToolWindows {
                               backing: .buffered, defer: false)
         window.title = title
         window.titlebarAppearsTransparent = true
+        window.appearance = NSAppearance(named: .darkAqua)
+        window.backgroundColor = NSColor(red: 0x0B / 255, green: 0x0A / 255, blue: 0x09 / 255, alpha: 1)
         window.isReleasedWhenClosed = false
         // Open over a full-screen terminal instead of switching to another Space.
         window.collectionBehavior = [.fullScreenAuxiliary, .moveToActiveSpace]
-        window.contentView = NSHostingView(rootView: content())
+        window.contentView = NSHostingView(rootView: content().extremeWindow())
         window.center()
         windows[id] = window
         var observer: NSObjectProtocol?
@@ -364,32 +366,32 @@ private struct AgentRaceSetupView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
-                Image(systemName: "flag.checkered.2.crossed").font(.system(size: 22)).foregroundColor(.purple)
+                Image(systemName: "flag.checkered.2.crossed").font(Extreme.font(22)).foregroundColor(.purple)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Race agents").font(.system(size: 17, weight: .semibold))
+                    Text("Race agents").font(Extreme.font(17))
                     Text("Each agent gets its own copy of the project. Compare the results and keep the best.")
-                        .font(.system(size: 12)).foregroundColor(.secondary)
+                        .font(Extreme.font(12)).foregroundColor(Extreme.muted)
                 }
             }
             VStack(alignment: .leading, spacing: 5) {
-                Text("Task").font(.system(size: 12, weight: .semibold))
+                Text("Task").font(Extreme.font(12))
                 TextEditor(text: $task)
-                    .font(.system(size: 13))
+                    .font(Extreme.font(13))
                     .frame(height: 110)
                     .padding(4)
-                    .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.05)))
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.primary.opacity(0.15)))
+                    .background(Rectangle().fill(Extreme.text.opacity(0.05)))
+                    .overlay(Rectangle().stroke(Extreme.text.opacity(0.15)))
             }
             HStack(spacing: 18) {
                 contestantStepper(.claude, value: $claude)
                 contestantStepper(.codex, value: $codex)
             }
             Toggle("Include my uncommitted changes", isOn: $includeChanges)
-                .font(.system(size: 12))
+                .font(Extreme.font(12))
             Text("Project: \(folder.map { ($0 as NSString).abbreviatingWithTildeInPath } ?? "unknown folder")")
-                .font(.system(size: 11)).foregroundColor(.secondary)
+                .font(Extreme.font(11)).foregroundColor(Extreme.muted)
             if let error {
-                Text(error).font(.system(size: 12)).foregroundColor(.red).fixedSize(horizontal: false, vertical: true)
+                Text(error).font(Extreme.font(12)).foregroundColor(.red).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
             HStack {
@@ -407,13 +409,9 @@ private struct AgentRaceSetupView: View {
 
     private func contestantStepper(_ kind: VerticalTabAgentKind, value: Binding<Int>) -> some View {
         HStack(spacing: 7) {
-            ZStack {
-                Circle().fill(kind.brandColor)
-                VerticalTabAgentLogo(kind: kind, tint: kind.glyphOnBrand).frame(width: 11, height: 11)
-            }
-            .frame(width: 20, height: 20)
+            AgentBadge(kind: kind, size: 20)
             Stepper("\(kind.displayName) × \(value.wrappedValue)", value: value, in: 0...3)
-                .font(.system(size: 12))
+                .font(Extreme.font(12))
         }
     }
 
@@ -457,7 +455,7 @@ private struct AgentRaceView: View {
                     column(contestant)
                 }
             }
-            .background(Color.primary.opacity(0.08))
+            .background(Extreme.text.opacity(0.08))
         }
         .frame(minWidth: 700, minHeight: 420)
         .onAppear(perform: refresh)
@@ -469,13 +467,13 @@ private struct AgentRaceView: View {
 
     private var header: some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "flag.checkered.2.crossed").font(.system(size: 20)).foregroundColor(.purple)
+            Image(systemName: "flag.checkered.2.crossed").font(Extreme.font(20)).foregroundColor(.purple)
             VStack(alignment: .leading, spacing: 3) {
-                Text(race.task).font(.system(size: 14, weight: .semibold)).lineLimit(2)
+                Text(race.task).font(Extreme.font(14)).lineLimit(2)
                 Text("\(race.repoName) · started \(RelativeDateTimeFormatter().localizedString(for: race.created, relativeTo: tick))")
-                    .font(.system(size: 11)).foregroundColor(.secondary)
+                    .font(Extreme.font(11)).foregroundColor(Extreme.muted)
                 if let message {
-                    Text(message).font(.system(size: 12)).foregroundColor(.orange)
+                    Text(message).font(Extreme.font(12)).foregroundColor(.orange)
                         .fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
                 }
             }
@@ -498,19 +496,15 @@ private struct AgentRaceView: View {
         return VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
-                    ZStack {
-                        Circle().fill(contestant.kind.brandColor)
-                        VerticalTabAgentLogo(kind: contestant.kind, tint: contestant.kind.glyphOnBrand).frame(width: 12, height: 12)
-                    }
-                    .frame(width: 22, height: 22)
-                    Text(contestant.name).font(.system(size: 13, weight: .semibold))
+                    AgentBadge(kind: contestant.kind, size: 22)
+                    Text(contestant.name).font(Extreme.font(13))
                     Spacer()
                     AgentStatusPill(activity: info?.activity, closed: races.controller(for: race, contestant) == nil)
                 }
                 if let diff {
                     Text(diff.files.isEmpty ? "No changes yet" :
                             "\(diff.files.count) file\(diff.files.count == 1 ? "" : "s") · +\(diff.added) −\(diff.removed)")
-                        .font(.system(size: 11).monospacedDigit()).foregroundColor(.secondary)
+                        .font(Extreme.font(11).monospacedDigit()).foregroundColor(Extreme.muted)
                 }
                 HStack(spacing: 8) {
                     Button("Keep this one") { keep(contestant) }
@@ -528,7 +522,7 @@ private struct AgentRaceView: View {
             AgentDiffView(text: diff?.text ?? "", error: diff?.error)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Extreme.ink)
     }
 
     private func refresh() {
@@ -586,9 +580,9 @@ struct AgentDiffView: View {
             ScrollView([.vertical, .horizontal]) {
                 Group {
                     if let error {
-                        Text(error).font(.system(size: 12)).foregroundColor(.secondary).padding(12)
+                        Text(error).font(Extreme.font(12)).foregroundColor(Extreme.muted).padding(12)
                     } else if text.isEmpty {
-                        Text("Nothing changed yet.").font(.system(size: 12)).foregroundColor(.secondary).padding(12)
+                        Text("Nothing changed yet.").font(Extreme.font(12)).foregroundColor(Extreme.muted).padding(12)
                     } else {
                         LazyVStack(alignment: .leading, spacing: 0) {
                             ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
@@ -613,11 +607,11 @@ struct AgentDiffView: View {
         if line.hasPrefix("diff --git") {
             let path = line.split(separator: " ").last.map { String($0.dropFirst(2)) } ?? String(line)
             Text(path)
-                .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
+                .font(Extreme.font(11.5))
                 .fixedSize()
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 10).padding(.vertical, 5)
-                .background(Color.primary.opacity(0.08))
+                .background(Extreme.text.opacity(0.08))
                 .padding(.top, 6)
         } else if line.hasPrefix("index ") || line.hasPrefix("--- ") || line.hasPrefix("+++ ")
                     || line.hasPrefix("new file") || line.hasPrefix("deleted file") {
@@ -625,7 +619,7 @@ struct AgentDiffView: View {
         } else {
             let color: Color? = line.hasPrefix("+") ? .green : line.hasPrefix("-") ? .red : nil
             Text(line.isEmpty ? " " : String(line))
-                .font(.system(size: 11, design: .monospaced))
+                .font(Extreme.font(11))
                 .foregroundColor(line.hasPrefix("@@") ? .purple : color ?? .primary.opacity(0.85))
                 .fixedSize()
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -642,10 +636,10 @@ struct AgentStatusPill: View {
 
     var body: some View {
         Text(label)
-            .font(.system(size: 10.5, weight: .semibold))
+            .font(Extreme.font(10.5))
             .foregroundColor(color)
             .padding(.horizontal, 7).padding(.vertical, 2)
-            .background(Capsule().fill(color.opacity(0.15)))
+            .background(Rectangle().fill(color.opacity(0.15)))
     }
 
     private var label: String {
