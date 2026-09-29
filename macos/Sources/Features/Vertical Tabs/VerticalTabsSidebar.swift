@@ -39,6 +39,10 @@ struct VerticalTabsLayout<Content: View>: View {
                 }
                 // "Your app is live" when a localhost session starts listening.
                 LocalhostToastLayer()
+                // Branding: pixel corner brackets (a traveling light while an agent works)
+                // and the sigil assembling when the tab opens.
+                TerminalFrameOverlay(controller: controller)
+                NewTabSplash()
             }
             // Each tab has its own editor.
             if editorPanel.isVisible(controller) {
@@ -383,6 +387,7 @@ struct VerticalTabsSidebar: View {
                         .font(Extreme.font(11.5))
                         .kerning(2.2)
                         .foregroundColor(Extreme.gold)
+                        .extremeGlint()
                     Text("Α Ι · ΣΥΣΤΗΜΑ")
                         .font(Extreme.font(9))
                         .kerning(2.4)

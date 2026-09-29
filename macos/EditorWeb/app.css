@@ -453,3 +453,5 @@ body.pov-active #explorer, body.pov-active #sash { display: none; }
 .pov-block.now { background: var(--k); height: 18px; box-shadow: 0 0 8px var(--k); }
 
 @container (max-width: 600px) { .pov-side { width: 140px; } .pov-app-tab { padding: 7px 9px; letter-spacing: .1em; } }
+.pov-pointer.jump { transition: none; }
+.pov-term-block { display: contents; }

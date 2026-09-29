@@ -215,6 +215,8 @@ extension Ghostty {
                 #if os(macOS)
                 // GhosttyEXTREME: a failed command offers to have an agent fix it.
                 CommandFailureChip(surfaceView: surfaceView)
+                // GhosttyEXTREME: a scan line and "AI LINKED" when an agent starts here.
+                AgentLinkSweep(surfaceView: surfaceView)
                 #endif
 
                 // If our surface is not healthy, then we render an error view over it.

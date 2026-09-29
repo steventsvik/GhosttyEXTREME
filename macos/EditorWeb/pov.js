@@ -33,7 +33,13 @@
     files: new Map(), live: true, replayTimer: null, token: 0, app: null,
   };
   let speed = 1;
-  const wait = (ms) => new Promise(r => setTimeout(r, ms / speed));
+  /** True when far enough behind the agent that animations are skipped. */
+  let hurry = false;
+  const wait = (ms) => new Promise(r => setTimeout(r, hurry ? Math.min(ms / speed, 60) : ms / speed));
+  /** How long ago the step happened, i.e. how far behind the replay is. */
+  const lagOf = (step) => Date.now() - step.time;
+  /** Files larger than this open as the region around what the agent touched. */
+  const BIG_FILE = 250_000;
 
   // ---------- Pixel drawing ----------
 
@@ -185,12 +191,14 @@
     const b = body.getBoundingClientRect(), r = target.getBoundingClientRect();
     const x = Math.max(0, Math.min(r.left - b.left + dx, b.width - 20));
     const y = Math.max(0, Math.min(r.top - b.top + dy, b.height - 20));
+    pointer.classList.toggle('jump', hurry || speed > 2);
     pointer.style.transform = `translate(${x}px, ${y}px)`;
     pointer.classList.add('show');
-    await wait(460);
+    if (hurry) return;
+    await wait(300);
     if (click) {
       pointer.classList.remove('click'); void pointer.offsetWidth; pointer.classList.add('click');
-      await wait(180);
+      await wait(140);
     }
   }
 
@@ -223,6 +231,7 @@
       const total = text.length;
       node.textContent = '';
       if (!total) return resolve();
+      if (hurry) { node.textContent = text; return resolve(); }
       const start = performance.now();
       const caret = el('span', 'pov-caret');
       const content = document.createTextNode('');
@@ -241,8 +250,9 @@
   /** Types `text` into the editor at `position`, keystroke by keystroke; returns the end. */
   async function typeInEditor(model, position, text, token) {
     const instance = ensureEditor();
-    // Long insertions: type the start, then the rest appears as a paste would.
-    const typed = text.length > 700 ? text.slice(0, 500) : text;
+    // Long insertions type the start, then the rest appears as a paste would; when behind,
+    // it all appears at once.
+    const typed = hurry ? '' : text.length > 700 ? text.slice(0, 400) : text;
     let pos = position;
     const cps = 220 * speed;
     const started = performance.now();
@@ -346,7 +356,7 @@
       const step = state.byId.get(entry.id);
       if (!step) return;
       step.result = entry;
-      if (state.playing === step) step.onResult?.(entry);
+      step.onResult?.(entry);
       renderBlock(step);
       return;
     }
@@ -391,9 +401,18 @@
     try {
       while (state.queue.length && state.on) {
         const step = state.queue.shift();
-        const behind = state.queue.length;
-        speed = behind > 6 ? 5 : behind > 2 ? 2.5 : 1;
-        ffBadge.classList.toggle('hidden', behind <= 2);
+        // Pace by how far behind the agent the replay is, so it never falls behind for long.
+        const lag = state.live ? lagOf(step) : 0;
+        const waiting = state.queue.length;
+        speed = lag > 6000 || waiting > 4 ? 4 : lag > 2500 || waiting > 1 ? 2 : 1;
+        hurry = lag > 9000 || waiting > 6;
+        ffBadge.classList.toggle('hidden', speed === 1);
+        // Well behind: skip what's only looking (reads, searches, thoughts) and already old.
+        if (lag > 12000 && waiting > 0 && ['read', 'search', 'thinking', 'other'].includes(step.kind)) {
+          if (window.povDebug) log(`pov skip ${step.kind} lag=${lag}`);
+          continue;
+        }
+        if (window.povDebug) log(`pov play ${step.kind} lag=${lag} queued=${waiting} speed=${speed}${hurry ? ' hurry' : ''}`);
         await play(step);
       }
     } finally {
@@ -417,8 +436,7 @@
     } catch (e) {
       log(`pov: ${e?.stack || e}`);
     }
-    if (token === state.token) await wait(500);
-    step.onResult = null;
+    if (token === state.token && !hurry) await wait(state.queue.length ? 150 : 450);
   }
 
   function goLive() {
@@ -499,8 +517,16 @@
     async read(step, token) {
       const path = agentAbs(step.item.path);
       if (!path) return;
-      const content = await readFile(path);
+      let content = await readFile(path);
       if (content == null || token !== state.token) return;
+      // A huge file opens as the region being read (a whole one would stall the editor).
+      if (content.length > BIG_FILE) {
+        const all = content.split('\n');
+        const from = Math.max(0, (step.item.offset || 1) - 1);
+        const to = Math.min(all.length, from + (step.item.limit || 200));
+        content = all.slice(from, to).join('\n');
+        step.item = { ...step.item, offset: 1, limit: to - from };
+      }
       const model = await openInEditor(path, content, token);
       if (!model || token !== state.token) return;
       const count = model.getLineCount();
@@ -510,14 +536,15 @@
       instance.revealLineNearTop(first, monacoRef.editor.ScrollType.Immediate);
       // The eye moves down the lines being read.
       const span = last - first + 1;
-      const stepBy = Math.max(1, Math.ceil(span / 40));
+      const stepBy = Math.max(1, Math.ceil(span / (hurry ? 1 : 18)));
       for (let line = first; line <= last; line += stepBy) {
         if (token !== state.token) return;
         instance.setSelection(new monacoRef.Range(first, 1, line, model.getLineMaxColumn(line)));
         instance.revealLineInCenterIfOutsideViewport(line, monacoRef.editor.ScrollType.Smooth);
-        await wait(55);
+        await wait(40);
       }
-      await wait(400);
+      instance.setSelection(new monacoRef.Range(first, 1, last, model.getLineMaxColumn(last)));
+      await wait(250);
       instance.setPosition({ lineNumber: last, column: 1 });
     },
 
@@ -525,9 +552,17 @@
       const it = step.item;
       const path = agentAbs(it.path);
       if (!path) return;
-      const now = await readFile(path);
+      let now = await readFile(path);
       if (token !== state.token) return;
       touchFile(path, it.action === 'write' ? 'write' : 'edit');
+      // A huge file: show just the region around the change.
+      if (now != null && now.length > BIG_FILE) {
+        const at = it.new ? now.indexOf(it.new) : -1;
+        if (at < 0) return;
+        const from = Math.max(0, now.lastIndexOf('\n', Math.max(0, at - 4000)));
+        const to = now.indexOf('\n', Math.min(now.length, at + it.new.length + 4000));
+        now = now.slice(from, to < 0 ? now.length : to);
+      }
 
       // A new file, or a whole-file write: start empty and type it.
       if (it.action === 'write' || now == null) {
@@ -573,6 +608,7 @@
       const { path, hunks = [] } = step.item;
       const now = await readFile(path);
       if (now == null || token !== state.token) return;
+      if (now.length > BIG_FILE) { touchFile(path, 'edit'); return; }
       touchFile(path, 'edit');
       const lines = now.split('\n');
       // Undo the hunks from the bottom up to get the file as it was.
@@ -618,24 +654,37 @@
       const cmd = (step.item.command || '').trim();
       termPrint(`${projectName()} ›`, 'prompt');
       const line = termPrint('', 'cmd');
-      await typeText(line, '$ ' + cmd.split('\n').slice(0, 6).join('\n'), { cps: 70, token });
+      // The first line types out (up to a point); the rest appears as a paste would.
+      const [firstLine, ...more] = cmd.split('\n');
+      const typed = firstLine.length > 110 ? firstLine.slice(0, 110) : firstLine;
+      await typeText(line, '$ ' + typed, { cps: 150, token });
+      const tail = firstLine.slice(typed.length) + (more.length ? '\n' + more.slice(0, 8).join('\n') + (more.length > 8 ? '\n…' : '') : '');
+      if (tail) line.append(tail);
       if (token !== state.token) return;
-      const spinner = termPrint('', 'running');
+      const block = el('div', 'pov-term-block');
+      termLines.append(block);
+      const spinner = el('div', 'pov-term-line running');
       spinner.append(el('span', 'pov-spin'), ' running…');
+      block.append(spinner);
+      term.scrollTop = term.scrollHeight;
+      // Output lands in this command's place whenever it arrives, even after the replay
+      // has moved on, the way a real terminal fills in.
       const printOut = async (r) => {
+        step.onResult = null;
         spinner.remove();
-        const out = (r.text || '').replace(/\s+$/, '').split('\n').slice(-40);
+        const out = (r.text || '').replace(/\s+$/, '').split('\n').slice(-30);
+        const live = state.playing === step && !hurry;
         for (const text of out) {
-          termPrint(text, r.error ? 'err' : 'out');
-          if (token === state.token) await wait(28);
+          block.append(el('div', `pov-term-line ${r.error ? 'err' : 'out'}`, text));
+          if (live) { term.scrollTop = term.scrollHeight; await wait(18); }
         }
-        termPrint(r.error ? '✗ exited with an error' : '✓ done', r.error ? 'fail' : 'ok');
+        block.append(el('div', `pov-term-line ${r.error ? 'fail' : 'ok'}`, r.error ? '✗ exited with an error' : '✓ done'));
+        term.scrollTop = term.scrollHeight;
       };
-      if (step.result) await printOut(step.result);
-      else await new Promise(resolve => {
-        step.onResult = async (r) => { await printOut(r); resolve(); };
-        setTimeout(resolve, 20000);
-      });
+      if (step.result) { await printOut(step.result); return; }
+      step.onResult = (r) => printOut(r);
+      // Wait briefly for quick commands; otherwise move on and let it fill in later.
+      for (let i = 0; i < 12 && !step.result && !state.queue.length && token === state.token; i++) await wait(150);
     },
 
     async search(step, token) {
@@ -679,7 +728,7 @@
         if (first && token === state.token && re) {
           await wait(600);
           const content = await readFile(first.abs);
-          if (content == null) return;
+          if (content == null || content.length > BIG_FILE) return;
           const model = await openInEditor(first.abs, content, token);
           if (!model) return;
           const matches = model.findMatches(re.source, false, true, false, null, false).slice(0, 200);
@@ -693,7 +742,10 @@
         }
       };
       if (step.result) await show(step.result);
-      else await new Promise(resolve => { step.onResult = async (r) => { await show(r); resolve(); }; setTimeout(resolve, 15000); });
+      else {
+        step.onResult = (r) => { step.onResult = null; if (state.playing === step) show(r); };
+        for (let i = 0; i < 10 && !step.result && !state.queue.length && token === state.token; i++) await wait(150);
+      }
     },
 
     async web(step, token) {
@@ -708,9 +760,9 @@
       browserView.dataset.url = url;
       browserView.dataset.loaded = '1';
       syncBrowser(url);
-      await wait(1600);
+      await wait(1200);
       browserProgress.classList.add('done');
-      await wait(1800);
+      await wait(state.queue.length ? 400 : 1500);
     },
 
     async todo(step) {
@@ -799,7 +851,6 @@
     stage.classList.toggle('hidden', !on);
     $('pov-toggle')?.classList.toggle('on', on);
     document.body.classList.toggle('pov-active', on);
-    try { localStorage.setItem('pov', on ? '1' : '0'); } catch {}
     syncBrowser();
     if (on) {
       renderTimeline();
@@ -810,9 +861,9 @@
 
   window.pov = { item, reset, status, diskChange, toggle, isOn: () => state.on };
 
+  // Off by default: the editor follows the agent live (and splits for several agents).
+  // AI POV opens only when its tab is clicked.
   const button = $('pov-toggle');
   if (button) button.onclick = () => toggle();
-  let saved = null;
-  try { saved = localStorage.getItem('pov'); } catch {}
-  if (saved === '1') setTimeout(() => toggle(true), 300);
+  try { localStorage.removeItem('pov'); } catch {}
 })();
