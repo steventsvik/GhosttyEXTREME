@@ -23,8 +23,11 @@ final class AgentFeed {
     /// Called on the main queue with (items, isReset).
     var onItems: (([Item], Bool) -> Void)?
 
-    /// How much history to show when starting to follow a session.
-    private let backlog: UInt64 = 256 * 1024
+    /// How far back to look when starting to follow a session: enough to reach the start of
+    /// the current turn, so an editor opened mid-prompt shows everything the agent did.
+    private let backlog: UInt64 = 8 * 1024 * 1024
+    /// Most items sent when starting to follow.
+    private let maxBacklogItems = 500
     private let maxText = 4000
 
     func follow(path: String, kind: VerticalTabAgentKind) {
@@ -35,7 +38,8 @@ final class AgentFeed {
         queue.async { [self] in
             guard let tail = Tail(path: path, startFromEnd: backlog) else { return }
             main = tail
-            let items = tail.readNew().flatMap { self.items(from: $0, subagent: nil) }
+            let items = Self.fromPreviousTurn(tail.readNew().flatMap { self.items(from: $0, subagent: nil) },
+                                              limit: maxBacklogItems)
             DispatchQueue.main.async { self.onItems?(items, true) }
             tail.watch(on: queue) { [weak self] in self?.drain(tail, subagent: nil) }
 
@@ -63,12 +67,22 @@ final class AgentFeed {
         }
     }
 
+    /// The current turn and the one before it (from the second-to-last prompt), capped.
+    private static func fromPreviousTurn(_ items: [Item], limit: Int) -> [Item] {
+        let prompts = items.indices.filter { items[$0]["kind"] as? String == "prompt" }
+        let start = prompts.count >= 2 ? prompts[prompts.count - 2] : 0
+        return Array(items[start...].suffix(limit))
+    }
+
     private func scanSubagents(existingFromEnd: Bool) {
         guard let dir = subagentDir,
               let names = try? FileManager.default.contentsOfDirectory(atPath: dir) else { return }
         for name in names where name.hasSuffix(".jsonl") && subagents[name] == nil {
             let file = dir + "/" + name
-            guard let tail = Tail(path: file, startFromEnd: existingFromEnd ? 0 : nil) else { continue }
+            // Sub-agents already running when following starts show their recent work too.
+            let modified = (try? FileManager.default.attributesOfItem(atPath: file)[.modificationDate] as? Date) ?? .distantPast
+            let recent = Date().timeIntervalSince(modified) < 600
+            guard let tail = Tail(path: file, startFromEnd: existingFromEnd ? (recent ? 512 * 1024 : 0) : nil) else { continue }
             let label = Self.subagentLabel(meta: (file as NSString).deletingPathExtension + ".meta.json")
             subagents[name] = tail
             drain(tail, subagent: label)
@@ -236,9 +250,9 @@ final class AgentFeed {
         if let old = input["old_string"] as? String { item["old"] = clip(old, 2500) }
         if let new = input["new_string"] as? String { item["new"] = clip(new, 2500) }
         if let content = input["content"] as? String { item["new"] = clip(content, 2500) }
-        if let edits = input["edits"] as? [[String: Any]], let first = edits.first {
-            item["old"] = clip(first["old_string"] as? String, 2500)
-            item["new"] = clip(first["new_string"] as? String, 2500)
+        if let edits = input["edits"] as? [[String: Any]], !edits.isEmpty {
+            item["old"] = clip(edits.compactMap { $0["old_string"] as? String }.joined(separator: "\n⋯\n"), 2500)
+            item["new"] = clip(edits.compactMap { $0["new_string"] as? String }.joined(separator: "\n⋯\n"), 2500)
         }
         if let todos = input["todos"] as? [[String: Any]] {
             item["todos"] = todos.prefix(12).map { ["text": $0["content"] ?? "", "status": $0["status"] ?? ""] }
@@ -261,6 +275,37 @@ final class AgentFeed {
     }
 
     // MARK: Codex
+
+    /// A string argument in a code-mode script, e.g. `"cmd":"rg -n foo"` (JSON-escaped).
+    static func codexScriptString(_ script: String, key: String) -> String? {
+        guard let range = script.range(of: "\"\(key)\":\"") else { return nil }
+        var value = ""
+        var escaped = false
+        for char in script[range.upperBound...] {
+            if escaped { value.append(char == "n" ? "\n" : char == "t" ? "\t" : char); escaped = false; continue }
+            if char == "\\" { escaped = true; continue }
+            if char == "\"" { return value }
+            value.append(char)
+        }
+        return nil
+    }
+
+    static func codexScriptCommand(_ script: String) -> String? {
+        codexScriptString(script, key: "cmd") ?? codexScriptString(script, key: "command")
+    }
+
+    /// The patch text a code-mode script passes to `apply_patch`, if any.
+    static func codexScriptPatch(_ script: String) -> String? {
+        guard let begin = script.range(of: "*** Begin Patch"),
+              let end = script.range(of: "*** End Patch", range: begin.upperBound..<script.endIndex) else { return nil }
+        return String(script[begin.lowerBound..<end.upperBound])
+            .replacingOccurrences(of: "\\n", with: "\n").replacingOccurrences(of: "\\\"", with: "\"")
+    }
+
+    static func patchPath(_ patch: String) -> String? {
+        patch.split(separator: "\n").first { $0.hasPrefix("*** Update File: ") || $0.hasPrefix("*** Add File: ") }
+            .map { String($0.split(separator: ":", maxSplits: 1).last ?? "").trimmingCharacters(in: .whitespaces) }
+    }
 
     private func codexItems(_ record: [String: Any]) -> [Item] {
         guard record["type"] as? String == "response_item", let payload = record["payload"] as? [String: Any] else { return [] }
@@ -285,6 +330,19 @@ final class AgentFeed {
             }
             if let cmd = input["cmd"] as? String { input["command"] = cmd }
             if let parts = input["command"] as? [String] { input["command"] = parts.joined(separator: " ") }
+            let script = payload["input"] as? String ?? ""
+            if name == "exec" {
+                // Code mode: the call is a script; show the first command or patch it runs.
+                if let patch = Self.codexScriptPatch(script) {
+                    var item = toolItem(id: payload["call_id"] as? String ?? "", name: "apply_patch", input: [:], time: time)
+                    item["patch"] = clip(patch, 4000)
+                    item["path"] = Self.patchPath(patch)
+                    return [item]
+                }
+                if let command = Self.codexScriptCommand(script) { input["command"] = command }
+                if let workdir = Self.codexScriptString(script, key: "workdir") { input["workdir"] = workdir }
+                return [toolItem(id: payload["call_id"] as? String ?? "", name: "exec_command", input: input, time: time)]
+            }
             var item = toolItem(id: payload["call_id"] as? String ?? "", name: name, input: input, time: time)
             if name == "apply_patch", let patch = payload["input"] as? String {
                 item["patch"] = clip(patch, 4000)

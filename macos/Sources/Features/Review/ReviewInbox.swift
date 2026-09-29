@@ -142,6 +142,11 @@ final class ReviewInbox: ObservableObject {
         return items.first { $0.id == tracker.id }
     }
 
+    /// The snapshot the pane's current review started from (usually its agent's first prompt).
+    func baseline(for surface: Ghostty.SurfaceView) -> String? {
+        trackers[ObjectIdentifier(surface)]?.baseline
+    }
+
     func surface(for item: ReviewItem) -> Ghostty.SurfaceView? {
         trackers.values.first { $0.id == item.id }?.surface
     }

@@ -130,14 +130,29 @@ final class EditorSession {
     private weak var controller: TerminalController?
     let webView = EditorWebView()
     private let feed = AgentFeed()
+    private let watcher = AgentChangeWatcher()
     private var lastStatus: [String: String]?
     private var isVisible = false
+    /// The transcript the editor last caught up with, so it only happens once per session.
+    private var caughtUp: String?
+    /// When the agent was last seen working; changes shortly after still animate.
+    private var lastWorking: Date?
     /// How much the window was widened for this editor, so hiding can undo it.
     private var widenedBy: CGFloat = 0
 
     init(controller: TerminalController) {
         self.controller = controller
         feed.onItems = { [weak self] items, reset in self?.webView.sendAgentItems(items, reset: reset) }
+        watcher.onChange = { [weak self] change in
+            guard let self else { return }
+            self.webView.sendAgentChange(change, live: self.agentIsActive)
+        }
+        webView.onFileSaved = { [weak self] path, content in self?.watcher.noteOwnWrite(path: path, content: content) }
+    }
+
+    private var agentIsActive: Bool {
+        guard let lastWorking else { return false }
+        return Date().timeIntervalSince(lastWorking) < 20
     }
 
     func show(folder: String?) {
@@ -149,12 +164,15 @@ final class EditorSession {
     func hide() {
         isVisible = false
         feed.stop()
+        watcher.stop()
+        caughtUp = nil
         lastStatus = nil
         if let window = controller?.window { narrow(window) }
     }
 
     func close() {
         feed.stop()
+        watcher.stop()
     }
 
     func followIfOnScreen() {
@@ -169,6 +187,20 @@ final class EditorSession {
 
         let info = VerticalTabsAgents.shared.info(for: surface)
         if let info, let path = info.transcriptPath { feed.follow(path: path, kind: info.kind) }
+        if let info, info.kind != .hermes, let pwd = surface.pwd {
+            if info.activity == .working || info.activity == .needsPermission { lastWorking = Date() }
+            let repo = VerticalTabsGit.repoRoot(containing: pwd)?.path
+            watcher.watch(folder: pwd, repoRoot: repo, baseline: ReviewInbox.shared.baseline(for: surface))
+            // Opened mid-session: show what the agent has changed so far.
+            let session = info.transcriptPath ?? pwd
+            if caughtUp != session {
+                caughtUp = session
+                watcher.catchUp { [weak self] changes in
+                    guard !changes.isEmpty else { return }
+                    self?.webView.sendAgentCatchUp(changes)
+                }
+            }
+        }
         var status: [String: String]?
         if let info {
             status = [

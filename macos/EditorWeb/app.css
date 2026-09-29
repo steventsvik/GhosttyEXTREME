@@ -267,3 +267,28 @@ kbd { font: 11px var(--font-ui); background: #8080802b; border: 1px solid #33333
 .sub-tag { font-size: 10.5px; font-weight: 600; color: var(--fg-muted); background: var(--bg-hover); padding: 0 6px;
   border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45%; flex: none; }
 .item.message .sub-tag { display: inline-block; margin-bottom: 2px; }
+
+/* Lines changed this turn: a thin gutter bar that stays while you browse. */
+.agent-turn-added { border-left: 3px solid color-mix(in srgb, var(--act-write) 75%, transparent); margin-left: 3px; }
+.agent-turn-removed { border-left: 3px solid transparent; margin-left: 3px; position: relative; }
+.agent-turn-removed::after { content: ""; position: absolute; left: -3px; bottom: -3px; border: 4px solid transparent;
+  border-left-color: var(--act-error); }
+
+/* "N files changed this turn" above the timeline. */
+#agent-turn { display: none; flex: none; align-items: center; gap: 6px; flex-wrap: wrap; padding: 6px 12px;
+  border-bottom: 1px solid var(--border); font-size: 11.5px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--act-write) 10%, transparent), transparent 70%); }
+#agent-turn.show { display: flex; animation: turn-in .25s ease-out; }
+@keyframes turn-in { from { opacity: 0; transform: translateY(-4px); } }
+#agent-turn .turn-head { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; color: var(--fg); }
+#agent-turn .turn-head .codicon { color: var(--act-write); font-size: 13px; }
+#agent-turn .turn-stats { font-family: var(--font-mono); font-size: 11px; display: inline-flex; gap: 4px; margin-right: 4px; }
+#agent-turn .turn-stats .add { color: var(--act-write); }
+#agent-turn .turn-stats .del { color: var(--act-error); }
+#agent-turn .turn-file { font-family: var(--font-mono); font-size: 11px; padding: 1px 7px; border-radius: 10px; cursor: pointer;
+  background: color-mix(in srgb, var(--act-edit) 16%, transparent); color: color-mix(in srgb, var(--act-edit) 85%, var(--fg));
+  border: 1px solid color-mix(in srgb, var(--act-edit) 35%, transparent); }
+#agent-turn .turn-file.new { background: color-mix(in srgb, var(--act-write) 16%, transparent);
+  color: color-mix(in srgb, var(--act-write) 85%, var(--fg)); border-color: color-mix(in srgb, var(--act-write) 35%, transparent); }
+#agent-turn .turn-file:hover { filter: brightness(1.25); }
+#agent-turn .turn-more { color: var(--fg-muted); }

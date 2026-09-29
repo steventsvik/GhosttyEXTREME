@@ -176,6 +176,7 @@ function activate(path, { focus = true } = {}) {
   $('watermark').classList.toggle('hidden', !!tab);
   if (tab) {
     editor.setModel(tab.model);
+    if (turn.files.has(canonical(tab.path))) applyTurnMarks(tab.path, tab.model);
     if (tab.viewState) editor.restoreViewState(tab.viewState);
     if (focus) editor.focus();
     state.selected = path;
@@ -660,7 +661,18 @@ function agentItems(items, reset) {
   for (const item of items) {
     const node = renderItem(item);
     if (node) feed.append(node);
+    if (!reset && item.kind === 'prompt' && !item.sub) clearTurn();
     if (!reset && agent.follow && (item.kind === 'tool' || item.kind === 'result')) followAction(item);
+  }
+  if (reset && agent.follow) {
+    // Opened mid-turn: pick up the action the agent is in the middle of.
+    const open = [...agent.tools.values()].filter(t => !t.mark.className.includes('mark'));
+    const current = open[open.length - 1];
+    if (current && current.item.action !== 'edit' && current.item.action !== 'write') followAction(current.item);
+    for (const t of open) if (t.item.action === 'edit' || t.item.action === 'write') {
+      const path = agentAbs(t.item.path);
+      if (path) laneFor(t.item).editing.set(canonical(path), Date.now());
+    }
   }
   // Only the newest item shimmers while the agent works.
   feed.querySelectorAll('.item.live').forEach(n => n.classList.remove('live'));
@@ -842,19 +854,30 @@ function laneFor(item) {
   let lane = lanes.get(key);
   if (!lane) {
     lane = { key, label: item.sub || agentName(), color: LANE_COLORS[lanes.size % LANE_COLORS.length],
-             queue: [], busy: false, lastActive: 0, pending: new Map(), view: null };
+             queue: [], busy: false, lastActive: 0, pending: new Map(), editing: new Map(), view: null };
     lanes.set(key, lane);
   }
   return lane;
 }
 
+// Edits are animated from what actually changed on disk (app.agentChange), which catches
+// every edit however it was made. The transcript's edit items only tell us which agent is
+// editing which file, and are the fallback when no disk change arrives (a file outside the
+// watched project).
+const diskChanges = new Map(); // path -> time of its last disk change
+
 function followAction(item) {
   const lane = laneFor(item);
   if (item.kind === 'tool') {
     if (item.action === 'edit' || item.action === 'write') {
-      // Animate when the change is on disk: on its result, or after a short wait.
-      const entry = { item, timer: setTimeout(() => { lane.pending.delete(item.id); enqueue(lane, { edit: item }); }, 2500) };
-      lane.pending.set(item.id, entry);
+      const path = agentAbs(item.path);
+      if (path) lane.editing.set(canonical(path), Date.now());
+      const since = Date.now();
+      const fallback = () => {
+        lane.pending.delete(item.id);
+        if (!path || (diskChanges.get(canonical(path)) || 0) < since) enqueue(lane, { edit: item });
+      };
+      lane.pending.set(item.id, { item, since, fallback, timer: setTimeout(fallback, 4000) });
     } else {
       looksFor(item).then(looks => looks.forEach(look => enqueue(lane, { look, item })));
     }
@@ -863,9 +886,37 @@ function followAction(item) {
     if (entry) {
       clearTimeout(entry.timer);
       lane.pending.delete(item.id);
-      if (!item.error) enqueue(lane, { edit: entry.item });
+      // Give the disk change a moment to arrive before falling back to the transcript.
+      if (!item.error) setTimeout(entry.fallback, 1500);
     }
   }
+}
+
+/** The lane (agent or sub-agent) that most recently said it was editing `path`. */
+function laneEditing(path) {
+  const key = canonical(path);
+  let best = null, bestTime = 0;
+  for (const lane of lanes.values()) {
+    const time = lane.editing.get(key) || 0;
+    if (time > bestTime && Date.now() - time < 60000) { best = lane; bestTime = time; }
+  }
+  return best || laneFor({});
+}
+
+function agentChange(change) {
+  const key = canonical(change.path);
+  diskChanges.set(key, Date.now());
+  // New and deleted files show up in (or leave) the Explorer right away.
+  if (change.created || change.deleted) refreshExplorer();
+  if (!change.live) {
+    // No agent working: keep open tabs current, but don't animate.
+    const open = state.tabs.find(t => samePath(t.path, change.path));
+    if (open) reloadFromDisk(open);
+    return;
+  }
+  rememberTurnChange(change);
+  if (!agent.follow) { markFile(change.path, 'edit'); return; }
+  enqueue(laneEditing(change.path), { change });
 }
 
 function enqueue(lane, action) {
@@ -896,6 +947,9 @@ async function runLane(lane) {
       } else if (action.edit) {
         await showEdit(view, action.edit);
         await sleep(lane.queue.length ? 500 : 900);
+      } else if (action.change) {
+        await showChange(view, action.change, { hurry: lane.queue.length > 2 });
+        await sleep(lane.queue.length ? 300 : 700);
       }
     }
   } catch (e) {
@@ -1038,6 +1092,8 @@ function clearView(view) {
   d.edit?.clear(); d.edit = null;
   if (d.widget) { instance.removeContentWidget(d.widget); d.widget = null; }
   if (d.zone) { const zone = d.zone; instance.changeViewZones(acc => acc.removeZone(zone)); d.zone = null; }
+  if (d.zones?.length) { const zones = d.zones; instance.changeViewZones(acc => zones.forEach(z => acc.removeZone(z))); }
+  d.zones = [];
 }
 
 function clearMainDecorations() { if (mainView.view) clearView(mainView.view); }
@@ -1184,6 +1240,202 @@ function animateChange(view, model, added, removed, isNewFile) {
   view.deco.timers.push(setTimeout(() => clearView(view), 8000 + Math.min(lines, 120) * 38));
 }
 
+// ----- Disk changes: animate exactly the lines that changed ----------------------
+
+/** Groups hunks that are close together so each step shows one area of the file. */
+function hunkSteps(hunks) {
+  const steps = [];
+  for (const h of hunks) {
+    const end = h.start + Math.max(h.count, 1) - 1;
+    const last = steps[steps.length - 1];
+    if (last && h.start - last.end <= 6) { last.hunks.push(h); last.end = Math.max(last.end, end); }
+    else steps.push({ hunks: [h], start: h.start, end });
+  }
+  return steps;
+}
+
+async function showChange(view, change, { hurry = false } = {}) {
+  const path = change.path;
+  if (path.includes('/.claude/projects/')) return;
+  markFile(path, 'edit');
+  if (change.deleted) return;
+  if (view.main && userIsEditing()) {
+    const open = state.tabs.find(t => samePath(t.path, path));
+    if (open) await reloadFromDisk(open);
+    return;
+  }
+  const model = await modelFor(view, path, { preview: false });
+  if (!model) return;
+  applyTurnMarks(path, model);
+  const steps = hunkSteps(change.hunks || []);
+  if (!steps.length) return;
+  const shown = hurry ? steps.slice(0, 1) : steps.slice(0, 8);
+  for (let i = 0; i < shown.length; i++) {
+    const lines = animateStep(view, model, shown[i], { index: i, total: steps.length, created: change.created });
+    if (i < shown.length - 1) await sleep(Math.min(2400, 700 + lines * 30));
+  }
+}
+
+/** Animates one area of a change: new lines type in, removed lines show struck through. */
+function animateStep(view, model, step, { index, total, created }) {
+  const instance = view.editor();
+  const count = model.getLineCount();
+  clearView(view);
+  const decorations = [];
+  let i = 0;
+  for (const h of step.hunks) {
+    for (let line = h.start; line < h.start + h.count && line <= count; line++, i++) {
+      const delay = `agent-d-${Math.min(i, 119)}`;
+      decorations.push({
+        range: new monacoRef.Range(line, 1, line, model.getLineMaxColumn(line)),
+        options: { isWholeLine: true, className: `agent-write-line ${delay}`, inlineClassName: `agent-write-text ${delay}`,
+                   linesDecorationsClassName: 'agent-added-gutter' },
+      });
+    }
+  }
+  const last = step.hunks.filter(h => h.count > 0).pop();
+  if (last) {
+    const line = Math.min(last.start + last.count - 1, count);
+    decorations.push({
+      range: new monacoRef.Range(line, model.getLineMaxColumn(line), line, model.getLineMaxColumn(line)),
+      options: { afterContentClassName: 'agent-caret' },
+    });
+  }
+  view.deco.edit = instance.createDecorationsCollection(decorations);
+
+  const lineHeight = instance.getOption(monacoRef.editor.EditorOption.lineHeight);
+  instance.changeViewZones(acc => {
+    for (const h of step.hunks) {
+      const gone = (h.removed || []).slice(0, 30);
+      if (!gone.length || created) continue;
+      const dom = el('div', 'agent-removed-zone');
+      dom.textContent = gone.join('\n') + (h.removed.length > 30 ? `\n… ${h.removed.length - 30} more removed lines` : '');
+      dom.style.lineHeight = `${lineHeight}px`;
+      view.deco.zones.push(acc.addZone({ afterLineNumber: Math.max(0, h.start - 1),
+        heightInLines: Math.min(gone.length, 30) + (h.removed.length > 30 ? 1 : 0), domNode: dom }));
+    }
+  });
+
+  const first = step.start, end = Math.max(step.start, step.end);
+  const added = step.hunks.reduce((n, h) => n + h.count, 0);
+  const removed = step.hunks.reduce((n, h) => n + (h.removed?.length || 0), 0);
+  let label = created ? 'writing a new file'
+    : added ? (first === end ? `editing line ${first}` : `editing lines ${first}–${end}`)
+    : `removing ${removed} line${removed === 1 ? '' : 's'}`;
+  if (total > 1) label += ` · change ${index + 1} of ${total}`;
+  addLabel(view, first, view.main ? `${agentName()} · ${label}` : label, 'edit');
+  if (view.action) { view.action.textContent = label; view.pane.dataset.state = 'edit'; }
+  revealLines(view, first, end);
+
+  view.deco.timers.push(setTimeout(() => {
+    if (view.deco.zones?.length) {
+      const zones = view.deco.zones;
+      instance.changeViewZones(acc => zones.forEach(z => acc.removeZone(z)));
+      view.deco.zones = [];
+    }
+  }, 2600 + Math.min(i, 120) * 38));
+  view.deco.timers.push(setTimeout(() => clearView(view), 8000 + Math.min(i, 120) * 38));
+  return Math.max(i, 1);
+}
+
+// ----- This turn's changes: gutter markers and the "changed this turn" strip ----------
+
+const turn = { files: new Map(), decorations: new Map() }; // path -> change / decoration ids
+
+function rememberTurnChange(change) {
+  if (change.deleted) turn.files.delete(canonical(change.path));
+  else {
+    const previous = turn.files.get(canonical(change.path));
+    turn.files.set(canonical(change.path), { ...change, created: change.created || previous?.created,
+                                             time: Date.now() });
+  }
+  renderTurnStrip();
+}
+
+/** Marks the lines changed this turn in a file's gutter (stays while you browse). */
+function applyTurnMarks(path, model) {
+  const change = turn.files.get(canonical(path));
+  const old = turn.decorations.get(canonical(path)) || [];
+  if (!change || model.isDisposed()) return;
+  const count = model.getLineCount();
+  const decorations = (change.hunks || []).flatMap(h => {
+    if (h.count > 0) {
+      return [{ range: new monacoRef.Range(Math.min(h.start, count), 1, Math.min(h.start + h.count - 1, count), 1),
+                options: { isWholeLine: true, linesDecorationsClassName: 'agent-turn-added',
+                           overviewRuler: { color: '#73c991', position: monacoRef.editor.OverviewRulerLane.Left } } }];
+    }
+    const line = Math.max(1, Math.min(h.start, count));
+    return [{ range: new monacoRef.Range(line, 1, line, 1),
+              options: { linesDecorationsClassName: 'agent-turn-removed' } }];
+  });
+  turn.decorations.set(canonical(path), model.deltaDecorations(old, decorations));
+}
+
+function clearTurn() {
+  for (const [path, ids] of turn.decorations) {
+    const model = monacoRef?.editor.getModels().find(m => samePath(m.uri.path, path));
+    if (model && !model.isDisposed()) model.deltaDecorations(ids, []);
+  }
+  turn.files.clear();
+  turn.decorations.clear();
+  renderTurnStrip();
+}
+
+function renderTurnStrip() {
+  let strip = $('agent-turn');
+  if (!strip) {
+    strip = el('div');
+    strip.id = 'agent-turn';
+    $('agent-feed').before(strip);
+  }
+  const files = [...turn.files.values()].sort((a, b) => b.time - a.time);
+  strip.classList.toggle('show', files.length > 0);
+  if (!files.length) { strip.replaceChildren(); return; }
+  const added = files.reduce((n, f) => n + (f.hunks || []).reduce((m, h) => m + h.count, 0), 0);
+  const removed = files.reduce((n, f) => n + (f.hunks || []).reduce((m, h) => m + (h.removed?.length || 0), 0), 0);
+  const head = el('span', 'turn-head');
+  head.append(el('i', 'codicon codicon-diff'), `${files.length} file${files.length === 1 ? '' : 's'} changed this turn`);
+  const stats = el('span', 'turn-stats');
+  stats.append(el('span', 'add', `+${added}`), el('span', 'del', `−${removed}`));
+  const chips = files.slice(0, 12).map(f => {
+    const chip = el('span', 'turn-file' + (f.created ? ' new' : ''), basename(f.path));
+    chip.title = relative(f.path);
+    chip.onclick = () => revisitChange(f);
+    return chip;
+  });
+  strip.replaceChildren(head, stats, ...chips);
+  if (files.length > 12) strip.append(el('span', 'turn-more', `+${files.length - 12} more`));
+}
+
+/** Opens a changed file and replays its changes. */
+async function revisitChange(change) {
+  const view = mainView();
+  if (split) exitSplit(true);
+  await showChange(view, change);
+}
+
+/** The editor opened mid-turn: show everything the agent changed so far, newest first. */
+async function agentCatchUp(changes) {
+  if (!changes.length) return;
+  changes.forEach(c => turn.files.set(canonical(c.path), { ...c, time: c.mtime * 1000 }));
+  renderTurnStrip();
+  changes.forEach(c => markFile(c.path, 'edit'));
+  if (!agent.follow || userIsEditing()) return;
+  const latest = changes.find(c => !c.deleted);
+  if (!latest) return;
+  const model = await modelFor(mainView(), latest.path, { preview: false });
+  if (!model) return;
+  applyTurnMarks(latest.path, model);
+  const steps = hunkSteps(latest.hunks || []);
+  if (!steps.length) return;
+  // Land on the most recent area the agent worked on.
+  const step = steps[steps.length - 1];
+  animateStep(mainView(), model, step, { index: steps.length - 1, total: steps.length, created: latest.created });
+  const view = mainView();
+  if (view.deco.widget) { view.editor().removeContentWidget(view.deco.widget); view.deco.widget = null; }
+  addLabel(view, step.start, `Caught up · ${agentName()} changed ${changes.length} file${changes.length === 1 ? '' : 's'} so far`, 'edit');
+}
+
 async function reloadFromDisk(tab) {
   if (isDirty(tab)) return;
   const result = await fs('read', { path: tab.path });
@@ -1242,6 +1494,8 @@ window.app = {
   openFile(path, line) { openFile(path, { line }); },
   setTheme(theme) { applyTheme(theme); },
   agentItems(items, reset) { agentItems(items, reset); },
+  agentChange(change) { agentChange(change); },
+  agentCatchUp(changes) { agentCatchUp(changes); },
   agentStatus(status) { agentStatus(status); },
   focus() { (editor?.getModel() ? editor : $('tree')).focus(); },
 };
@@ -1281,7 +1535,7 @@ require(['vs/editor/editor.main'], () => {
     stickyScroll: { enabled: true },
     renderLineHighlight: 'all',
     scrollBeyondLastLine: false,
-    padding: { top: 4 },
+    padding: { top: 20 },
     fixedOverflowWidgets: true,
   });
   if (terminalTheme) applyTheme(terminalTheme);

@@ -96,8 +96,10 @@ enum VerticalTabsTestSupport {
            let kind = DockerSessionKind(rawValue: String(value.dropFirst("docker:".count))) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 4) { DockerSessions.open(kind, from: controller) }
         }
+        // `GHOSTTY_EXTREME_TEST_EDITOR_DELAY`: seconds before opening it (default 1.5).
         if let file = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_EDITOR"] {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            let delay = Double(ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_EDITOR_DELAY"] ?? "") ?? 1.5
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                 EditorPanel.shared.show(from: controller, folder: (file as NSString).deletingLastPathComponent)
                 EditorPanel.shared.session(for: controller).webView.openFile(file, line: 20)
                 // `GHOSTTY_EXTREME_TEST_EDITOR_JS`: script run in the editor once it's loaded.
@@ -174,6 +176,14 @@ enum VerticalTabsTestSupport {
                     default: break
                     }
                 }
+            }
+        }
+        // `GHOSTTY_EXTREME_TEST_PRESENT=1`: after 8s, present the first tab's pane the way
+        // Mission Control's Open does (while a later tab is selected).
+        if env["GHOSTTY_EXTREME_TEST_PRESENT"] == "1" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
+                guard let surface = controller.surfaceTree.first else { return }
+                NotificationCenter.default.post(name: Ghostty.Notification.ghosttyPresentTerminal, object: surface)
             }
         }
         // `GHOSTTY_EXTREME_TEST_MISSION=1`: open Mission Control after 12s.

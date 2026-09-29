@@ -13,6 +13,8 @@ final class EditorWebView: WKWebView {
 
     private let files = EditorFileBridge()
     private(set) var isReady = false
+    /// Called (on a background queue) after the editor saves a file.
+    var onFileSaved: ((String, String) -> Void)?
     private var pending: [String] = []
 
     init() {
@@ -21,6 +23,7 @@ final class EditorWebView: WKWebView {
         super.init(frame: .zero, configuration: configuration)
         configuration.userContentController.addScriptMessageHandler(files, contentWorld: .page, name: "fs")
         files.onReady = { [weak self] in self?.didBecomeReady() }
+        files.onWrite = { [weak self] path, content in self?.onFileSaved?(path, content) }
         uiDelegate = self
         setValue(false, forKey: "drawsBackground")
         load(URLRequest(url: URL(string: "\(Self.scheme)://app/index.html")!))
@@ -97,6 +100,25 @@ final class EditorWebView: WKWebView {
         guard let data = try? JSONSerialization.data(withJSONObject: items),
               let json = String(data: data, encoding: .utf8) else { return }
         run("app.agentItems(\(json), \(reset))")
+    }
+
+    /// A file the agent changed on disk, with exactly which lines (see `AgentChangeWatcher`).
+    /// `live` is false when no agent is working, so the page updates without animating.
+    func sendAgentChange(_ change: AgentChangeWatcher.Change, live: Bool) {
+        files.allowedFiles.insert((change.path as NSString).standardizingPath)
+        var json = change.json
+        json["live"] = live
+        guard let data = try? JSONSerialization.data(withJSONObject: json),
+              let text = String(data: data, encoding: .utf8) else { return }
+        run("app.agentChange(\(text))")
+    }
+
+    /// Everything the agent has changed so far this turn, for an editor opened mid-prompt.
+    func sendAgentCatchUp(_ changes: [AgentChangeWatcher.Change]) {
+        changes.forEach { files.allowedFiles.insert(($0.path as NSString).standardizingPath) }
+        guard let data = try? JSONSerialization.data(withJSONObject: changes.prefix(60).map(\.json)),
+              let text = String(data: data, encoding: .utf8) else { return }
+        run("app.agentCatchUp(\(text))")
     }
 
     func sendAgentStatus(_ status: [String: Any]?) {
@@ -188,6 +210,7 @@ private final class EditorFileBridge: NSObject, WKScriptMessageHandlerWithReply 
     /// Files an agent touched, which follow mode may open.
     var allowedFiles: Set<String> = []
     var onReady: (() -> Void)?
+    var onWrite: ((String, String) -> Void)?
 
     private let maxFileSize = 8 * 1024 * 1024
     private let hidden: Set<String> = [".git", ".DS_Store", "node_modules", ".zig-cache", "zig-out", ".build", "build", "DerivedData"]
@@ -291,6 +314,7 @@ private final class EditorFileBridge: NSObject, WKScriptMessageHandlerWithReply 
 
     private func write(_ path: String, _ content: String) -> [String: Any] {
         do {
+            onWrite?(path, content)
             try content.write(toFile: path, atomically: true, encoding: .utf8)
             return ["mtime": mtime(path) ?? 0]
         } catch {
