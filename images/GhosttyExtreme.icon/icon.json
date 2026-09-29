@@ -93,6 +93,21 @@
         {
           "blend-mode": "normal",
           "fill": "automatic",
+          "glass": false,
+          "hidden": false,
+          "image-name": "Seal.png",
+          "name": "Seal",
+          "position": {
+            "scale": 1,
+            "translation-in-points": [
+              -185.015625,
+              -143.8359375
+            ]
+          }
+        },
+        {
+          "blend-mode": "normal",
+          "fill": "automatic",
           "hidden": false,
           "image-name": "Ghostty.png",
           "name": "Ghostty",
