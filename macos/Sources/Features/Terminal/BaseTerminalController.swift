@@ -722,7 +722,12 @@ class BaseTerminalController: NSWindowController,
         guard let target = notification.object as? Ghostty.SurfaceView else { return }
         guard surfaceTree.contains(target) else { return }
 
-        // Bring the window to front and focus the surface.
+        // Bring the window to front and focus the surface. If it's a background tab, select
+        // it in its tab group first: ordering a hidden tab's window front on its own detaches
+        // it from the group, which in full screen shows a black window with the native tab bar.
+        if let window, let group = window.tabGroup, group.selectedWindow !== window {
+            group.selectedWindow = window
+        }
         window?.makeKeyAndOrderFront(nil)
 
         // We use a small delay to ensure this runs after any UI cleanup

@@ -308,12 +308,16 @@ enum AgentToolWindows {
         window.title = title
         window.titlebarAppearsTransparent = true
         window.isReleasedWhenClosed = false
+        // Open over a full-screen terminal instead of switching to another Space.
+        window.collectionBehavior = [.fullScreenAuxiliary, .moveToActiveSpace]
         window.contentView = NSHostingView(rootView: content())
         window.center()
         windows[id] = window
-        NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { _ in
+        var observer: NSObjectProtocol?
+        observer = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { _ in
             windows.removeValue(forKey: id)
-            // Drop the SwiftUI view (and its timers) with the window.
+            if let observer { NotificationCenter.default.removeObserver(observer) }
+            // Drop the SwiftUI view (and its timers) with the window, then the window itself.
             DispatchQueue.main.async { window.contentView = nil }
         }
         window.makeKeyAndOrderFront(nil)
@@ -513,7 +517,7 @@ private struct AgentRaceView: View {
                         .disabled(diff?.files.isEmpty ?? true)
                     if let controller = races.controller(for: race, contestant) {
                         Button("Open tab") {
-                            controller.window?.makeKeyAndOrderFront(nil)
+                            VerticalTabsActions.select(controller)
                         }
                     }
                 }
