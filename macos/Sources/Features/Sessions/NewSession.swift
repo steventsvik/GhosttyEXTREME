@@ -77,6 +77,12 @@ struct NewSessionMenu: View {
                     DockerSessionMenu(owner: owner)
                 }
             }
+            Divider()
+            Button {
+                LocalhostManager.showNewServer(folder: owner.focusedSurface?.pwd, from: owner)
+            } label: {
+                Label("Localhost Server…", systemImage: "globe")
+            }
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "plus").font(.system(size: 11, weight: .semibold))

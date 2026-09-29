@@ -11,6 +11,7 @@ struct VerticalTabsLayout<Content: View>: View {
     @StateObject private var overlay = VerticalTabsOverlayState()
     @ObservedObject private var editorPanel = EditorPanel.shared
     @ObservedObject private var hermes = HermesSessions.shared
+    @ObservedObject private var commandBlocks = CommandBlocksPanel.shared
     @AppStorage(VerticalTabs.visibleKey) private var visible: Bool = true
     @AppStorage(VerticalTabs.widthKey) private var width: Double = VerticalTabs.defaultWidth
     private let content: Content
@@ -36,10 +37,15 @@ struct VerticalTabsLayout<Content: View>: View {
                 if hermes.isHermes(controller) {
                     HermesSessionView(controller: controller)
                 }
+                // "Your app is live" when a localhost session starts listening.
+                LocalhostToastLayer()
             }
             // Each tab has its own editor.
             if editorPanel.isVisible(controller) {
                 EditorPanelColumn(controller: controller)
+            }
+            if commandBlocks.isVisible(controller) {
+                CommandBlocksColumn(controller: controller)
             }
         }
         .coordinateSpace(name: verticalTabsSpace)
@@ -54,6 +60,7 @@ struct VerticalTabsLayout<Content: View>: View {
         .onChange(of: visible) { _ in overlay.dismissAll() }
         .onAppear {
             VerticalTabsMenu.shared.installIfNeeded()
+            ReviewInbox.start()
             VerticalTabsTestSupport.openTestTabsIfRequested(from: controller)
         }
     }
@@ -109,6 +116,66 @@ enum VerticalTabsTestSupport {
             }
         }
         let env = ProcessInfo.processInfo.environment
+        // `GHOSTTY_EXTREME_TEST_TYPE=<command>`: types it (plus Enter) into the first tab after 3s.
+        if let command = env["GHOSTTY_EXTREME_TEST_TYPE"] {
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                guard let model = controller.focusedSurface?.surfaceModel else { return }
+                model.sendText(command)
+                model.sendKeyEvent(.init(key: .enter, action: .press, text: "\r"))
+                model.sendKeyEvent(.init(key: .enter, action: .release))
+            }
+        }
+        // `GHOSTTY_EXTREME_TEST_REVIEW=comment,send,undo,commit`: acts on the first review item,
+        // one step every 3s starting at 24s, logging to `GHOSTTY_EXTREME_TEST_LOG`.
+        if let steps = env["GHOSTTY_EXTREME_TEST_REVIEW"] {
+            let log: (String) -> Void = { line in
+                guard let path = env["GHOSTTY_EXTREME_TEST_LOG"] else { return }
+                let old = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
+                try? (old + line + "\n").write(toFile: path, atomically: true, encoding: .utf8)
+            }
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 24_000_000_000)
+                let inbox = ReviewInbox.shared
+                for step in steps.split(separator: ",") {
+                    guard let item = inbox.items.first else { log("\(step): no review item"); break }
+                    switch step {
+                    case "comment":
+                        if let file = item.files.first, let line = file.hunks.first?.lines.first(where: { $0.kind == .added }) {
+                            inbox.addComment("Use Decimal for money; floats round badly.", on: line, file: file, in: item)
+                        }
+                        log("comment: \(inbox.items.first?.comments.count ?? 0) comments")
+                    case "send":
+                        log("send: \(inbox.sendFeedback(item))")
+                    case "undo":
+                        if let file = item.files.first(where: { $0.status == .added }) { inbox.undo(file, in: item) }
+                        log("undo: requested")
+                    case "commit":
+                        inbox.commit(item, message: "Add discount codes") { error in log("commit: \(error ?? "ok")") }
+                    default:
+                        break
+                    }
+                    try? await Task.sleep(nanoseconds: 3_000_000_000)
+                }
+                log("files now: \(inbox.items.first?.files.map(\.path) ?? [])")
+            }
+        }
+        // `GHOSTTY_EXTREME_TEST_OPEN=localhost,review,activity,blocks`: open those after
+        // `GHOSTTY_EXTREME_TEST_OPEN_DELAY` seconds (default 10).
+        if let windows = env["GHOSTTY_EXTREME_TEST_OPEN"] {
+            let delay = Double(env["GHOSTTY_EXTREME_TEST_OPEN_DELAY"] ?? "") ?? 10
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                for name in windows.split(separator: ",") {
+                    switch name {
+                    case "localhost": LocalhostManager.show()
+                    case "review": ReviewInbox.show()
+                    case "activity": ActivityDashboard.toggle()
+                    case "blocks": CommandBlocksPanel.shared.show(controller)
+                    default: break
+                    }
+                }
+            }
+        }
         // `GHOSTTY_EXTREME_TEST_MISSION=1`: open Mission Control after 12s.
         if env["GHOSTTY_EXTREME_TEST_MISSION"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 12) { MissionControl.show() }
@@ -235,9 +302,15 @@ struct VerticalTabsSidebar: View {
 
     @AppStorage(VerticalTabs.condensedKey) private var condensed = false
     @ObservedObject private var collapse = VerticalTabsCollapse.shared
+    @ObservedObject private var localhost = LocalhostSessions.shared
 
     var body: some View {
         let palette = VerticalTabsPalette(config: config)
+        // Localhost sessions get their own cards at the end, whatever their tab order.
+        let isLocalhost: (VerticalTabEntry) -> Bool = { entry in
+            entry.controller.map { localhost.session(for: $0) != nil } ?? false
+        }
+        let localhostTabs = model.tabs.filter(isLocalhost)
 
         VStack(spacing: 0) {
             // Full labels when there's room, compact ones in a narrow sidebar.
@@ -253,7 +326,7 @@ struct VerticalTabsSidebar: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(model.tabs.enumerated()), id: \.element.id) { index, entry in
-                        if let controller = entry.controller {
+                        if let controller = entry.controller, !isLocalhost(entry) {
                             VerticalTabGroup(
                                 controller: controller,
                                 owner: owner,
@@ -267,6 +340,12 @@ struct VerticalTabsSidebar: View {
                         }
                     }
                 }
+            }
+
+            // Localhost sessions stay in view, whatever else is open.
+            if !localhostTabs.isEmpty {
+                Rectangle().fill(Color.primary.opacity(0.08)).frame(height: 1)
+                LocalhostSidebarSection(entries: localhostTabs, owner: owner)
             }
 
             // Bottom left: live usage of the user's AI subscriptions.
@@ -290,6 +369,8 @@ struct VerticalTabsSidebar: View {
                 title: compact ? (condensed ? "Expand" : "Condense") : (condensed ? "Expand view" : "Condense view")
             ) { condensed.toggle() }
             NewSessionMenu(owner: owner, compact: compact)
+            LocalhostHeaderButton()
+            ReviewHeaderButton()
             MissionControlButton()
         }
     }
@@ -733,6 +814,7 @@ private struct VerticalTabPaneRow: View {
                 HStack(spacing: 6) {
                     VerticalTabKindLabel(agent: pane.agent, palette: palette)
                     Spacer(minLength: 4)
+                    ReviewPaneChip(surface: pane.surface)
                     diffChip
                 }
             }

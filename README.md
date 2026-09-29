@@ -34,6 +34,33 @@
 - **Handoff**: pass a pane's context to a fresh Claude Code session in a split.
 - **Alerts**: a notification and Dock badge when an agent needs you.
 
+**Localhost sessions** (⌃⌘L)
+- When Claude Code starts a dev server (`npm run dev`, `vite`, `rails s`, `python -m
+  http.server`, ...), it opens in its own tab instead, so it keeps running after the
+  agent is done. The agent is told the URL and how to read the logs.
+- Each server gets a card in the sidebar: live status, `localhost:PORT` to click,
+  framework badge, uptime, restart and stop.
+- The Localhost manager groups every server by project, shows CPU and memory, previews
+  pages in a built-in browser, and finds dev servers running elsewhere on your Mac, with
+  "Keep alive" to move one into its own tab.
+- Start one yourself from **New → Localhost Server…** (it offers the folder's
+  `package.json` scripts).
+
+**Review changes** (⌃⌘I)
+- When an agent finishes working in a git repo, its changes land in a review inbox.
+- Read the diff file by file, comment on lines and send the comments back to the agent
+  as its next prompt, approve or undo files, commit, or open a pull request.
+
+**Command history** (⌃⌘B)
+- Every command you run becomes a block with its output, exit code and duration.
+- A failed command pops up a chip with **Fix with Claude** / **Fix with Codex**, which
+  opens the agent in a split with the command and its output.
+
+**Agent activity** (⌃⌘A)
+- Active time, prompts, files and lines changed, commands, test runs and tokens, per
+  day, per agent and per project, read from Claude Code's and Codex's session history.
+- Resume any recent session in a new tab.
+
 **Sessions**
 - New Terminal, Claude Code, Codex, Hermes or Claude Code cloud sessions from the sidebar.
 - Isolated Docker sessions (Ubuntu, Python, Node) and sandboxed Claude Code / Codex.
@@ -64,14 +91,25 @@ iCloud first; `update-ghostty.sh` does this for you.
 GhosttyEXTREME sets `GHOSTTY_EXTREME_AGENT_EVENTS=1` in its terminals. The hook
 scripts in `agent-hooks/` do nothing anywhere else.
 
+First install them outside the repo:
+
+```sh
+./agent-hooks/install.sh
+```
+
+This copies the hooks to `~/.ghostty-extreme/agent-hooks/` and the `localhost` command
+to `~/.ghostty-extreme/bin/`. Point your agents there rather than at the repo: macOS
+privacy protection can block terminal processes from reading `~/Desktop` or
+`~/Documents`, which silently breaks the hooks. Rerun it after pulling changes.
+
 **Shell detection** (shows the agent's logo as soon as you start it). Add to `~/.zshrc`:
 
 ```sh
-[[ -n "$GHOSTTY_EXTREME_AGENT_EVENTS" ]] && source /path/to/GhosttyEXTREME/agent-hooks/ghostty-extreme.zsh
+[[ -n "$GHOSTTY_EXTREME_AGENT_EVENTS" ]] && source ~/.ghostty-extreme/agent-hooks/ghostty-extreme.zsh
 ```
 
 **Claude Code status.** In `~/.claude/settings.json`, run
-`agent-hooks/agent-hook.sh claude <event>` for these hooks:
+`~/.ghostty-extreme/agent-hooks/agent-hook.sh claude <event>` for these hooks:
 
 | Hook | Event |
 |---|---|
@@ -83,9 +121,10 @@ scripts in `agent-hooks/` do nothing anywhere else.
 | `Stop` | `stop` |
 | `StopFailure` | `stop_failure` |
 | `SessionEnd` | `session_end` |
+| `PreToolUse` (matcher `Bash`) | `pre_tool_use` (moves dev servers into localhost sessions) |
 
 ```json
-{ "type": "command", "command": "/path/to/GhosttyEXTREME/agent-hooks/agent-hook.sh claude stop" }
+{ "type": "command", "command": "~/.ghostty-extreme/agent-hooks/agent-hook.sh claude stop" }
 ```
 
 **Codex status.** Same script with `codex` as the first argument, in

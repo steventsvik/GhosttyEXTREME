@@ -212,6 +212,11 @@ extension Ghostty {
                 // Show a highlight effect when this surface needs attention
                 HighlightOverlay(highlighted: surfaceView.highlighted)
 
+                #if os(macOS)
+                // GhosttyEXTREME: a failed command offers to have an agent fix it.
+                CommandFailureChip(surfaceView: surfaceView)
+                #endif
+
                 // If our surface is not healthy, then we render an error view over it.
                 if !surfaceView.healthy {
                     Rectangle().fill(ghostty.config.backgroundColor)

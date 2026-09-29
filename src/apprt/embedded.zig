@@ -1640,6 +1640,67 @@ pub const CAPI = struct {
         return readTextLocked(surface, core_sel, result);
     }
 
+    /// GhosttyEXTREME: the most recent command line and its output, found through
+    /// the shell integration's semantic prompt marks. `output` is left empty when
+    /// the command printed nothing. Returns false when no command has run yet (or
+    /// the shell doesn't report prompts).
+    export fn ghostty_surface_read_last_command(
+        surface: *Surface,
+        command_text: *Text,
+        output_text: *Text,
+    ) bool {
+        const core_surface = &surface.core_surface;
+        core_surface.renderer_state.mutex.lock();
+        defer core_surface.renderer_state.mutex.unlock();
+
+        const screen = core_surface.io.terminal.screens.active;
+        const pages = &screen.pages;
+
+        // The newest prompt is either the finished command itself (if the shell
+        // hasn't drawn its next prompt yet) or the fresh, still-empty prompt after
+        // it; a prompt with input is the command.
+        var it = pages.promptIterator(.left_up, .{ .screen = .{} }, null);
+        const command: terminal.Pin = pin: {
+            var checked: usize = 0;
+            while (it.next()) |p| : (checked += 1) {
+                if (checked == 2) return false;
+                if (pages.highlightSemanticContent(p, .input) != null) break :pin p;
+            }
+            return false;
+        };
+
+        const in_hl = pages.highlightSemanticContent(command, .input) orelse return false;
+        if (!readTextLocked(surface, terminal.Selection.init(in_hl.start, in_hl.end, false), command_text)) return false;
+
+        if (pages.highlightSemanticContent(command, .output)) |out_hl| {
+            // Very long output (e.g. `cat` of a big file): keep only the last 2000 rows.
+            var start = out_hl.start;
+            if (out_hl.end.up(2000)) |limit| {
+                if (start.before(limit)) start = limit.left(limit.x);
+            }
+            if (!readTextLocked(surface, terminal.Selection.init(start, out_hl.end, false), output_text)) {
+                command_text.deinit();
+                return false;
+            }
+        } else {
+            output_text.* = .{
+                .tl_px_x = -1,
+                .tl_px_y = -1,
+                .offset_start = 0,
+                .offset_len = 0,
+                .text = null,
+                .text_len = 0,
+            };
+        }
+        return true;
+    }
+
+    /// GhosttyEXTREME: frees text from ghostty_surface_read_last_command.
+    export fn ghostty_surface_free_last_command(command_text: *Text, output_text: *Text) void {
+        command_text.deinit();
+        output_text.deinit();
+    }
+
     fn readTextLocked(
         surface: *Surface,
         core_sel: terminal.Selection,

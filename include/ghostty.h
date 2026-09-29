@@ -1131,6 +1131,11 @@ bool ghostty_surface_read_text(ghostty_surface_t,
                                ghostty_selection_s,
                                ghostty_text_s*);
 void ghostty_surface_free_text(ghostty_surface_t, ghostty_text_s*);
+// GhosttyEXTREME: the last command line and its output (output text may be NULL).
+bool ghostty_surface_read_last_command(ghostty_surface_t,
+                                       ghostty_text_s*,
+                                       ghostty_text_s*);
+void ghostty_surface_free_last_command(ghostty_text_s*, ghostty_text_s*);
 
 #ifdef __APPLE__
 void ghostty_surface_set_display_id(ghostty_surface_t, uint32_t);

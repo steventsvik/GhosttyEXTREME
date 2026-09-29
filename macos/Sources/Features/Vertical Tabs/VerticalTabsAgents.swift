@@ -103,6 +103,10 @@ final class VerticalTabsAgents {
     /// Returns true if the notification was an agent event (and so should not be shown).
     func handle(title: String, body: String, surface: Ghostty.SurfaceView) -> Bool {
         guard title.hasPrefix(Self.titlePrefix) else { return false }
+        if title == LocalhostSessions.eventTitle {
+            LocalhostSessions.shared.handle(body: body, from: surface)
+            return true
+        }
         guard title == Self.agentTitle,
               let data = body.data(using: .utf8),
               let event = try? JSONDecoder().decode(Event.self, from: data) else {

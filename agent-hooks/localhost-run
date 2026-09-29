@@ -1,0 +1,45 @@
+#!/bin/bash
+# Runs a GhosttyEXTREME localhost session's server in its tab: shows what it is, keeps a
+# log the agent can read, and offers restart when the server stops. The app opens this
+# (see `localhost start`); it reports the server starting and stopping with OSC 777.
+
+dir="$HOME/.ghostty-extreme/localhost"
+id="${1:-}"
+req="$dir/$id.json"
+[ -f "$req" ] || { echo "No such localhost session: $id"; exit 1; }
+
+cwd=$(jq -r .cwd "$req")
+cmd=$(jq -r .command "$req")
+log=$(jq -r '.log // empty' "$req")
+: "${log:=$dir/$id.log}"
+
+osc() { printf '\e]777;notify;ghostty-extreme://localhost;%s\a' "$1"; }
+
+cd "$cwd" 2>/dev/null || { echo "Folder not found: $cwd"; osc "{\"event\":\"exited\",\"id\":\"$id\",\"code\":127}"; exit 1; }
+# Ctrl-C stops the server, not this loop.
+trap ':' INT
+
+while true; do
+  printf '\e[H\e[2J\e[3J'
+  printf '\e[1;38;5;51m◉ localhost session\e[0m  \e[2m%s\e[0m\n' "${cwd/#$HOME/~}"
+  printf '  \e[38;5;213m$\e[0m \e[1m%s\e[0m\n' "$cmd"
+  printf '  \e[2mKeeps running after agents finish · Ctrl-C stops it · logs: %s\e[0m\n\n' "${log/#$HOME/~}"
+  osc "{\"event\":\"running\",\"id\":\"$id\",\"pid\":$$}"
+  printf '\n──── %s ────\n' "$(date '+%Y-%m-%d %H:%M:%S')" >> "$log"
+  script -q -a -F "$log" /bin/zsh -c "$cmd"
+  code=$?
+
+  if [ -f "$dir/$id.restart" ]; then
+    rm -f "$dir/$id.restart"
+    continue
+  fi
+  osc "{\"event\":\"exited\",\"id\":\"$id\",\"code\":$code}"
+  printf '\n\e[1;38;5;208m■ Server stopped\e[0m \e[2m(exit %s)\e[0m   \e[1mr\e[0m restart · \e[1mq\e[0m close tab · any other key: shell here\n' "$code"
+  read -rsn1 key
+  case "$key" in
+    r|R) continue ;;
+    q|Q) osc "{\"event\":\"close\",\"id\":\"$id\"}"; exit 0 ;;
+    *) break ;;
+  esac
+done
+osc "{\"event\":\"detached\",\"id\":\"$id\"}"

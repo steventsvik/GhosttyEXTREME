@@ -4,26 +4,61 @@
 # Usage (from an agent's hooks): agent-hook.sh <agent> <event>
 #   agent: claude | codex
 #   event: session_start | prompt_submit | tool_complete | permission_request |
-#          notification | stop | stop_failure | session_end
+#          notification | stop | stop_failure | session_end | pre_tool_use |
+#          subagent_start | subagent_stop
 #
 # Emits an OSC 777 notification titled "ghostty-extreme://agent" with a compact JSON
 # body. GhosttyEXTREME consumes it silently; it is never shown as a notification.
 #   - Claude Code: printed as the `terminalSequence` hook field, so Claude Code
 #     writes it to its own terminal.
-#   - Others (Codex): written straight to the controlling terminal; nothing is
-#     printed, so the agent sees an empty hook result.
-# The script never approves, denies, or otherwise changes what the agent does.
+#   - Others (Codex): written to the agent's terminal; nothing is printed, so the
+#     agent sees an empty hook result.
+#
+# The one thing it changes: when Claude Code starts a dev server (`npm run dev`, `vite`,
+# `rails s`, ...), the command is rewritten to open it in a GhosttyEXTREME localhost
+# session instead, a separate tab that keeps the server running after the agent is
+# done. Claude Code still asks for permission as usual, showing the rewritten command.
+# It never approves or denies anything.
 
 # Only inside GhosttyEXTREME; anywhere else (including official Ghostty) do nothing.
-[ "${GHOSTTY_EXTREME_AGENT_EVENTS:-}" = "1" ] || exit 0
+# The pre-rebrand "Ghostty Custom" build is still served until it's replaced.
+if [ "${GHOSTTY_EXTREME_AGENT_EVENTS:-}" = "1" ]; then
+  namespace="ghostty-extreme"
+elif [ "${GHOSTTY_CUSTOM_AGENT_EVENTS:-}" = "1" ]; then
+  namespace="ghostty-custom"
+else
+  exit 0
+fi
 command -v jq >/dev/null 2>&1 || exit 0
 
 agent="${1:-}"
 event="${2:-}"
 input=$(cat)
 
+# Dev servers Claude Code starts go to a localhost session (GhosttyEXTREME only).
+if [ "$event" = "pre_tool_use" ]; then
+  [ "$agent" = "claude" ] && [ "$namespace" = "ghostty-extreme" ] || exit 0
+  launcher="$HOME/.ghostty-extreme/bin/localhost"
+  [ -x "$launcher" ] || exit 0
+  [ "$(jq -r '.tool_name // empty' <<<"$input")" = "Bash" ] || exit 0
+  command=$(jq -r '.tool_input.command // empty' <<<"$input")
+  rewritten=$("$launcher" rewrite "$command" 2>/dev/null) || exit 0
+  [ -n "$rewritten" ] || exit 0
+  jq -c --arg cmd "$rewritten" '{
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      updatedInput: (.tool_input + {command: $cmd, run_in_background: false}),
+      additionalContext: "The dev server was moved to a GhosttyEXTREME localhost session: a separate terminal tab the user manages, which keeps running after you finish. The command prints its URL and where its logs are. Do not start the server again yourself."
+    }
+  }' <<<"$input"
+  exit 0
+fi
+
+# Registered for Codex, but not reported to the sidebar yet.
+case "$event" in pre_tool_use|subagent_start|subagent_stop) exit 0 ;; esac
+
 # Ghostty caps notification bodies at 255 bytes, so keep details short.
-sequence=$(jq -r --arg agent "$agent" --arg event "$event" '
+sequence=$(jq -r --arg agent "$agent" --arg event "$event" --arg ns "$namespace" '
   def clip: gsub("[\\s]+"; " ") | ltrimstr(" ") | if length > 48 then .[0:47] + "…" else . end;
   def tool_detail:
     (.tool_name // "") as $tool
@@ -44,7 +79,7 @@ sequence=$(jq -r --arg agent "$agent" --arg event "$event" '
         else "" end | clip)
     }
   | {agent: $agent} + .
-  | "\u001b]777;notify;ghostty-extreme://agent;\(tojson)\u0007"
+  | "\u001b]777;notify;\($ns)://agent;\(tojson)\u0007"
 ' <<<"$input" 2>/dev/null) || exit 0
 
 # Where this session's transcript lives, so the editor can show the agent's thinking and
@@ -52,16 +87,29 @@ sequence=$(jq -r --arg agent "$agent" --arg event "$event" '
 if [ "$event" = "session_start" ] || [ "$event" = "prompt_submit" ]; then
   transcript=$(jq -r '.transcript_path // empty' <<<"$input" 2>/dev/null)
   if [ -n "$transcript" ] && [ ${#transcript} -lt 200 ]; then
-    sequence+=$(jq -rn --arg agent "$agent" --arg path "$transcript" \
-      '"\u001b]777;notify;ghostty-extreme://agent;\({agent: $agent, event: "transcript", detail: $path} | tojson)\u0007"')
+    sequence+=$(jq -rn --arg agent "$agent" --arg path "$transcript" --arg ns "$namespace" \
+      '"\u001b]777;notify;\($ns)://agent;\({agent: $agent, event: "transcript", detail: $path} | tojson)\u0007"')
   fi
 fi
 [ -n "$sequence" ] || exit 0
 
+# The terminal the agent runs in. Codex starts hooks without a controlling terminal,
+# so /dev/tty fails there; walk up to the first ancestor that has one.
+agent_tty() {
+  if { : > /dev/tty; } 2>/dev/null; then echo /dev/tty; return; fi
+  local pid=$PPID t
+  while [ "${pid:-1}" -gt 1 ]; do
+    t=$(ps -o tty= -p "$pid" 2>/dev/null | tr -d ' ')
+    case "$t" in ""|"??") ;; *) echo "/dev/$t"; return ;; esac
+    pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+  done
+}
+
 if [ "$agent" = "claude" ]; then
   jq -nc --arg seq "$sequence" '{terminalSequence: $seq}'
 else
-  printf '%s' "$sequence" > /dev/tty 2>/dev/null
+  tty_path=$(agent_tty)
+  [ -n "$tty_path" ] && printf '%s' "$sequence" > "$tty_path" 2>/dev/null
 fi
 
 exit 0

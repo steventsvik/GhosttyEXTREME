@@ -190,7 +190,9 @@ extension UserDefaults {
 // MARK: - Menu
 
 /// Installs "Toggle Vertical Tabs" (⌃⌘S), "Toggle Code Editor" (⌃⌘E), a ⌘P command
-/// palette shortcut, "Mission Control" (⌃⌘M) and "Race Agents…" (⌃⌘R) in the View menu.
+/// palette shortcut, "Mission Control" (⌃⌘M), "Race Agents…" (⌃⌘R), "Localhost Manager"
+/// (⌃⌘L), "Review Changes" (⌃⌘I), "Command History" (⌃⌘B) and "Agent Activity" (⌃⌘A)
+/// in the View menu.
 final class VerticalTabsMenu: NSObject {
     static let shared = VerticalTabsMenu()
     private var installed = false
@@ -223,7 +225,36 @@ final class VerticalTabsMenu: NSObject {
         race.keyEquivalentModifierMask = [.control, .command]
         race.target = self
         viewMenu.insertItem(race, at: 4)
-        viewMenu.insertItem(.separator(), at: 5)
+        let extras: [(String, Selector, String)] = [
+            ("Localhost Manager", #selector(showLocalhost(_:)), "l"),
+            ("Review Changes", #selector(showReview(_:)), "i"),
+            ("Command History", #selector(toggleCommandBlocks(_:)), "b"),
+            ("Agent Activity", #selector(showActivity(_:)), "a"),
+        ]
+        for (offset, extra) in extras.enumerated() {
+            let item = NSMenuItem(title: extra.0, action: extra.1, keyEquivalent: extra.2)
+            item.keyEquivalentModifierMask = [.control, .command]
+            item.target = self
+            viewMenu.insertItem(item, at: 5 + offset)
+        }
+        viewMenu.insertItem(.separator(), at: 5 + extras.count)
+    }
+
+    @objc func showLocalhost(_ sender: Any?) {
+        LocalhostManager.toggle()
+    }
+
+    @objc func showReview(_ sender: Any?) {
+        ReviewInbox.toggle()
+    }
+
+    @objc func toggleCommandBlocks(_ sender: Any?) {
+        guard let owner = EditorPanel.frontController else { return }
+        CommandBlocksPanel.shared.toggle(owner)
+    }
+
+    @objc func showActivity(_ sender: Any?) {
+        ActivityDashboard.toggle()
     }
 
     @objc func showMissionControl(_ sender: Any?) {
@@ -260,6 +291,12 @@ extension VerticalTabsMenu: NSMenuItemValidation {
             return true
         }
         if menuItem.action == #selector(raceAgents(_:)) { return !TerminalController.all.isEmpty }
+        if menuItem.action == #selector(showLocalhost(_:)) || menuItem.action == #selector(showReview(_:))
+            || menuItem.action == #selector(showActivity(_:)) { return true }
+        if menuItem.action == #selector(toggleCommandBlocks(_:)) {
+            menuItem.state = EditorPanel.frontController.map { CommandBlocksPanel.shared.isVisible($0) } == true ? .on : .off
+            return EditorPanel.frontController != nil
+        }
         menuItem.state = UserDefaults.standard.verticalTabsVisible ? .on : .off
         return true
     }

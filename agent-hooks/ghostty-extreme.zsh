@@ -5,7 +5,14 @@
 #
 # Sourced from ~/.zshrc. Does nothing outside GhosttyEXTREME.
 
-[[ "${GHOSTTY_EXTREME_AGENT_EVENTS:-}" == 1 ]] || return 0
+# The pre-rebrand "Ghostty Custom" build is still served until it's replaced.
+if [[ "${GHOSTTY_EXTREME_AGENT_EVENTS:-}" == 1 ]]; then
+  typeset -g _gc_namespace=ghostty-extreme
+elif [[ "${GHOSTTY_CUSTOM_AGENT_EVENTS:-}" == 1 ]]; then
+  typeset -g _gc_namespace=ghostty-custom
+else
+  return 0
+fi
 
 typeset -g _gc_running_agent=""
 
@@ -24,7 +31,7 @@ typeset -gA _gc_agent_commands=(
 )
 
 _gc_agent_event() {
-  printf '\e]777;notify;ghostty-extreme://agent;{"agent":"%s","event":"%s"}\a' "$1" "$2" 2>/dev/null >/dev/tty
+  printf '\e]777;notify;%s://agent;{"agent":"%s","event":"%s"}\a' "$_gc_namespace" "$1" "$2" 2>/dev/null >/dev/tty
 }
 
 _gc_agent_preexec() {

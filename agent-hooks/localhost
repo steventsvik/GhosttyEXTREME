@@ -1,0 +1,221 @@
+#!/bin/bash
+# GhosttyEXTREME localhost sessions: dev servers that run in their own terminal tab, so they
+# keep running after the agent (or terminal) that started them is gone.
+#
+#   localhost start [--log FILE] -- 'npm run dev'   open a session for a server in this folder
+#   localhost logs <id> [lines]                     recent output, without terminal colors
+#   localhost restart <id> | stop <id>              control a session
+#   localhost list                                  sessions and their URLs
+#   localhost rewrite '<shell command>'             (for agent hooks) the `start` command
+#                                                   for a dev-server command, or exit 1
+#
+# The app opens and tracks the sessions; this script only asks it to, through an OSC 777
+# notification written to the terminal it runs in.
+
+dir="$HOME/.ghostty-extreme/localhost"
+self="~/.ghostty-extreme/bin/localhost"
+
+quote() { printf "'%s'" "${1//\'/\'\\\'\'}"; }
+trim() { local s="$1"; s="${s#"${s%%[![:space:]]*}"}"; printf '%s' "${s%"${s##*[![:space:]]}"}"; }
+
+# The terminal to talk to: ours, or (for agents that run commands without one) the
+# first ancestor's.
+term() {
+  if { : > /dev/tty; } 2>/dev/null; then echo /dev/tty; return; fi
+  local pid=$PPID t
+  while [ "${pid:-1}" -gt 1 ]; do
+    t=$(ps -o tty= -p "$pid" 2>/dev/null | tr -d ' ')
+    case "$t" in ""|"??") ;; *) echo "/dev/$t"; return ;; esac
+    pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+  done
+  return 1
+}
+
+send() {
+  local tty
+  tty=$(term) || return 1
+  printf '\e]777;notify;ghostty-extreme://localhost;%s\a' "$1" > "$tty" 2>/dev/null
+}
+
+# True for commands that start a long-running local web server.
+is_dev_server() {
+  local c="$1"
+  # Leading VAR=value assignments (PORT=3000 npm run dev).
+  while [[ "$c" =~ ^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+(.*)$ ]]; do c="${BASH_REMATCH[1]}"; done
+  local script='(dev|start|serve|preview|develop|storybook)([:_-][A-Za-z0-9:_-]*)?'
+  [[ "$c" =~ ^(npm|pnpm|yarn|bun)[[:space:]]+(run[[:space:]]+)?$script([[:space:]]|$) ]] && return 0
+  [[ "$c" =~ ^deno[[:space:]]+task[[:space:]]+$script([[:space:]]|$) ]] && return 0
+
+  # Package runners in front of a tool.
+  [[ "$c" =~ ^(npx|bunx|pnpx)[[:space:]]+(.*)$ ]] && c="${BASH_REMATCH[2]}"
+  [[ "$c" =~ ^(pnpm[[:space:]]+(exec|dlx)|yarn[[:space:]]+dlx|yarn|bun[[:space:]]+x)[[:space:]]+(.*)$ ]] && c="${BASH_REMATCH[3]}"
+  [[ "$c" =~ ^(uv|poetry|pipenv)[[:space:]]+run[[:space:]]+(.*)$ ]] && c="${BASH_REMATCH[2]}"
+  [[ "$c" =~ ^bundle[[:space:]]+exec[[:space:]]+(.*)$ ]] && c="${BASH_REMATCH[1]}"
+
+  local patterns=(
+    '^vite([[:space:]]+(dev|serve|preview))?([[:space:]]+-.*)?$'
+    '^(next|nuxt|nuxi|astro|remix|wrangler|vercel|netlify|svelte-kit|solid-start)[[:space:]]+(dev|start)([[:space:]]|$)'
+    '^(react-scripts|expo|docusaurus|electron-forge)[[:space:]]+start([[:space:]]|$)'
+    '^ng[[:space:]]+serve([[:space:]]|$)'
+    '^(webpack[[:space:]]+serve|webpack-dev-server)([[:space:]]|$)'
+    '^gatsby[[:space:]]+develop([[:space:]]|$)'
+    '^storybook[[:space:]]+dev([[:space:]]|$)'
+    '^(http-server|live-server|serve|json-server)([[:space:]]|$)'
+    '^parcel[[:space:]]+(serve[[:space:]]|[^[:space:]]+\.html)'
+    '^eleventy[[:space:]].*--serve'
+    '^python[0-9.]*[[:space:]]+-m[[:space:]]+(http\.server|uvicorn|streamlit[[:space:]]+run|flask[[:space:]]+run)([[:space:]]|$)'
+    '^(python[0-9.]*[[:space:]]+)?(\./)?([^[:space:]]*/)?manage\.py[[:space:]]+runserver([[:space:]]|$)'
+    '^flask[[:space:]]+run([[:space:]]|$)'
+    '^(uvicorn|gunicorn|hypercorn|daphne)[[:space:]]'
+    '^fastapi[[:space:]]+(dev|run)([[:space:]]|$)'
+    '^streamlit[[:space:]]+run[[:space:]]'
+    '^mkdocs[[:space:]]+serve([[:space:]]|$)'
+    '^jupyter[[:space:]]+(lab|notebook)([[:space:]]|$)'
+    '^(bin/)?rails[[:space:]]+(s|server)([[:space:]]|$)'
+    '^bin/dev$'
+    '^rackup([[:space:]]|$)'
+    '^jekyll[[:space:]]+serve([[:space:]]|$)'
+    '^php[[:space:]]+(-S[[:space:]]|artisan[[:space:]]+serve)'
+    '^hugo[[:space:]]+(server|serve)([[:space:]]|$)'
+    '^zola[[:space:]]+serve([[:space:]]|$)'
+    '^(iex[[:space:]]+-S[[:space:]]+)?mix[[:space:]]+phx\.server([[:space:]]|$)'
+  )
+  local p
+  for p in "${patterns[@]}"; do
+    [[ "$c" =~ $p ]] && return 0
+  done
+  return 1
+}
+
+# `cd dir && npm run dev > dev.log 2>&1 &` -> `cd dir && localhost start --log dev.log -- 'npm run dev'`.
+# Anything more involved than one server command is left alone.
+rewrite() {
+  local c prefix="" log=""
+  c=$(trim "$1")
+  [[ "$c" == *$'\n'* ]] && return 1
+  if [[ "$c" =~ ^(cd[[:space:]]+[^\;\&\|\`\$\<\>]+)\&\&[[:space:]]*(.*)$ ]]; then
+    prefix="$(trim "${BASH_REMATCH[1]}") && "
+    c="${BASH_REMATCH[2]}"
+  fi
+  [[ "$c" =~ ^nohup[[:space:]]+(.*)$ ]] && c="${BASH_REMATCH[1]}"
+  c=$(trim "$c")
+  [[ "$c" == *"&" && "$c" != *"&&" ]] && c=$(trim "${c%&}")
+  [[ "$c" =~ ^(.*[^[:space:]])[[:space:]]+2\>\&1$ ]] && c="${BASH_REMATCH[1]}"
+  if [[ "$c" =~ ^(.*[^[:space:]\>])[[:space:]]*\>\>?[[:space:]]*([^[:space:]\>\&\;\|]+)$ ]]; then
+    c="${BASH_REMATCH[1]}"
+    log="${BASH_REMATCH[2]}"
+  fi
+  c=$(trim "$c")
+  [[ "$c" =~ [\;\|\&\`\<\>] || "$c" == *'$('* ]] && return 1
+  is_dev_server "$c" || return 1
+  printf '%s%s start %s-- %s\n' "$prefix" "$self" "${log:+--log $(quote "$log") }" "$(quote "$c")"
+}
+
+status_field() { jq -r "$2 // empty" "$dir/$1.status.json" 2>/dev/null; }
+
+print_session() {
+  local id="$1" url
+  url=$(status_field "$id" .url)
+  echo "  URL:     ${url:-(not listening yet)}"
+  echo "  Logs:    $self logs $id"
+  echo "  Restart: $self restart $id    Stop: $self stop $id"
+}
+
+start() {
+  local log="" agent=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --log) log="$2"; shift 2 ;;
+      --agent) agent="$2"; shift 2 ;;
+      --) shift; break ;;
+      *) break ;;
+    esac
+  done
+  local cmd="$*"
+  [ -n "$cmd" ] || { echo "usage: localhost start [--log FILE] -- '<command>'" >&2; return 2; }
+  command -v jq >/dev/null || { echo "localhost: jq is required" >&2; return 1; }
+  mkdir -p "$dir"
+  [ -n "$log" ] && case "$log" in /*) ;; *) log="$PWD/$log" ;; esac
+
+  # Already running here? Point at it instead of starting a second copy.
+  local f id
+  for f in "$dir"/*.status.json; do
+    [ -f "$f" ] || continue
+    id=$(basename "$f" .status.json)
+    [ "$(jq -r .state "$f")" = "live" ] || continue
+    [ "$(jq -r .cwd "$dir/$id.json" 2>/dev/null)" = "$PWD" ] || continue
+    [ "$(jq -r .command "$dir/$id.json" 2>/dev/null)" = "$cmd" ] || continue
+    echo "✓ Already running in GhosttyEXTREME localhost session $id (a separate tab that keeps running)."
+    print_session "$id"
+    return 0
+  done
+
+  id="lh-$(date +%s)-$RANDOM"
+  jq -n --arg id "$id" --arg cwd "$PWD" --arg command "$cmd" --arg log "${log:-$dir/$id.log}" --arg agent "$agent" \
+    '{id: $id, cwd: $cwd, command: $command, log: $log, agent: $agent, requested: (now | todate)}' > "$dir/$id.json"
+  if ! send "{\"event\":\"open\",\"id\":\"$id\"}"; then
+    rm -f "$dir/$id.json"
+    echo "localhost: not running inside GhosttyEXTREME, so no session could be opened." >&2
+    return 1
+  fi
+
+  # Wait for the app to open the tab and the server to start listening.
+  local waited=0 state
+  while [ $waited -lt 100 ]; do
+    state=$(status_field "$id" .state)
+    case "$state" in
+      live)
+        echo "✓ Started \`$cmd\` in a GhosttyEXTREME localhost session: a separate terminal tab that keeps running after you're done."
+        print_session "$id"
+        return 0 ;;
+      exited)
+        echo "✗ \`$cmd\` exited (code $(status_field "$id" .code)) before it started listening. Last output:"
+        logs "$id" 40
+        return 1 ;;
+    esac
+    if [ -z "$state" ] && [ $waited -ge 20 ]; then
+      rm -f "$dir/$id.json"
+      echo "localhost: GhosttyEXTREME didn't open a session (is this terminal in GhosttyEXTREME?)." >&2
+      return 1
+    fi
+    sleep 0.25
+    waited=$((waited + 1))
+  done
+  echo "✓ Started \`$cmd\` in a GhosttyEXTREME localhost session (not listening on a port yet)."
+  print_session "$id"
+}
+
+logs() {
+  local id="$1" lines="${2:-80}" log
+  log=$(jq -r .log "$dir/$id.json" 2>/dev/null)
+  [ -f "$log" ] || { echo "No output yet."; return 0; }
+  tail -n "$lines" "$log" | perl -pe 's/\e\[[0-9;?]*[ -\/]*[@-~]//g; s/\e\][^\a\e]*(\a|\e\\)//g; s/\e[()][A-Z0-9]//g; s/\r//g'
+}
+
+control() {
+  local event="$1" id="$2"
+  [ -f "$dir/$id.json" ] || { echo "No localhost session $id" >&2; return 1; }
+  send "{\"event\":\"$event\",\"id\":\"$id\"}" || { echo "localhost: not inside GhosttyEXTREME" >&2; return 1; }
+  echo "Asked GhosttyEXTREME to $event $id."
+}
+
+list() {
+  local f id any=0
+  for f in "$dir"/*.status.json; do
+    [ -f "$f" ] || continue
+    any=1
+    id=$(basename "$f" .status.json)
+    printf '%-24s %-8s %-28s %s\n' "$id" "$(jq -r .state "$f")" "$(jq -r '.url // "-"' "$f")" \
+      "$(jq -r '.command' "$dir/$id.json" 2>/dev/null)"
+  done
+  [ $any = 1 ] || echo "No localhost sessions."
+}
+
+case "${1:-}" in
+  start) shift; start "$@" ;;
+  logs) logs "$2" "${3:-80}" ;;
+  stop|restart) control "$1" "$2" ;;
+  list) list ;;
+  rewrite) rewrite "$2" ;;
+  *) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+esac
