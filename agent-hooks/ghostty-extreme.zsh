@@ -16,6 +16,16 @@ fi
 
 typeset -g _gc_running_agent=""
 
+# The shared Codex daemon does not inherit this terminal's environment. Keep local
+# terminal sessions attached to this pane so their hooks inherit the correct TTY.
+codex() {
+  if [[ -n $TTY && -t 1 ]]; then
+    GHOSTTY_EXTREME_CODEX_TTY="$TTY" command codex --no-daemon "$@"
+  else
+    command codex "$@"
+  fi
+}
+
 # Command name -> agent id (see VerticalTabAgentKind).
 typeset -gA _gc_agent_commands=(
   claude claude
@@ -45,12 +55,18 @@ _gc_agent_preexec() {
   local agent=${_gc_agent_commands[${word:t}]}
   [[ -n $agent ]] || return 0
   _gc_running_agent=$agent
+  if [[ $agent == codex ]]; then
+    # Codex tool hooks need not have a controlling TTY. Bind them to this pane once,
+    # rather than guessing from a changing worker-process ancestry.
+    export GHOSTTY_EXTREME_CODEX_TTY="$TTY"
+  fi
   _gc_agent_event "$agent" session_start
 }
 
 _gc_agent_precmd() {
   [[ -n $_gc_running_agent ]] || return 0
   _gc_agent_event "$_gc_running_agent" session_end
+  [[ $_gc_running_agent == codex ]] && unset GHOSTTY_EXTREME_CODEX_TTY
   _gc_running_agent=""
 }
 

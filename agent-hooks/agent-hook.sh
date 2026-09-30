@@ -33,6 +33,10 @@ command -v jq >/dev/null 2>&1 || exit 0
 
 agent="${1:-}"
 event="${2:-}"
+# Codex has its own event adapter; the Claude protocol below stays unchanged.
+if [ "$agent" = "codex" ]; then
+  exec python3 "$(dirname "$0")/codex-hook.py" "$event"
+fi
 input=$(cat)
 
 # Dev servers Claude Code starts go to a localhost session (GhosttyEXTREME only).

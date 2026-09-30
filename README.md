@@ -130,6 +130,24 @@ privacy protection can block terminal processes from reading `~/Desktop` or
 **Codex status.** Same script with `codex` as the first argument, in
 `~/.codex/hooks.json`. Codex asks you to approve the hooks once.
 
+Run `python3 agent-hooks/install-codex.py` to install Codex tracking and register its
+hooks without changing Claude's settings or any saved hook approvals. It keeps existing
+hook handlers, backs up the config when adding registrations, and retains the legacy
+command path when already configured. Restart Codex after installation; approve new
+registrations through its normal hook review.
+
+Open a new terminal pane after installation. The GhosttyEXTREME zsh integration
+launches interactive Codex with `--no-daemon` and this pane's TTY, so local hooks
+reach the correct pane instead of a detached shared daemon. The sidebar
+uses the same animated loader, status colors and blinking attention badges as Claude.
+
+Codex tracking uses session IDs, live tool hooks and native rollout records for reads,
+commands, multi-file patches, failures, messages and reasoning summaries. Child agents
+appear in their own editor lanes, without replaying inherited parent history. Private
+tracking journals live in `~/.ghostty-extreme/codex-tracking/`. Dev-server commands are
+moved into localhost sessions through `PreToolUse`, retaining the original tool's
+sandbox and escalation arguments. `PermissionRequest` hooks only report status.
+
 **Claude usage gauge** (optional). Have your Claude Code status line script save
 `rate_limits` to `~/.claude/ghostty-extreme/claude-usage.json` as
 `{"updated": <unix time>, "rate_limits": <rate_limits>}`.

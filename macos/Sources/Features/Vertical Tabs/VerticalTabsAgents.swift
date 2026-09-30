@@ -43,11 +43,13 @@ struct VerticalTabAgentInfo: Equatable {
     /// A finished or blocked agent the user hasn't looked at yet.
     var unseen: Bool
     /// The session transcript, which the code editor tails to show the agent live.
-    var transcriptPath: String? = nil
+    var transcriptPath: String?
     /// When `activity` last changed, for "working for 3m" in Mission Control.
     var since = Date()
     /// The most recent tool the agent used, e.g. "Edit: src/app.ts".
-    var lastAction: String? = nil
+    var lastAction: String?
+    /// Codex's exact session identity; prevents cross-talk between same-folder panes.
+    var codexSessionID: String?
 }
 
 /// Receives agent status events and remembers the latest state per pane.
@@ -76,6 +78,7 @@ final class VerticalTabsAgents {
         let agent: String?
         let event: String
         let detail: String?
+        let session: String?
     }
 
     func info(for surface: Ghostty.SurfaceView) -> VerticalTabAgentInfo? {
@@ -122,6 +125,20 @@ final class VerticalTabsAgents {
     }
 
     private func apply(_ event: Event, to surface: Ghostty.SurfaceView) {
+        if event.agent == "codex", let session = event.session {
+            let existing = states.object(forKey: surface)?.info
+            if let current = existing?.codexSessionID, current != session, event.event != "session_start" {
+                return
+            }
+            if event.event == "session_start", existing?.codexSessionID != session {
+                states.setObject(Box(VerticalTabAgentInfo(kind: .codex, activity: .ready,
+                    task: nil, detail: nil, unseen: false, transcriptPath: CodexTracking.reportedTranscript(session: session),
+                    codexSessionID: session)), forKey: surface)
+            } else if let box = states.object(forKey: surface) {
+                box.info.codexSessionID = session
+                if box.info.transcriptPath == nil { box.info.transcriptPath = CodexTracking.reportedTranscript(session: session) }
+            }
+        }
         if event.event == "session_end" {
             states.removeObject(forKey: surface)
             return
@@ -143,6 +160,7 @@ final class VerticalTabsAgents {
         switch event.event {
         case "session_start": activity = .ready
         case "prompt_submit", "tool_complete": activity = .working
+        case "tool_start" where event.agent == "codex": activity = .working
         case "permission_request": activity = .needsPermission
         case "input_needed": activity = .needsInput
         case "stop": activity = .done
@@ -156,7 +174,8 @@ final class VerticalTabsAgents {
         let task = event.event == "prompt_submit" ? eventDetail : existing?.task
         let detail = activity == .needsPermission || activity == .needsInput ? eventDetail : nil
         let needsEyes = activity != .working && activity != .ready
-        let lastAction = event.event == "tool_complete" || event.event == "permission_request"
+        let lastAction = event.event == "tool_complete" || event.event == "permission_request" ||
+            (event.event == "tool_start" && kind == .codex)
             ? eventDetail ?? existing?.lastAction : existing?.lastAction
         let info = VerticalTabAgentInfo(
             kind: kind,
@@ -166,7 +185,8 @@ final class VerticalTabsAgents {
             unseen: needsEyes && !Self.isBeingViewed(surface),
             transcriptPath: existing?.transcriptPath,
             since: existing?.activity == activity ? existing?.since ?? Date() : Date(),
-            lastAction: lastAction)
+            lastAction: lastAction,
+            codexSessionID: kind == .codex ? event.session ?? existing?.codexSessionID : nil)
 
         if let box = states.object(forKey: surface) {
             box.info = info

@@ -172,17 +172,9 @@ struct AgentSprite: View {
                 "..o.o..o.o..",
             ], colors: ["o": Extreme.claude, "k": Extreme.ink], pixel: pixel)
         case .codex:
-            PixelBitmap(rows: [
-                "...oooo...",
-                ".oo....oo.",
-                "o..oooo..o",
-                "o.o....o.o",
-                "o.o.cc.o.o",
-                "o.o....o.o",
-                "o..oooo..o",
-                ".oo....oo.",
-                "...oooo...",
-            ], colors: ["o": Extreme.text, "c": Extreme.core], pixel: pixel * 0.72)
+            // Preserve the pixel frame/status badges, with a legible vector mark inside.
+            VerticalTabAgentLogo(kind: .codex, tint: Extreme.text)
+                .frame(width: pixel * 8, height: pixel * 8)
         case .hermes:
             PixelBitmap(rows: [
                 "...ggg....",

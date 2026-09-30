@@ -245,6 +245,15 @@ final class EditorSession {
     /// The agent's transcript: the one its hooks reported, or else found on disk. Also moves
     /// to a newer one when the reported transcript goes quiet while the agent works.
     private func transcript(for info: VerticalTabAgentInfo, in folder: String?) -> String? {
+        if info.kind == .codex, let id = info.codexSessionID {
+            if let reported = info.transcriptPath, CodexTracking.metadata(reported)?.id == id { return reported }
+            if let found = foundTranscript, CodexTracking.metadata(found)?.id == id { return found }
+            if Date().timeIntervalSince(lastLookup) > 3 {
+                lastLookup = Date()
+                foundTranscript = CodexTracking.transcript(session: id)
+            }
+            return foundTranscript.flatMap { CodexTracking.metadata($0)?.id == id ? $0 : nil }
+        }
         let reported = info.transcriptPath
         guard let folder, info.kind == .claude || info.kind == .codex else { return reported }
         let quiet = reported.map { !Self.recentlyModified($0, within: 20) } ?? true

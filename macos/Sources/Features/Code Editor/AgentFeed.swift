@@ -19,6 +19,10 @@ final class AgentFeed {
     private var subagents: [String: Tail] = [:]
     private var subagentDir: String?
     private var scanTimer: DispatchSourceTimer?
+    private let codex = CodexFeed()
+    private var codexSession: CodexTracking.Session?
+    private var codexMetadata: [String: CodexTracking.Session] = [:]
+    private var codexHooks: [String: Tail] = [:]
 
     /// Called on the main queue with (items, isReset).
     var onItems: (([Item], Bool) -> Void)?
@@ -38,8 +42,18 @@ final class AgentFeed {
         queue.async { [self] in
             guard let tail = Tail(path: path, startFromEnd: backlog) else { return }
             main = tail
-            let items = Self.fromPreviousTurn(tail.readNew().flatMap { self.items(from: $0, subagent: nil) },
-                                              limit: maxBacklogItems)
+            var hookItems: [Item] = []
+            if kind == .codex {
+                codex.reset()
+                codexSession = CodexTracking.metadata(path)
+                if let session = codexSession { hookItems = followCodexHooks(session, subagent: nil, initial: true) }
+            }
+            var backlogItems = tail.readNew().flatMap { self.items(from: $0, subagent: nil) }
+            if kind == .codex {
+                backlogItems += hookItems
+                backlogItems.sort { ($0["time"] as? String ?? "") < ($1["time"] as? String ?? "") }
+            }
+            let items = Self.fromPreviousTurn(backlogItems, limit: maxBacklogItems)
             DispatchQueue.main.async { self.onItems?(items, true) }
             tail.watch(on: queue) { [weak self] in self?.drain(tail, subagent: nil) }
 
@@ -64,6 +78,10 @@ final class AgentFeed {
             subagents.values.forEach { $0.close() }
             subagents.removeAll()
             subagentDir = nil
+            codexHooks.values.forEach { $0.close() }
+            codexHooks.removeAll()
+            codexMetadata.removeAll()
+            codexSession = nil
         }
     }
 
@@ -75,6 +93,20 @@ final class AgentFeed {
     }
 
     private func scanSubagents(existingFromEnd: Bool) {
+        if kind == .codex {
+            guard let session = codexSession else { return }
+            followCodexHooks(session, subagent: nil)
+            for child in CodexTracking.children(of: session, cached: &codexMetadata) {
+                let label = "\(child.label) · \(child.id.prefix(8))"
+                followCodexHooks(child, subagent: label)
+                guard subagents[child.id] == nil,
+                      let tail = Tail(path: child.path, startFromEnd: backlog) else { continue }
+                subagents[child.id] = tail
+                drainCodexChild(tail, session: child, label: label)
+                tail.watch(on: queue) { [weak self] in self?.drainCodexChild(tail, session: child, label: label) }
+            }
+            return
+        }
         guard let dir = subagentDir,
               let names = try? FileManager.default.contentsOfDirectory(atPath: dir) else { return }
         for name in names where name.hasSuffix(".jsonl") && subagents[name] == nil {
@@ -88,6 +120,46 @@ final class AgentFeed {
             drain(tail, subagent: label)
             tail.watch(on: queue) { [weak self] in self?.drain(tail, subagent: label) }
         }
+    }
+
+    @discardableResult
+    private func followCodexHooks(_ session: CodexTracking.Session, subagent: String?, initial: Bool = false) -> [Item] {
+        guard codexHooks[session.id] == nil, let path = CodexTracking.hookPath(session.id),
+              let tail = Tail(path: path, startFromEnd: backlog) else { return [] }
+        codexHooks[session.id] = tail
+        var items: [Item] = []
+        if initial { items = tail.readNew().flatMap { codex.hookItems($0, scope: session.id) } } else { drainCodexHooks(tail, session: session, label: subagent) }
+        tail.watch(on: queue) { [weak self] in self?.drainCodexHooks(tail, session: session, label: subagent) }
+        return items
+    }
+
+    private func drainCodexHooks(_ tail: Tail, session: CodexTracking.Session, label: String?) {
+        var items = tail.readNew().flatMap { codex.hookItems($0, scope: session.id) }
+        if let label {
+            for index in items.indices {
+                items[index]["sub"] = label
+                if let id = items[index]["id"] as? String { items[index]["id"] = session.id + ":" + id }
+            }
+        }
+        guard !items.isEmpty else { return }
+        DispatchQueue.main.async { self.onItems?(items, false) }
+    }
+
+    private func drainCodexChild(_ tail: Tail, session: CodexTracking.Session, label: String) {
+        let items = tail.readNew().filter { record in
+            guard let start = session.historyStart, let ordinal = record["ordinal"] as? Int else { return true }
+            return ordinal >= start
+        }.flatMap { record -> [Item] in
+            var items = codex.items(record, scope: session.id, hooks: codexHooks[session.id] != nil)
+                .filter { $0["kind"] as? String != "prompt" }
+            for index in items.indices {
+                items[index]["sub"] = label
+                if let id = items[index]["id"] as? String { items[index]["id"] = session.id + ":" + id }
+            }
+            return items
+        }
+        guard !items.isEmpty else { return }
+        DispatchQueue.main.async { self.onItems?(items, false) }
     }
 
     private func drain(_ tail: Tail, subagent: String?) {
@@ -104,7 +176,20 @@ final class AgentFeed {
     }
 
     private func items(from record: [String: Any], subagent: String?) -> [Item] {
-        var items = kind == .codex ? codexItems(record) : claudeItems(record)
+        var items: [Item]
+        if kind == .codex {
+            let name = (record["payload"] as? [String: Any])?["name"] as? String
+            if codexHooks.isEmpty && (name == "exec" || name == "functions.exec") {
+                // Completed native items carry every nested action with its real id.
+                // Do not invent a single command by extracting one string from a script.
+                items = []
+            } else {
+                let scope = codexSession?.id ?? path ?? "codex"
+                items = codex.items(record, scope: scope, hooks: codexHooks[scope] != nil)
+            }
+        } else {
+            items = claudeItems(record)
+        }
         if let subagent {
             // A sub-agent's first message is its instructions, not the user's prompt.
             items = items.filter { $0["kind"] as? String != "prompt" }
@@ -274,89 +359,5 @@ final class AgentFeed {
         }
     }
 
-    // MARK: Codex
-
-    /// A string argument in a code-mode script, e.g. `"cmd":"rg -n foo"` (JSON-escaped).
-    static func codexScriptString(_ script: String, key: String) -> String? {
-        guard let range = script.range(of: "\"\(key)\":\"") else { return nil }
-        var value = ""
-        var escaped = false
-        for char in script[range.upperBound...] {
-            if escaped { value.append(char == "n" ? "\n" : char == "t" ? "\t" : char); escaped = false; continue }
-            if char == "\\" { escaped = true; continue }
-            if char == "\"" { return value }
-            value.append(char)
-        }
-        return nil
-    }
-
-    static func codexScriptCommand(_ script: String) -> String? {
-        codexScriptString(script, key: "cmd") ?? codexScriptString(script, key: "command")
-    }
-
-    /// The patch text a code-mode script passes to `apply_patch`, if any.
-    static func codexScriptPatch(_ script: String) -> String? {
-        guard let begin = script.range(of: "*** Begin Patch"),
-              let end = script.range(of: "*** End Patch", range: begin.upperBound..<script.endIndex) else { return nil }
-        return String(script[begin.lowerBound..<end.upperBound])
-            .replacingOccurrences(of: "\\n", with: "\n").replacingOccurrences(of: "\\\"", with: "\"")
-    }
-
-    static func patchPath(_ patch: String) -> String? {
-        patch.split(separator: "\n").first { $0.hasPrefix("*** Update File: ") || $0.hasPrefix("*** Add File: ") }
-            .map { String($0.split(separator: ":", maxSplits: 1).last ?? "").trimmingCharacters(in: .whitespaces) }
-    }
-
-    private func codexItems(_ record: [String: Any]) -> [Item] {
-        guard record["type"] as? String == "response_item", let payload = record["payload"] as? [String: Any] else { return [] }
-        let time = record["timestamp"] as? String ?? ""
-        switch payload["type"] as? String {
-        case "message":
-            let text = (payload["content"] as? [[String: Any]] ?? []).compactMap { $0["text"] as? String }.joined(separator: "\n")
-            guard !text.isEmpty, !text.hasPrefix("<") else { return [] }
-            let role = payload["role"] as? String
-            if role == "user" { return [["kind": "prompt", "text": clip(text), "time": time]] }
-            if role == "assistant" { return [["kind": "message", "text": clip(text), "time": time]] }
-            return []
-        case "reasoning":
-            let summary = (payload["summary"] as? [[String: Any]] ?? []).compactMap { $0["text"] as? String }.joined(separator: "\n")
-            return [["kind": "thinking", "text": clip(summary), "time": time]]
-        case "function_call", "custom_tool_call", "local_shell_call":
-            let name = payload["name"] as? String ?? "shell"
-            var input: [String: Any] = [:]
-            if let args = payload["arguments"] as? String,
-               let parsed = try? JSONSerialization.jsonObject(with: Data(args.utf8)) as? [String: Any] {
-                input = parsed
-            }
-            if let cmd = input["cmd"] as? String { input["command"] = cmd }
-            if let parts = input["command"] as? [String] { input["command"] = parts.joined(separator: " ") }
-            let script = payload["input"] as? String ?? ""
-            if name == "exec" {
-                // Code mode: the call is a script; show the first command or patch it runs.
-                if let patch = Self.codexScriptPatch(script) {
-                    var item = toolItem(id: payload["call_id"] as? String ?? "", name: "apply_patch", input: [:], time: time)
-                    item["patch"] = clip(patch, 4000)
-                    item["path"] = Self.patchPath(patch)
-                    return [item]
-                }
-                if let command = Self.codexScriptCommand(script) { input["command"] = command }
-                if let workdir = Self.codexScriptString(script, key: "workdir") { input["workdir"] = workdir }
-                return [toolItem(id: payload["call_id"] as? String ?? "", name: "exec_command", input: input, time: time)]
-            }
-            var item = toolItem(id: payload["call_id"] as? String ?? "", name: name, input: input, time: time)
-            if name == "apply_patch", let patch = payload["input"] as? String {
-                item["patch"] = clip(patch, 4000)
-                if let file = patch.split(separator: "\n").first(where: { $0.hasPrefix("*** Update File: ") || $0.hasPrefix("*** Add File: ") }) {
-                    item["path"] = String(file.split(separator: ":", maxSplits: 1).last ?? "").trimmingCharacters(in: .whitespaces)
-                }
-            }
-            return [item]
-        case "function_call_output", "custom_tool_call_output":
-            let output = payload["output"] as? String ?? ""
-            return [["kind": "result", "id": payload["call_id"] as? String ?? "", "error": false, "text": clip(output, 1500)]]
-        default:
-            return []
-        }
-    }
 }
 #endif

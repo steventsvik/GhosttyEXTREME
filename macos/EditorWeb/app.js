@@ -663,7 +663,10 @@ function agentItems(items, reset) {
   const stick = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 40;
   for (const item of items) {
     const node = renderItem(item);
-    if (node) feed.append(node);
+    if (node) {
+      if (agent.status?.kind === 'codex') feed.querySelector('.agent-empty')?.remove();
+      feed.append(node);
+    }
     if (!reset && item.kind === 'prompt' && !item.sub) clearTurn();
     if (!reset && agent.follow && panelVisible && (item.kind === 'tool' || item.kind === 'result')) followAction(item);
   }
