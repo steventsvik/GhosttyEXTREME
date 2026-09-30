@@ -48,7 +48,7 @@ struct CommandFailureChip: View {
             PixelDot(color: BlockColors.failure, blinking: true, size: 8, interval: 0.4)
             VStack(alignment: .leading, spacing: 1) {
                 Text(block.command)
-                    .font(Extreme.font(12))
+                    .font(Extreme.mono(12))
                     .lineLimit(1).truncationMode(.middle)
                     .frame(maxWidth: compact ? 150 : 260, alignment: .leading)
                 Text("failed · exit \(block.exitCode ?? 1) · \(block.durationText)")
@@ -91,7 +91,7 @@ struct CommandFailureChip: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
         .background(Extreme.ink)
-        .overlay(Rectangle().strokeBorder(BlockColors.failure.opacity(0.8), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(BlockColors.failure.opacity(0.8), lineWidth: 1))
         .shadow(color: .black.opacity(0.6), radius: 14, y: 6)
         .fixedSize()
     }
@@ -139,7 +139,7 @@ struct CommandBlocksColumn: View {
     private func header(count: Int, failures: Int, surface: Ghostty.SurfaceView?) -> some View {
         HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("COMMAND HISTORY").font(Extreme.font(11)).kerning(2).foregroundColor(Extreme.gold)
+                Text("Command History").font(Extreme.font(13, weight: .semibold)).foregroundColor(Extreme.gold)
                 Text("\(count) command\(count == 1 ? "" : "s")\(failures > 0 ? " · \(failures) failed" : "") in this pane")
                     .font(Extreme.font(10.5)).foregroundColor(Extreme.muted)
             }
@@ -189,7 +189,7 @@ private struct CommandBlockCard: View {
             HStack(alignment: .top, spacing: 8) {
                 Text("$").font(Extreme.font(12)).foregroundColor(color)
                 Text(block.command)
-                    .font(Extreme.font(12))
+                    .font(Extreme.mono(12))
                     .lineLimit(3)
                     .textSelection(.enabled)
                 Spacer(minLength: 4)
@@ -207,7 +207,7 @@ private struct CommandBlockCard: View {
             .foregroundColor(Extreme.muted)
             if !block.output.isEmpty && !block.isInteractive {
                 let preview = Text((expanded ? lines[...] : lines.suffix(6)).joined(separator: "\n"))
-                    .font(Extreme.font(10.5))
+                    .font(Extreme.mono(10.5))
                     .foregroundColor(Extreme.text.opacity(0.8))
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
@@ -237,7 +237,7 @@ private struct CommandBlockCard: View {
         .overlay(alignment: .leading) {
             Rectangle().fill(color).frame(width: 3).padding(.vertical, 6)
         }
-        .overlay(Rectangle().stroke(block.failed ? color.opacity(0.45) : Extreme.text.opacity(0.07)))
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(block.failed ? color.opacity(0.45) : Extreme.text.opacity(0.07)))
         .onHover { hovering = $0 }
     }
 

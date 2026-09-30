@@ -220,18 +220,16 @@ struct VerticalTabsProjectGroupView<Content: View>: View {
     private var headerRow: some View {
         HStack(spacing: 7) {
             Rectangle().fill(color).frame(width: 7, height: 7).shadow(color: color.opacity(0.8), radius: 3)
-            Text(group.name.uppercased())
-                .font(Extreme.font(11))
-                .kerning(1.8)
+            Text(group.name)
+                .font(Extreme.font(12.5, weight: .semibold))
                 .foregroundColor(Extreme.text)
                 .lineLimit(1)
                 .truncationMode(.tail)
-            Text(group.agents == 1 ? "1 AGENT" : "\(group.agents) AGENTS")
-                .font(Extreme.font(9))
-                .kerning(1)
+            Text(group.agents == 1 ? "1 agent" : "\(group.agents) agents")
+                .font(Extreme.font(10, weight: .semibold))
                 .foregroundColor(color)
                 .padding(.horizontal, 4).padding(.vertical, 1)
-                .overlay(Rectangle().strokeBorder(color.opacity(0.5), lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(color.opacity(0.5), lineWidth: 1))
                 .fixedSize()
             Spacer(minLength: 2)
             if let server = projectServer, let url = server.url {
@@ -244,7 +242,7 @@ struct VerticalTabsProjectGroupView<Content: View>: View {
                         PixelIconView(icon: .target, color: Extreme.gold, pixel: 0.9)
                     }
                     .padding(.horizontal, 4).frame(height: 16)
-                    .overlay(Rectangle().strokeBorder(Extreme.gold.opacity(0.45), lineWidth: 1))
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Extreme.gold.opacity(0.45), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
                 .help("\(group.name) is live at localhost:\(url.port ?? 80). Click to fix it visually")
@@ -315,7 +313,7 @@ struct VerticalTabsProjectGroupView<Content: View>: View {
         Button(action: action) {
             PixelIconView(icon: icon, color: Extreme.text.opacity(0.85), pixel: 1.1)
                 .frame(width: 20, height: 16)
-                .overlay(Rectangle().strokeBorder(Extreme.lineStrong, lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Extreme.lineStrong, lineWidth: 1))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

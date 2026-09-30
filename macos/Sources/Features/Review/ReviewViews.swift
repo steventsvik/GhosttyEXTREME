@@ -140,7 +140,7 @@ private struct ReviewItemRow: View {
         }
         .padding(10)
         .background(Rectangle().fill(selected ? ReviewColors.accent.opacity(0.16) : Extreme.text.opacity(0.04)))
-        .overlay(Rectangle().stroke(selected ? ReviewColors.accent.opacity(0.7) : Extreme.text.opacity(0.08)))
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(selected ? ReviewColors.accent.opacity(0.7) : Extreme.text.opacity(0.08)))
         .contentShape(Rectangle())
     }
 
@@ -256,13 +256,13 @@ private struct ReviewItemView: View {
         } label: {
             HStack(spacing: 7) {
                 AgentSprite(kind: item.agent, pixel: 1.2)
-                Text(count == 0 ? "SEND FEEDBACK" : "SEND \(count) COMMENT\(count == 1 ? "" : "S") TO \(item.agent.displayName.uppercased())")
-                    .font(Extreme.font(10.5)).kerning(1.2)
+                Text(count == 0 ? "Send feedback" : "Send \(count) comment\(count == 1 ? "" : "s") to \(item.agent.displayName)")
+                    .font(Extreme.font(11.5, weight: .semibold))
             }
             .foregroundColor(canSend ? Extreme.ink : Extreme.dim)
             .padding(.horizontal, 12).padding(.vertical, 6)
             .background(canSend ? Extreme.gold : Extreme.panel)
-            .overlay(Rectangle().strokeBorder(canSend ? Extreme.gold : Extreme.line, lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(canSend ? Extreme.gold : Extreme.line, lineWidth: 1))
         }
         .buttonStyle(.plain)
         .disabled(!canSend)
@@ -275,7 +275,7 @@ private struct ReviewItemView: View {
             TextEditor(text: $commitMessage)
                 .font(Extreme.font(12))
                 .frame(width: 340, height: 90)
-                .overlay(Rectangle().stroke(Extreme.text.opacity(0.15)))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(Extreme.text.opacity(0.15)))
             HStack {
                 Spacer()
                 Button("Cancel") { showCommit = false }
@@ -385,7 +385,7 @@ private struct ReviewDiffView: View {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(file.hunks) { hunk in
                             Text(hunk.header)
-                                .font(Extreme.font(10.5))
+                                .font(Extreme.mono(10.5))
                                 .foregroundColor(ReviewColors.accent)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.horizontal, 10).padding(.vertical, 4)
@@ -425,7 +425,7 @@ private struct ReviewDiffView: View {
         }
         .padding(10)
         .background(Rectangle().fill(ReviewColors.accent.opacity(0.12)))
-        .overlay(Rectangle().stroke(ReviewColors.accent.opacity(0.5)))
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(ReviewColors.accent.opacity(0.5)))
         .padding(.leading, 96).padding(.trailing, 14).padding(.vertical, 4)
     }
 
@@ -436,7 +436,7 @@ private struct ReviewDiffView: View {
                 .frame(height: 64)
                 .padding(4)
                 .background(Rectangle().fill(Extreme.ink))
-                .overlay(Rectangle().stroke(ReviewColors.accent.opacity(0.7), lineWidth: 1.2))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(ReviewColors.accent.opacity(0.7), lineWidth: 1.2))
             HStack {
                 Text("Line \(line.anchor.line) · sent to \(item.agent.displayName) with your other comments")
                     .font(Extreme.font(10.5)).foregroundColor(Extreme.muted)
@@ -514,7 +514,7 @@ private struct ReviewLineRow: View {
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .font(Extreme.font(11.5))
+        .font(Extreme.mono(11.5))
         .foregroundColor(Extreme.muted)
         .padding(.vertical, 1)
         .background((color ?? .clear).opacity(hovering ? 0.2 : 0.11))
@@ -550,7 +550,7 @@ struct ReviewPaneChip: View {
             } label: {
                 HStack(spacing: 4) {
                     PixelIconView(icon: .inbox, color: Extreme.ink, pixel: 0.8)
-                    Text("REVIEW \(item.files.count)").kerning(1)
+                    Text("Review \(item.files.count)")
                 }
                 .font(Extreme.font(9.5))
                 .foregroundColor(Extreme.ink)

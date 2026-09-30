@@ -520,6 +520,20 @@ struct VerticalTabsSidebar: View {
     }
 }
 
+/// A small action icon in the row's hover chip, lit on hover.
+private struct ChipIcon: View {
+    let icon: PixelIcon
+    @State private var hovering = false
+
+    var body: some View {
+        PixelIconView(icon: icon, color: hovering ? Extreme.gold : Extreme.muted, pixel: 1.1)
+            .frame(width: 24, height: 20)
+            .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(hovering ? Extreme.raised : .clear))
+            .contentShape(Rectangle())
+            .onHover { hovering = $0 }
+    }
+}
+
 /// The pane's "Review N" chip when its agent's work is waiting, otherwise `diff`. Watches the
 /// inbox itself, so the chip appears the moment a review is ready.
 private struct ReviewOrDiffChip<Diff: View>: View {
@@ -578,7 +592,7 @@ struct VerticalTabAvatar: View {
             MoodSprite(kind: agent, mood: mood, pixel: size >= 22 ? 2 : 1.5)
                 .frame(width: size, height: size)
                 .background(Extreme.ink.opacity(0.6))
-                .overlay(Rectangle().strokeBorder(Extreme.line, lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Extreme.line, lineWidth: 1))
             switch badge {
             case .none:
                 EmptyView()
@@ -586,7 +600,7 @@ struct VerticalTabAvatar: View {
                 PixelSpinner(color: Extreme.core, pixel: size >= 22 ? 3 : 2.5)
                     .padding(2)
                     .background(Extreme.ink)
-                    .overlay(Rectangle().strokeBorder(Extreme.core.opacity(0.4), lineWidth: 1))
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Extreme.core.opacity(0.4), lineWidth: 1))
                     .offset(x: 6, y: 6)
             default:
                 // Waiting on you blinks fast; finished or failed stays lit.
@@ -695,24 +709,31 @@ private struct VerticalTabGroup: View {
             if pins.isPinned(controller) {
                 PixelIconView(icon: .pin, color: Extreme.bronze, pixel: 1)
             }
-            Text(Self.cleanTitle(snapshot.title).uppercased())
-                .font(Extreme.font(10))
-                .kerning(1.6)
-                .foregroundColor(isSelected ? Extreme.gold : Extreme.muted)
+            Text(displayTitle)
+                .font(Extreme.font(12, weight: .semibold))
+                .foregroundColor(isSelected ? Extreme.gold : Extreme.text.opacity(0.75))
                 .lineLimit(1)
                 .truncationMode(.tail)
+                .help(snapshot.title)
             if snapshot.hasUnseen {
                 PixelDot(color: Extreme.live, blinking: true, size: 6)
                     .help("Agent finished while you were away")
             }
             Spacer(minLength: 4)
-            if index <= 9 {
-                Text("⌘\(index)").font(Extreme.font(9.5)).foregroundColor(Extreme.dim)
+            if snapshot.panes.count > 1 {
+                Text("\(snapshot.panes.count) panes")
+                    .font(Extreme.font(10))
+                    .foregroundColor(Extreme.dim)
+                    .fixedSize()
             }
-            Text(snapshot.panes.count == 1 ? "1 pane" : "\(snapshot.panes.count) panes")
-                .font(Extreme.font(9.5))
-                .foregroundColor(Extreme.dim)
-                .fixedSize()
+            if index <= 9 {
+                Text("⌘\(index)")
+                    .font(Extreme.font(10, weight: .semibold))
+                    .foregroundColor(Extreme.dim)
+                    .padding(.horizontal, 5).padding(.vertical, 1)
+                    .background(Capsule().fill(Extreme.raised))
+                    .fixedSize()
+            }
             Button(action: onToggleCollapse) {
                 PixelIconView(icon: collapsed ? .chevronRight : .chevronDown, color: Extreme.muted, pixel: 1.25)
                     .frame(width: 14, height: 14)
@@ -726,6 +747,15 @@ private struct VerticalTabGroup: View {
         .contentShape(Rectangle())
         .onTapGesture { select() }
         .contextMenu { contextMenu }
+    }
+
+    /// A custom tab title, or else the project folder the tab is in.
+    private var displayTitle: String {
+        if let override = controller.titleOverride, !override.isEmpty { return override }
+        if let pwd = snapshot.representative?.pwd {
+            return pwd == NSHomeDirectory() ? "Home" : ProjectPath.displayName(LocalhostProject(folder: pwd).root)
+        }
+        return Self.cleanTitle(snapshot.title)
     }
 
     /// A colored tab carries its color as a bar down its left edge.
@@ -811,20 +841,30 @@ private struct VerticalTabPaneRow: View {
         Group {
             if condensed { condensedBody } else { expandedBody }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, condensed ? 5 : 7)
-        .background(isSelected ? Extreme.raised : (hovering ? Extreme.raised.opacity(0.6) : Color.clear))
-        .overlay(Rectangle().strokeBorder(isSelected ? Extreme.lineStrong : Color.clear, lineWidth: 1))
+        .padding(.horizontal, 9)
+        .padding(.vertical, condensed ? 5 : 8)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(isSelected ? Extreme.raised : (hovering ? Extreme.raised.opacity(0.6) : Color.clear)))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(isSelected ? Extreme.gold.opacity(0.35) : Color.clear, lineWidth: 1))
         .overlay(alignment: .leading) {
-            if isSelected { Rectangle().fill(Extreme.gold).frame(width: 2) }
+            if isSelected {
+                Capsule().fill(Extreme.gold).frame(width: 3).padding(.vertical, 8).offset(x: -1)
+                    .shadow(color: Extreme.gold.opacity(0.6), radius: 3)
+            }
         }
         .overlay(alignment: .bottom) {
             if pane.badge == .working {
-                PixelActivityBar(color: Extreme.core).padding(.horizontal, 8).padding(.bottom, 2)
+                PixelActivityBar(color: Extreme.core).padding(.horizontal, 10).padding(.bottom, 2)
             } else if pane.badge == .permission || pane.badge == .input {
-                Rectangle().fill(Extreme.warn).frame(height: 2).padding(.horizontal, 8).padding(.bottom, 1)
+                Capsule().fill(Extreme.warn).frame(height: 2).padding(.horizontal, 10).padding(.bottom, 2)
+                    .shadow(color: Extreme.warn.opacity(0.6), radius: 3)
             }
         }
+        .animation(.easeOut(duration: 0.15), value: hovering)
+        .animation(.easeOut(duration: 0.2), value: isSelected)
         .overlay(alignment: .topTrailing) {
             if hovering || overlay.menu?.pane.id == pane.id { hoverChip.padding(.top, 4).padding(.trailing, 4) }
         }
@@ -873,6 +913,10 @@ private struct VerticalTabPaneRow: View {
     /// Warp's floating ⋮ / × controls shown on the hovered row.
     private var hoverChip: some View {
         HStack(spacing: 0) {
+            chipButton(.code, help: "Open this folder in the code editor") {
+                overlay.dismissAll()
+                EditorPanel.shared.show(from: controller, folder: pane.pwd)
+            }
             chipButton(.more, help: "More") {
                 overlay.dismissAll()
                 overlay.menu = .init(
@@ -891,15 +935,15 @@ private struct VerticalTabPaneRow: View {
             }
         }
         .padding(2)
-        .background(Extreme.ink)
-        .overlay(Rectangle().strokeBorder(Extreme.lineStrong, lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Extreme.ink))
+        .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Extreme.lineStrong, lineWidth: 1))
+        .shadow(color: .black.opacity(0.4), radius: 4, y: 2)
+        .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .topTrailing)))
     }
 
     private func chipButton(_ icon: PixelIcon, help: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            PixelIconView(icon: icon, color: Extreme.muted, pixel: 1)
-                .frame(width: 22, height: 20)
-                .contentShape(Rectangle())
+            ChipIcon(icon: icon)
         }
         .buttonStyle(.plain)
         .help(help)
@@ -927,6 +971,7 @@ private struct VerticalTabPaneRow: View {
                     // A pending review already counts the changes.
                     ReviewOrDiffChip(surface: pane.surface) { diffChip }
                 }
+                if let agent = pane.agent, agent.activity != .ready { detailLine(agent) }
             }
         }
     }
@@ -938,6 +983,31 @@ private struct VerticalTabPaneRow: View {
             Spacer(minLength: 4)
             diffChip
         }
+    }
+
+    /// How long the agent has been at it, and the last thing it did: "2m · Edit: cart.py".
+    private func detailLine(_ agent: VerticalTabAgentInfo) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: "clock").font(.system(size: 9, weight: .semibold))
+            Text(Self.elapsed(since: agent.since))
+            if let action = agent.lastAction, !action.isEmpty {
+                Text("·")
+                Text(action)
+                    .font(Extreme.mono(10))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+        }
+        .font(Extreme.font(10))
+        .foregroundColor(Extreme.dim)
+        .lineLimit(1)
+    }
+
+    static func elapsed(since date: Date) -> String {
+        let seconds = Int(Date().timeIntervalSince(date))
+        if seconds < 60 { return "\(max(1, seconds))s" }
+        if seconds < 3600 { return "\(seconds / 60)m" }
+        return "\(seconds / 3600)h \(seconds % 3600 / 60)m"
     }
 
     /// "~/project • ⎇ branch"
@@ -984,11 +1054,11 @@ private struct VerticalTabPaneRow: View {
                 if gitInfo.added > 0 { Text("+\(gitInfo.added)").foregroundColor(Extreme.live) }
                 if gitInfo.removed > 0 { Text("-\(gitInfo.removed)").foregroundColor(Extreme.danger) }
             }
-            .font(Extreme.font(10.5))
-            .overlay(Rectangle().strokeBorder(Extreme.line, lineWidth: 1).padding(-1))
-            .padding(.horizontal, 5)
-            .padding(.vertical, 1)
-            .background(Rectangle().fill(Extreme.ink))
+            .font(Extreme.mono(10.5))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 1.5)
+            .background(Capsule().fill(Extreme.ink))
+            .overlay(Capsule().strokeBorder(Extreme.line, lineWidth: 1))
             .fixedSize()
         }
     }

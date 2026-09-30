@@ -33,9 +33,18 @@ enum Extreme {
     static let fontFamily = "JetBrains Mono"
 
     /// The UI font: the terminal's JetBrains Mono, at any size.
-    static func font(_ size: CGFloat) -> Font {
+    /// The interface font: the system's, for crisp, readable chrome.
+    static func font(_ size: CGFloat, weight: Font.Weight = .medium) -> Font {
+        .system(size: size, weight: weight)
+    }
+
+    /// Code, paths, ports and commands: the terminal's JetBrains Mono.
+    static func mono(_ size: CGFloat) -> Font {
         fontRegistered ? .custom(fontFamily, size: size) : .system(size: size, design: .monospaced)
     }
+
+    /// The standard corner radius for panels and cards.
+    static let radius: CGFloat = 10
 
     static func nsFont(_ size: CGFloat) -> NSFont {
         NSFont(name: "JetBrainsMono-Regular", size: size) ?? .monospacedSystemFont(ofSize: size, weight: .regular)
@@ -270,39 +279,68 @@ enum PixelIcon: String {
     }
 }
 
+extension PixelIcon {
+    /// The system symbol drawn for this icon.
+    var symbol: String {
+        switch self {
+        case .plus: return "plus"
+        case .globe: return "globe"
+        case .inbox: return "tray.full"
+        case .grid: return "square.grid.2x2"
+        case .condense: return "rectangle.compress.vertical"
+        case .expand: return "rectangle.expand.vertical"
+        case .close: return "xmark"
+        case .restart: return "arrow.clockwise"
+        case .stop: return "stop.fill"
+        case .play: return "play.fill"
+        case .eye: return "eye"
+        case .chevronDown: return "chevron.down"
+        case .chevronRight: return "chevron.right"
+        case .pin: return "pin.fill"
+        case .bolt: return "bolt.fill"
+        case .more: return "ellipsis"
+        case .branch: return "arrow.triangle.branch"
+        case .chart: return "chart.bar.fill"
+        case .code: return "chevron.left.forwardslash.chevron.right"
+        case .target: return "scope"
+        case .desktop: return "desktopcomputer"
+        case .tablet: return "ipad"
+        case .phone: return "iphone"
+        }
+    }
+}
+
+/// An icon in the chrome. (Named for the pixel icons it replaced; `pixel` sets its size,
+/// the icon being nine "pixels" square.)
 struct PixelIconView: View {
     let icon: PixelIcon
     var color: Color = Extreme.text.opacity(0.8)
     var pixel: CGFloat = 1.5
 
     var body: some View {
-        PixelBitmap(rows: icon.rows, colors: ["o": color], pixel: pixel)
+        Image(systemName: icon.symbol)
+            .font(.system(size: pixel * 7.2, weight: .semibold))
+            .foregroundColor(color)
+            .frame(width: pixel * 9, height: pixel * 9)
     }
 }
 
 // MARK: - Panels and labels
 
-/// A square panel: hairline border with small corner ticks, which turn gold when active.
+/// A panel: rounded, with a soft top light and a hairline border that glows gold when active.
 struct ExtremePanel: ViewModifier {
     var active = false
     var fill: Color = Extreme.panel
-    var tick: CGFloat = 5
 
     func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Extreme.radius, style: .continuous)
         content
-            .background(fill)
-            .overlay(Rectangle().strokeBorder(active ? Extreme.lineStrong : Extreme.line, lineWidth: 1))
-            .overlay(
-                Canvas { context, size in
-                    let color = active ? Extreme.gold : Extreme.bronze.opacity(0.55)
-                    let t = tick, w = size.width, h = size.height
-                    for (x, y, dx, dy) in [(0.0, 0.0, 1.0, 1.0), (w, 0, -1, 1), (0, h, 1, -1), (w, h, -1, -1)] {
-                        let ox = dx > 0 ? x : x - 1, oy = dy > 0 ? y : y - 1
-                        context.fill(Path(CGRect(x: dx > 0 ? ox : ox - t + 1, y: oy, width: t, height: 1)), with: .color(color))
-                        context.fill(Path(CGRect(x: ox, y: dy > 0 ? oy : oy - t + 1, width: 1, height: t)), with: .color(color))
-                    }
-                }
-                .allowsHitTesting(false))
+            .background(
+                shape.fill(fill)
+                    .overlay(shape.fill(LinearGradient(colors: [Color.white.opacity(0.035), .clear],
+                                                       startPoint: .top, endPoint: .center))))
+            .overlay(shape.strokeBorder(active ? Extreme.gold.opacity(0.55) : Extreme.line.opacity(0.9), lineWidth: 1))
+            .shadow(color: active ? Extreme.gold.opacity(0.14) : .black.opacity(0.25), radius: active ? 10 : 3, y: active ? 0 : 1)
     }
 }
 
@@ -325,92 +363,94 @@ struct ExtremeSectionLabel<Trailing: View>: View {
     var body: some View {
         HStack(spacing: 8) {
             Text(title.uppercased())
-                .font(Extreme.font(10))
-                .kerning(1.8)
+                .font(Extreme.font(10.5, weight: .semibold))
+                .kerning(1.1)
                 .foregroundColor(Extreme.muted)
                 .fixedSize()
-            Rectangle().fill(Extreme.line).frame(height: 1)
+            Rectangle().fill(Extreme.line.opacity(0.7)).frame(height: 1)
             trailing()
         }
     }
 }
 
-/// A square blinking status light. Steps between on and dim rather than fading.
+/// A glowing status light that pulses softly when `blinking`. The pulse is a system
+/// animation, so it costs nothing on the main thread.
 struct PixelDot: View {
     let color: Color
     var blinking = false
     var size: CGFloat = 6
-    /// Seconds per blink step; urgent states blink faster.
+    /// Seconds per pulse; urgent states pulse faster.
     var interval: Double = 0.5
 
+    @State private var dim = false
+
     var body: some View {
-        if blinking {
-            TimelineView(.periodic(from: .now, by: interval)) { context in
-                let on = Int(context.date.timeIntervalSinceReferenceDate / interval) % 2 == 0
-                square.opacity(on ? 1 : 0.15)
-            }
-        } else {
-            square
-        }
+        Circle()
+            .fill(color)
+            .frame(width: size, height: size)
+            .shadow(color: color.opacity(0.85), radius: size * 0.6)
+            .opacity(blinking && dim ? 0.25 : 1)
+            .onAppear(perform: pulse)
+            .onChange(of: blinking) { _ in pulse() }
     }
 
-    private var square: some View {
-        Rectangle().fill(color).frame(width: size, height: size)
-            .shadow(color: color.opacity(0.9), radius: 3)
+    private func pulse() {
+        guard blinking else { dim = false; return }
+        withAnimation(.easeInOut(duration: interval).repeatForever(autoreverses: true)) { dim = true }
     }
 }
 
-/// A pixel loading spinner: one bright pixel (and a fading trail) running around a
-/// 3×3 ring, like a classic console loader. Unmistakably "working".
+/// A smooth spinner: a glowing arc turning, for "working".
 struct PixelSpinner: View {
     var color: Color = Extreme.core
+    /// Size, as in the pixel spinner it replaced (three "pixels" across).
     var pixel: CGFloat = 2.5
 
-    private static let ring = [(0, 0), (1, 0), (2, 0), (2, 1), (2, 2), (1, 2), (0, 2), (0, 1)]
+    @State private var turning = false
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 0.09)) { context in
-            let head = Int(context.date.timeIntervalSinceReferenceDate / 0.09) % 8
-            Canvas { gc, _ in
-                for (i, (x, y)) in Self.ring.enumerated() {
-                    let age = (head - i + 8) % 8
-                    let alpha = age == 0 ? 1 : age == 1 ? 0.6 : age == 2 ? 0.3 : 0.1
-                    gc.fill(Path(CGRect(x: CGFloat(x) * pixel, y: CGFloat(y) * pixel, width: pixel, height: pixel)),
-                            with: .color(color.opacity(alpha)))
-                }
+        let diameter = pixel * 3
+        Circle()
+            .trim(from: 0.12, to: 1)
+            .stroke(AngularGradient(colors: [color.opacity(0), color], center: .center),
+                    style: StrokeStyle(lineWidth: max(1.4, diameter * 0.17), lineCap: .round))
+            .frame(width: diameter, height: diameter)
+            .rotationEffect(.degrees(turning ? 360 : 0))
+            .shadow(color: color.opacity(0.6), radius: 2)
+            .onAppear {
+                withAnimation(.linear(duration: 0.85).repeatForever(autoreverses: false)) { turning = true }
             }
-        }
-        .frame(width: pixel * 3, height: pixel * 3)
-        .shadow(color: color.opacity(0.7), radius: 3)
     }
 }
 
-/// A row of pixels with a bright segment sweeping across: an agent at work.
+/// A thin track with a light sweeping along it: an agent at work.
 struct PixelActivityBar: View {
     var color: Color = Extreme.core
     var pixel: CGFloat = 2
 
+    @State private var sweep = false
+
     var body: some View {
         GeometryReader { geometry in
-            let count = max(1, Int(geometry.size.width / (pixel * 2)))
-            TimelineView(.periodic(from: .now, by: 0.06)) { context in
-                let head = Int(context.date.timeIntervalSinceReferenceDate / 0.06) % (count + 8)
-                Canvas { gc, _ in
-                    for i in 0..<count {
-                        let distance = head - i
-                        let alpha = distance >= 0 && distance < 8 ? 1 - Double(distance) / 8 : 0.08
-                        gc.fill(Path(CGRect(x: CGFloat(i) * pixel * 2, y: 0, width: pixel, height: pixel)),
-                                with: .color(color.opacity(alpha)))
-                    }
-                }
+            let width = geometry.size.width
+            ZStack(alignment: .leading) {
+                Capsule().fill(color.opacity(0.12))
+                Capsule()
+                    .fill(LinearGradient(colors: [color.opacity(0), color, color.opacity(0)], startPoint: .leading, endPoint: .trailing))
+                    .frame(width: width * 0.35)
+                    .offset(x: sweep ? width : -width * 0.35)
             }
+            .clipShape(Capsule())
         }
-        .frame(height: pixel)
+        .frame(height: max(2, pixel))
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.3).repeatForever(autoreverses: false)) { sweep = true }
+        }
     }
 }
 
-/// Square text buttons for the tool windows: uppercase, hairline border, gold when
-/// prominent. Labels show their title only (the pixel look has no SF Symbols).
+/// Buttons for the tool windows: rounded, a hairline border that lights on hover, gold
+/// when prominent, and a small press-down.
 struct ExtremeButtonStyle: ButtonStyle {
     var prominent = false
 
@@ -426,20 +466,21 @@ private struct ExtremeButtonBody: View {
     @State private var hovering = false
 
     var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 7, style: .continuous)
         configuration.label
-            .labelStyle(.titleOnly)
-            .textCase(.uppercase)
-            .font(Extreme.font(10))
-            .kerning(1.3)
+            .font(Extreme.font(11.5, weight: .semibold))
             .lineLimit(1)
-            .foregroundColor(prominent ? Extreme.ink : (hovering ? Extreme.gold : Extreme.text.opacity(0.85)))
-            .padding(.horizontal, 10)
+            .foregroundColor(prominent ? Extreme.ink : (hovering ? Extreme.gold : Extreme.text.opacity(0.9)))
+            .padding(.horizontal, 11)
             .padding(.vertical, 5)
-            .background(prominent ? (hovering ? Extreme.gold : Extreme.gold.opacity(0.88)) : (hovering ? Extreme.raised : Extreme.panel))
-            .overlay(Rectangle().strokeBorder(prominent ? Extreme.gold : (hovering ? Extreme.lineStrong : Extreme.line), lineWidth: 1))
-            .opacity(enabled ? (configuration.isPressed ? 0.7 : 1) : 0.4)
-            .contentShape(Rectangle())
-            .onHover { hovering = $0 }
+            .background(shape.fill(prominent ? (hovering ? Extreme.gold : Extreme.gold.opacity(0.9)) : (hovering ? Extreme.raised : Extreme.panel)))
+            .overlay(shape.strokeBorder(prominent ? Extreme.gold : (hovering ? Extreme.gold.opacity(0.45) : Extreme.line), lineWidth: 1))
+            .shadow(color: prominent && hovering ? Extreme.gold.opacity(0.35) : .clear, radius: 6)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .opacity(enabled ? 1 : 0.4)
+            .contentShape(shape)
+            .onHover { inside in withAnimation(.easeOut(duration: 0.12)) { hovering = inside } }
+            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
             .fixedSize()
     }
 }
@@ -469,13 +510,14 @@ struct ExtremeWindowTitle: View {
                 ExtremeSigil(size: 30)
             } else if let icon {
                 PixelIconView(icon: icon, color: Extreme.gold, pixel: 2)
-                    .frame(width: 30, height: 30)
-                    .overlay(Rectangle().strokeBorder(Extreme.line, lineWidth: 1))
+                    .frame(width: 32, height: 32)
+                    .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Extreme.raised))
+                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Extreme.line, lineWidth: 1))
             }
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title.uppercased()).font(Extreme.font(14)).kerning(2.4).foregroundColor(Extreme.gold)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(Extreme.font(16, weight: .semibold)).foregroundColor(Extreme.text)
                 if !subtitle.isEmpty {
-                    Text(subtitle).font(Extreme.font(10.5)).foregroundColor(Extreme.muted)
+                    Text(subtitle).font(Extreme.font(11.5, weight: .regular)).foregroundColor(Extreme.muted)
                 }
             }
         }
@@ -497,35 +539,43 @@ struct ExtremeIconButton: View {
 
     var body: some View {
         let foreground = active ? Extreme.ink : hovering ? tint : Extreme.text.opacity(0.85)
+        let shape = RoundedRectangle(cornerRadius: 7, style: .continuous)
         Button(action: action) {
-            HStack(spacing: 7) {
+            HStack(spacing: 6) {
                 PixelIconView(icon: icon, color: foreground, pixel: 1.5)
                 if let label {
-                    Text(label.uppercased()).font(Extreme.font(10.5)).kerning(1.4)
+                    Text(label).font(Extreme.font(11.5, weight: .semibold))
                         .foregroundColor(foreground)
                         .fixedSize()
                 }
             }
-            .padding(.horizontal, label == nil ? 0 : 9)
+            .padding(.horizontal, label == nil ? 0 : 10)
             .frame(minWidth: 30, minHeight: 28)
-            .background(active ? tint.opacity(hovering ? 0.8 : 1) : hovering ? Extreme.raised : Extreme.panel)
-            .overlay(Rectangle().strokeBorder(active || hovering ? tint.opacity(0.8) : Extreme.lineStrong, lineWidth: 1))
+            .background(shape.fill(active ? tint.opacity(hovering ? 0.85 : 1) : hovering ? Extreme.raised : Extreme.panel))
+            .overlay(shape.strokeBorder(active ? tint : hovering ? tint.opacity(0.55) : Extreme.line, lineWidth: 1))
+            .shadow(color: active || hovering ? tint.opacity(active ? 0.35 : 0.2) : .clear, radius: 6)
+            .scaleEffect(hovering && !active ? 1.04 : 1)
             .overlay(alignment: .topTrailing) {
                 if badge > 0 {
                     Text("\(badge)")
-                        .font(Extreme.font(8.5))
+                        .font(Extreme.font(9, weight: .bold))
                         .foregroundColor(Extreme.ink)
-                        .padding(.horizontal, 2.5)
-                        .frame(minWidth: 11, minHeight: 11)
-                        .background(badgeColor)
-                        .offset(x: 4, y: -4)
+                        .padding(.horizontal, 4)
+                        .frame(minWidth: 15, minHeight: 15)
+                        .background(Capsule().fill(badgeColor))
+                        .shadow(color: badgeColor.opacity(0.6), radius: 3)
+                        .offset(x: 5, y: -5)
+                        .transition(.scale.combined(with: .opacity))
                 }
             }
-            .contentShape(Rectangle())
+            .contentShape(shape)
         }
         .buttonStyle(.plain)
-        .onHover { hovering = $0 }
+        .onHover { inside in withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) { hovering = inside } }
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: badge)
         .help(help)
+        // Its label never gets squeezed when the row is tight.
+        .fixedSize()
     }
 }
 #endif

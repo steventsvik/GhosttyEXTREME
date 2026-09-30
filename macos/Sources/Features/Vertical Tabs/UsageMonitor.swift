@@ -179,15 +179,12 @@ struct UsagePanel: View {
                 ExtremeSectionLabel("Usage") {
                     Button(action: ActivityDashboard.toggle) {
                         HStack(spacing: 5) {
-                            PixelIconView(icon: .chart, color: Extreme.gold, pixel: 1)
-                            Text("GRAPHS").font(Extreme.font(9.5)).kerning(1.2).foregroundColor(Extreme.gold)
+                            PixelIconView(icon: .chart, color: Extreme.gold, pixel: 1.1)
+                            Text("Graphs")
                         }
-                        .padding(.horizontal, 6).padding(.vertical, 3)
-                        .overlay(Rectangle().strokeBorder(Extreme.lineStrong, lineWidth: 1))
-                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
-                    .help("Agent activity and usage graphs (⌃⌘A)")
+                    .buttonStyle(ExtremeButtonStyle())
+                    .help("Agent activity, usage graphs and API value (⌃⌘A)")
                 }
                 ForEach(monitor.entries) { entry in
                     UsageRow(entry: entry, showsPercent: showsPercent, now: now)
@@ -214,11 +211,11 @@ private struct UsageRow: View {
             HStack(spacing: 7) {
                 AgentSprite(kind: entry.agent == .codex ? .codex : entry.agent, pixel: 1.5)
                     .frame(width: 20, height: 14)
-                Text(entry.name.uppercased())
-                    .font(Extreme.font(10)).kerning(1.4)
+                Text(entry.name)
+                    .font(Extreme.font(11.5, weight: .semibold))
                     .foregroundColor(Extreme.text)
                 Text(entry.windows.isEmpty ? "no usage yet" : entry.shortDetail)
-                    .font(Extreme.font(9.5))
+                    .font(Extreme.font(10.5))
                     .foregroundColor(Extreme.dim)
                     .lineLimit(1)
             }
@@ -242,13 +239,12 @@ private struct UsageRow: View {
     }
 }
 
-/// One limit window as a segmented pixel bar, like a retro meter.
+/// One limit window as a glowing meter. Hovering it shows when the limit resets.
 private struct UsageBar: View {
     let window: UsageWindow
     let showsPercent: Bool
     let now: Date
-
-    private static let segments = 16
+    @State private var hovering = false
 
     /// A window that has already reset shows as unused until new numbers arrive.
     private var used: Double {
@@ -262,23 +258,29 @@ private struct UsageBar: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Text(window.label.uppercased())
-                .font(Extreme.font(9)).kerning(1)
+            Text(window.label)
+                .font(Extreme.font(10.5))
                 .foregroundColor(Extreme.muted)
-                .frame(width: 34, alignment: .leading)
-            HStack(spacing: 2) {
-                let lit = Int((used / 100 * Double(Self.segments)).rounded(.up))
-                ForEach(0..<Self.segments, id: \.self) { index in
-                    Rectangle()
-                        .fill(index < lit ? color : Extreme.line)
-                        .frame(height: 6)
+                .frame(width: 38, alignment: .leading)
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Extreme.line.opacity(0.8))
+                    Capsule()
+                        .fill(LinearGradient(colors: [color.opacity(0.75), color], startPoint: .leading, endPoint: .trailing))
+                        .frame(width: max(used > 0 ? 6 : 0, geometry.size.width * used / 100))
+                        .shadow(color: color.opacity(hovering ? 0.7 : 0.35), radius: hovering ? 5 : 3)
                 }
             }
-            Text(showsPercent ? "\(Int(used.rounded()))%" : resetText)
-                .font(Extreme.font(9.5))
-                .foregroundColor(used >= 70 ? color : Extreme.muted)
-                .frame(width: 38, alignment: .trailing)
+            .frame(height: hovering ? 8 : 6)
+            Text(hovering ? "resets \(resetText)" : showsPercent ? "\(Int(used.rounded()))%" : resetText)
+                .font(Extreme.font(10.5, weight: .semibold))
+                .monospacedDigit()
+                .foregroundColor(used >= 70 ? color : hovering ? Extreme.text : Extreme.muted)
+                .frame(width: hovering ? 70 : 38, alignment: .trailing)
         }
+        .contentShape(Rectangle())
+        .onHover { inside in withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) { hovering = inside } }
+        .animation(.easeOut(duration: 0.5), value: used)
     }
 
     private var resetText: String {

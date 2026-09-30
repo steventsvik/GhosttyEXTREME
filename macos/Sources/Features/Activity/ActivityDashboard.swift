@@ -283,7 +283,7 @@ private struct ActivityDashboardView: View {
                 .transition(.opacity.combined(with: .move(edge: .trailing)))
             }
             Toggle(isOn: $showDollars.animation(.spring(response: 0.4, dampingFraction: 0.85))) {
-                Text("API VALUE").font(Extreme.font(10)).kerning(1.4)
+                Text("API value").font(Extreme.font(11.5, weight: .semibold))
                     .foregroundColor(showDollars ? Extreme.gold : Extreme.muted)
             }
             .toggleStyle(.switch)
@@ -328,7 +328,7 @@ private struct ActivityDashboardView: View {
         return LazyVGrid(columns: [GridItem(.adaptive(minimum: showDollars ? 138 : 160), spacing: 12)], spacing: 12) {
             ForEach(Array(items.enumerated()), id: \.offset) { index, item in
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(item.1.uppercased()).font(Extreme.font(9.5)).kerning(1.6).foregroundColor(Extreme.muted)
+                    Text(item.1.uppercased()).font(Extreme.font(10, weight: .semibold)).kerning(0.8).foregroundColor(Extreme.muted)
                     Text(item.2).font(Extreme.font(showDollars ? 23 : 26)).foregroundColor(index == 0 ? Extreme.core : Extreme.gold)
                         .lineLimit(1).minimumScaleFactor(0.7)
                     Text(item.3).font(Extreme.font(10)).foregroundColor(showDollars && item.1.hasPrefix("Tokens") ? Extreme.gold.opacity(0.8) : Extreme.dim)
@@ -350,7 +350,7 @@ private struct ActivityDashboardView: View {
         }
         .padding(14)
         .background(Rectangle().fill(Extreme.panel.opacity(0.75)))
-        .overlay(Rectangle().stroke(Extreme.text.opacity(0.08)))
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(Extreme.text.opacity(0.08)))
     }
 
     private var dailyChart: some View {
@@ -501,7 +501,7 @@ private struct CodexRatesEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("CODEX PRICES").font(Extreme.font(11)).kerning(1.6).foregroundColor(Extreme.gold)
+            Text("Codex prices").font(Extreme.font(14, weight: .semibold)).foregroundColor(Extreme.gold)
             Text("Dollars per million tokens. Filled in from OpenAI's API pricing (Standard tier); change any of them, or price a model that isn't listed.")
                 .font(Extreme.font(10.5)).foregroundColor(Extreme.muted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -545,7 +545,7 @@ private struct CodexRatesEditor: View {
             .foregroundColor(Extreme.gold)
             .padding(.horizontal, 6).frame(width: 64, height: 24)
             .background(Extreme.ink)
-            .overlay(Rectangle().strokeBorder(Extreme.lineStrong, lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Extreme.lineStrong, lineWidth: 1))
     }
 }
 

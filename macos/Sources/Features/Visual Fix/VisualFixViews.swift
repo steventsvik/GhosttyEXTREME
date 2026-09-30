@@ -90,7 +90,7 @@ private struct VisualFixToolbar: View {
             if wide {
                 HStack(spacing: 7) {
                     PixelIconView(icon: .target, color: Extreme.gold, pixel: 1.6)
-                    Text("VISUAL FIX").font(Extreme.font(11)).kerning(1.8).foregroundColor(Extreme.gold).fixedSize()
+                    Text("Visual Fix").font(Extreme.font(13, weight: .semibold)).foregroundColor(Extreme.gold).fixedSize()
                 }
                 .padding(.trailing, 4)
             }
@@ -133,7 +133,7 @@ private struct VisualFixToolbar: View {
             .padding(.horizontal, 9)
             .frame(height: 28)
             .background(Extreme.raised)
-            .overlay(Rectangle().strokeBorder(Extreme.lineStrong, lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Extreme.lineStrong, lineWidth: 1))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -484,7 +484,7 @@ private struct PinBadge: View {
         .padding(.horizontal, 6)
         .frame(height: 18)
         .background(background)
-        .overlay(Rectangle().strokeBorder(Extreme.ink.opacity(0.5), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Extreme.ink.opacity(0.5), lineWidth: 1))
         .shadow(color: background.opacity(0.8), radius: 6)
         .help(request.text)
     }
@@ -569,7 +569,7 @@ private struct VisualFixComposer: View {
                 .focused($focused)
                 .padding(8)
                 .background(Extreme.ink)
-                .overlay(Rectangle().strokeBorder(focused ? Extreme.gold : Extreme.lineStrong, lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(focused ? Extreme.gold : Extreme.lineStrong, lineWidth: 1))
                 .onSubmit(send)
 
             WrappingChips(items: Self.suggestions) { suggestion in
@@ -592,7 +592,7 @@ private struct VisualFixComposer: View {
         }
         .padding(12)
         .background(Extreme.panel)
-        .overlay(Rectangle().strokeBorder(Extreme.gold.opacity(0.8), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Extreme.gold.opacity(0.8), lineWidth: 1))
         .overlay(Brackets(color: Extreme.gold, length: 8).padding(-3).allowsHitTesting(false))
         .shadow(color: .black.opacity(0.65), radius: 18, y: 8)
         .onAppear { DispatchQueue.main.async { focused = true } }
@@ -659,7 +659,7 @@ private struct VisualFixComposer: View {
         Button(action: action) {
             Text(title).font(Extreme.font(9.5)).foregroundColor(Extreme.muted)
                 .padding(.horizontal, 5).padding(.vertical, 2)
-                .overlay(Rectangle().strokeBorder(Extreme.line, lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Extreme.line, lineWidth: 1))
         }
         .buttonStyle(.plain)
         .help(help)
@@ -692,7 +692,7 @@ private struct ChipButton: View {
                 .foregroundColor(hovering ? Extreme.ink : Extreme.gold)
                 .padding(.horizontal, 6).padding(.vertical, 3)
                 .background(hovering ? Extreme.gold : Extreme.gold.opacity(0.1))
-                .overlay(Rectangle().strokeBorder(Extreme.gold.opacity(0.5), lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Extreme.gold.opacity(0.5), lineWidth: 1))
                 .scaleEffect(hovering ? 1.04 : 1)
         }
         .buttonStyle(.plain)
@@ -791,7 +791,7 @@ private struct RequestCard: View {
         }
         .padding(8)
         .background(request.id == session.justFinished ? Extreme.live.opacity(0.14) : Extreme.raised)
-        .overlay(Rectangle().strokeBorder(color.opacity(hovering ? 0.9 : 0.45), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(color.opacity(hovering ? 0.9 : 0.45), lineWidth: 1))
         .contentShape(Rectangle())
         .onHover { inside in withAnimation(.easeOut(duration: 0.15)) { hovering = inside } }
         .onTapGesture { session.reveal(request) }
@@ -833,10 +833,10 @@ private struct RequestCard: View {
 
     private func miniButton(_ title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(title.uppercased()).font(Extreme.font(8.5)).kerning(0.8).foregroundColor(Extreme.text)
+            Text(title).font(Extreme.font(10, weight: .semibold)).foregroundColor(Extreme.text)
                 .frame(minWidth: 44).padding(.vertical, 2)
                 .background(Extreme.panel)
-                .overlay(Rectangle().strokeBorder(Extreme.line, lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Extreme.line, lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
@@ -873,11 +873,11 @@ private struct VisualFixEmptyState: View {
                                 Text(app.project.name).font(Extreme.font(11.5)).foregroundColor(Extreme.text)
                                 Text(verbatim: ":\(app.ports.first ?? 0)").font(Extreme.font(11.5)).foregroundColor(Extreme.gold)
                                 Spacer()
-                                Text("PREVIEW →").font(Extreme.font(9.5)).kerning(1).foregroundColor(Extreme.gold)
+                                Text("Preview →").font(Extreme.font(11, weight: .semibold)).foregroundColor(Extreme.gold)
                             }
                             .padding(.horizontal, 12).frame(width: 300, height: 34)
                             .background(Extreme.raised)
-                            .overlay(Rectangle().strokeBorder(Extreme.lineStrong, lineWidth: 1))
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Extreme.lineStrong, lineWidth: 1))
                         }
                         .buttonStyle(.plain)
                     }
@@ -889,7 +889,7 @@ private struct VisualFixEmptyState: View {
                     .font(Extreme.font(11.5))
                     .padding(.horizontal, 8).frame(width: 190, height: 28)
                     .background(Extreme.ink)
-                    .overlay(Rectangle().strokeBorder(Extreme.lineStrong, lineWidth: 1))
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Extreme.lineStrong, lineWidth: 1))
                     .onSubmit(open)
                 Button("Open", action: open).buttonStyle(ExtremeButtonStyle(prominent: !address.isEmpty))
                 Button("Localhost Manager") { LocalhostManager.show() }.buttonStyle(ExtremeButtonStyle())
@@ -975,13 +975,13 @@ struct VisualFixLaunchButton: View {
         } label: {
             HStack(spacing: 5) {
                 PixelIconView(icon: .target, color: hovering ? Extreme.ink : Extreme.gold, pixel: large ? 1.4 : 1.1)
-                Text(large ? "FIX VISUALLY" : "FIX").font(Extreme.font(large ? 10.5 : 9.5)).kerning(1)
+                Text(large ? "Fix visually" : "Fix").font(Extreme.font(large ? 11.5 : 10.5, weight: .semibold))
             }
             .foregroundColor(hovering ? Extreme.ink : Extreme.gold)
             .padding(.horizontal, large ? 9 : 6)
             .frame(height: large ? 26 : 20)
             .background(hovering ? Extreme.gold : Extreme.gold.opacity(0.12))
-            .overlay(Rectangle().strokeBorder(Extreme.gold.opacity(0.75), lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Extreme.gold.opacity(0.75), lineWidth: 1))
             .shadow(color: Extreme.gold.opacity(hovering ? 0.6 : 0), radius: 6)
             .contentShape(Rectangle())
         }

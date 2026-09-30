@@ -232,7 +232,7 @@ private struct MissionCardView: View {
             }
             if !card.preview.isEmpty {
                 Text(card.preview)
-                    .font(Extreme.font(9.5))
+                    .font(Extreme.mono(9.5))
                     .foregroundColor(Extreme.text.opacity(0.75))
                     .lineLimit(9)
                     .frame(maxWidth: .infinity, minHeight: 118, alignment: .bottomLeading)

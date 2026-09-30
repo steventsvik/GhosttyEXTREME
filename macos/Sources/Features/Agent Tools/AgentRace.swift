@@ -380,7 +380,7 @@ private struct AgentRaceSetupView: View {
                     .frame(height: 110)
                     .padding(4)
                     .background(Rectangle().fill(Extreme.text.opacity(0.05)))
-                    .overlay(Rectangle().stroke(Extreme.text.opacity(0.15)))
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(Extreme.text.opacity(0.15)))
             }
             HStack(spacing: 18) {
                 contestantStepper(.claude, value: $claude)
