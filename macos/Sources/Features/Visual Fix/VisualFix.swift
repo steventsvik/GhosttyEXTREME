@@ -270,14 +270,7 @@ final class VisualFixSession: NSObject, ObservableObject {
         }
     }
 
-    /// A folder's path as the file system knows it, for comparing: symlinks resolved
-    /// (/tmp is /private/tmp) and case ignored (macOS folders are case-insensitive, and a
-    /// shell remembers the path the way it was typed).
-    static func canonical(_ path: String) -> String {
-        var buffer = [CChar](repeating: 0, count: Int(PATH_MAX))
-        let resolved = realpath(path, &buffer) != nil ? String(cString: buffer) : (path as NSString).standardizingPath
-        return resolved.lowercased()
-    }
+    static func canonical(_ path: String) -> String { ProjectPath.canonical(path) }
 
     /// The previewed app's project folder (its repository root, or the folder it runs in).
     var projectRoot: String? {
@@ -536,7 +529,13 @@ final class VisualFixPanel: ObservableObject {
         let id = ObjectIdentifier(controller)
         if !visibleTabs.contains(id), let window = controller.window { widen(window, id: id) }
         withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { _ = visibleTabs.insert(id) }
-        controller.window?.makeFirstResponder(session.webView)
+        // Opened from a tool window (like the Localhost manager): bring the tab forward so the
+        // panel is seen.
+        if let window = controller.window {
+            window.tabGroup?.selectedWindow = window
+            window.makeKeyAndOrderFront(nil)
+            window.makeFirstResponder(session.webView)
+        }
     }
 
     func hide(_ controller: TerminalController) {
@@ -551,8 +550,17 @@ final class VisualFixPanel: ObservableObject {
         if isVisible(controller) { hide(controller) } else { show(from: controller) }
     }
 
+    /// The terminal tab in front: the key window's, or else the frontmost tab on screen
+    /// (from a tool window like the Localhost manager). A server's own tab is skipped, since
+    /// the agent lives elsewhere.
     static var frontController: TerminalController? {
-        EditorPanel.frontController ?? NSApp.orderedWindows.lazy.compactMap { $0.windowController as? TerminalController }.first
+        if let key = EditorPanel.frontController, LocalhostSessions.shared.session(for: key) == nil { return key }
+        let onScreen = NSApp.orderedWindows.compactMap { window -> TerminalController? in
+            guard window.isVisible, window.tabGroup.map({ $0.selectedWindow === window }) ?? true else { return nil }
+            return window.windowController as? TerminalController
+        }
+        return onScreen.first { LocalhostSessions.shared.session(for: $0) == nil } ?? onScreen.first
+            ?? EditorPanel.frontController
     }
 
     /// The live localhost app for this tab's project, or else the most recent one.
