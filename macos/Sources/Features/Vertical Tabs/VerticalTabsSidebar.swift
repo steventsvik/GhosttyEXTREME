@@ -15,6 +15,7 @@ struct VerticalTabsLayout<Content: View>: View {
     @ObservedObject private var visualFix = VisualFixPanel.shared
     @AppStorage(EditorPanel.widthKey) private var editorWidth: Double = EditorPanel.defaultWidth
     @AppStorage(VisualFixPanel.widthKey) private var visualFixWidth: Double = VisualFixPanel.defaultWidth
+    @AppStorage(AgentAurora.enabledKey) private var aurora = true
     @AppStorage(VerticalTabs.visibleKey) private var visible: Bool = true
     @AppStorage(VerticalTabs.widthKey) private var width: Double = VerticalTabs.defaultWidth
     private let content: Content
@@ -65,6 +66,10 @@ struct VerticalTabsLayout<Content: View>: View {
                 content
                 if hermes.isHermes(controller) {
                     HermesSessionView(controller: controller)
+                }
+                // Light behind the terminal that follows the tab's agents.
+                if aurora, !hermes.isHermes(controller) {
+                    AgentAurora(controller: controller)
                 }
                 // "Your app is live" when a localhost session starts listening.
                 LocalhostToastLayer(controller: controller)
@@ -483,7 +488,7 @@ struct VerticalTabsSidebar: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 9) {
-                ExtremeSigil(size: 26)
+                LivingSigil(size: 30)
                 VStack(alignment: .leading, spacing: 1) {
                     Text("GHOSTTY·EXTREME")
                         .font(Extreme.font(11.5))
@@ -561,6 +566,7 @@ private struct MissionControlButton: View {
 /// Warp's `render_icon_with_status` (circle 76%, glyph 43%, badge 57% of the box).
 struct VerticalTabAvatar: View {
     let agent: VerticalTabAgentKind?
+    var mood: AgentMood = .idle
     let badge: VerticalTabBadge
     let palette: VerticalTabsPalette
     /// Extra highlight on the row behind the avatar, so the badge ring matches it.
@@ -569,7 +575,7 @@ struct VerticalTabAvatar: View {
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            AgentSprite(kind: agent, pixel: size >= 22 ? 2 : 1.5)
+            MoodSprite(kind: agent, mood: mood, pixel: size >= 22 ? 2 : 1.5)
                 .frame(width: size, height: size)
                 .background(Extreme.ink.opacity(0.6))
                 .overlay(Rectangle().strokeBorder(Extreme.line, lineWidth: 1))
@@ -902,6 +908,7 @@ private struct VerticalTabPaneRow: View {
     private var avatar: some View {
         VerticalTabAvatar(
             agent: pane.agent?.kind,
+            mood: AgentMood(pane.agent),
             badge: pane.badge,
             palette: palette,
             rowHighlight: isSelected ? 0.09 : (hovering ? 0.05 : 0),

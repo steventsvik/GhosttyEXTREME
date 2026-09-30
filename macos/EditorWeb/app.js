@@ -92,6 +92,7 @@ function renderTree() {
   };
   if (state.root) walk(state.root, 0);
   tree.replaceChildren(frag);
+  paintHeat();
 }
 
 async function onRowClick(entry) {
@@ -736,6 +737,7 @@ function agentStatus(status) {
 const agentMarks = new Map(); // path -> timeout for the tab/explorer marker
 
 function markFile(path, kind) {
+  noteHeat(path, kind);
   clearTimeout(agentMarks.get(path));
   const apply = () => document.querySelectorAll('.tab, .row').forEach(n => {
     if (samePath(n.title, path) || samePath(n.dataset.path, path)) { n.classList.remove('agent-read', 'agent-edit'); n.classList.add(`agent-${kind}`); }
@@ -748,6 +750,88 @@ function markFile(path, kind) {
     });
   }, 5000));
 }
+
+// ---------- Heat trail -----------------------------------------------------
+// Files glow in the Explorer by how recently and how much the agent touched them: edits
+// burn ember-orange, reads glow faint cyan, and both cool over a few minutes. Folders show
+// a spark when something inside is hot, and the last five files touched are numbered, so
+// the agent's path through the code stays visible.
+
+const heat = new Map(); // canonical path -> { path, edits, reads, lines, last, seq, flash }
+let heatSeq = 0;
+
+function heatEntry(path) {
+  const key = canonical(path);
+  let entry = heat.get(key);
+  if (!entry) { entry = { path, edits: 0, reads: 0, lines: 0, last: 0, seq: 0, flash: false }; heat.set(key, entry); }
+  return entry;
+}
+
+function noteHeat(path, kind) {
+  if (!path) return;
+  const entry = heatEntry(path);
+  if (kind === 'edit') entry.edits++; else entry.reads++;
+  entry.last = Date.now();
+  entry.seq = ++heatSeq;
+  entry.flash = true;
+  paintHeat();
+}
+
+function heatLines(path, lines) {
+  if (path && lines > 0) heatEntry(path).lines += lines;
+}
+
+/** 0…1: hot right after a big change, cooling over a few minutes. */
+function heatLevel(entry, now) {
+  const recency = Math.exp(-(now - entry.last) / 240000);
+  const amount = Math.min(1, entry.edits * 0.3 + entry.lines / 60 + entry.reads * 0.1);
+  return Math.max(0, Math.min(1, recency * (0.45 + 0.55 * amount)));
+}
+
+function paintHeat() {
+  const now = Date.now();
+  const trail = [...heat.values()].filter(e => heatLevel(e, now) > 0.05).sort((a, b) => b.seq - a.seq).slice(0, 5);
+  const rank = new Map(trail.map((e, i) => [canonical(e.path), i + 1]));
+  // A folder is as hot as the hottest thing inside it.
+  const folders = new Map();
+  const root = state.root ? canonical(state.root) : null;
+  for (const entry of heat.values()) {
+    const level = heatLevel(entry, now) * (entry.edits ? 1 : 0.45);
+    let dir = canonical(entry.path);
+    while (dir.includes('/') && (!root || dir.length > root.length)) {
+      dir = dir.slice(0, dir.lastIndexOf('/'));
+      folders.set(dir, Math.max(folders.get(dir) || 0, level));
+    }
+  }
+  document.querySelectorAll('#tree .row').forEach(row => {
+    const key = canonical(row.dataset.path || '');
+    const entry = heat.get(key);
+    const level = entry ? heatLevel(entry, now) : (folders.get(key) || 0) * 0.8;
+    row.classList.remove('heat-edit', 'heat-read', 'heat-dir');
+    let badge = row.querySelector('.trail');
+    if (level < 0.04) { row.style.removeProperty('--heat'); badge?.remove(); return; }
+    row.style.setProperty('--heat', level.toFixed(3));
+    row.classList.add(entry ? (entry.edits ? 'heat-edit' : 'heat-read') : 'heat-dir');
+    const place = entry && rank.get(key);
+    if (place) {
+      if (!badge) { badge = el('span', 'trail'); row.append(badge); }
+      badge.textContent = place;
+      badge.title = `${place === 1 ? 'Most recently' : `#${place} most recently`} touched by ${agentName()}`
+        + (entry.edits ? ` · ${entry.edits} edit${entry.edits === 1 ? '' : 's'}` : '')
+        + (entry.lines ? ` · ${entry.lines} lines` : '');
+    } else {
+      badge?.remove();
+    }
+    if (entry?.flash) {
+      row.classList.remove('heat-flash');
+      void row.offsetWidth;
+      row.classList.add('heat-flash');
+    }
+  });
+  for (const entry of heat.values()) entry.flash = false;
+}
+
+setInterval(paintHeat, 10000);
 
 /** Stagger classes (.agent-d-N / .agent-w-N) so animations can run line by line. */
 (() => {
@@ -913,6 +997,9 @@ function laneEditing(path) {
 function agentChange(change) {
   const key = canonical(change.path);
   diskChanges.set(key, Date.now());
+  if (change.live) {
+    heatLines(change.path, (change.hunks || []).reduce((n, h) => n + (h.count || 0) + (h.removed?.length || 0), 0));
+  }
   // New and deleted files show up in (or leave) the Explorer right away.
   if (change.created || change.deleted) refreshExplorer();
   if (change.live && !panelVisible) {

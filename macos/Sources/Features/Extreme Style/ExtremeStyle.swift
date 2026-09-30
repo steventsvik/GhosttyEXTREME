@@ -157,15 +157,28 @@ struct ExtremeSigil: View {
 
 /// Small pixel sprites for the agents, in the spirit of Claude Code's own critter.
 struct AgentSprite: View {
+    /// Where the sprite's eyes look (Claude's critter has eyes to move).
+    enum Eyes { case center, left, right, closed }
+
     let kind: VerticalTabAgentKind?
     var pixel: CGFloat = 2
+    var eyes: Eyes = .center
+
+    private var claudeEyes: String {
+        switch eyes {
+        case .center: return "..okooooko.."
+        case .left: return "..kooookoo.."
+        case .right: return "..ookooook.."
+        case .closed: return "..oooooooo.."
+        }
+    }
 
     var body: some View {
         switch kind {
         case .claude:
             PixelBitmap(rows: [
                 "..oooooooo..",
-                "..okooooko..",
+                claudeEyes,
                 "oooooooooooo",
                 "oooooooooooo",
                 "..oooooooo..",

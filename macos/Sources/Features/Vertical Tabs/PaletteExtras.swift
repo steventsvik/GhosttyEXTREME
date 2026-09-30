@@ -96,6 +96,14 @@ enum PaletteExtras {
             }
         }
         options.append(CommandOption(
+            title: "Toggle Aurora",
+            description: "The light behind the terminal that follows your agents",
+            leadingIcon: "sparkles"
+        ) {
+            let defaults = UserDefaults.standard
+            defaults.set(!(defaults.object(forKey: AgentAurora.enabledKey) as? Bool ?? true), forKey: AgentAurora.enabledKey)
+        })
+        options.append(CommandOption(
             title: "Mission Control",
             description: "Every agent at a glance",
             symbols: ["⌃", "⌘", "M"],
