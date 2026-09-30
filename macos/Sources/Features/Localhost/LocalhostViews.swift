@@ -176,7 +176,7 @@ struct LocalhostSidebarSection: View {
         VStack(spacing: 8) {
             ForEach(entries) { entry in
                 if let controller = entry.controller, let session = store.session(for: controller) {
-                    LocalhostTabCard(session: session, controller: controller, isSelected: controller === owner)
+                    LocalhostTabCard(session: session, controller: controller, owner: owner, isSelected: controller === owner)
                         .padding(.horizontal, 8)
                         .transition(.asymmetric(insertion: .scale(scale: 0.9).combined(with: .opacity),
                                                 removal: .opacity))
@@ -189,7 +189,10 @@ struct LocalhostSidebarSection: View {
 /// A localhost session in the sidebar: a glowing card with the URL front and center.
 struct LocalhostTabCard: View {
     let session: LocalhostSession
+    /// The server's own tab.
     let controller: TerminalController
+    /// The tab whose sidebar shows the card: where Visual Fix opens.
+    let owner: TerminalController
     let isSelected: Bool
     @State private var hovering = false
 
@@ -232,7 +235,7 @@ struct LocalhostTabCard: View {
                             .foregroundColor(.secondary)
                     }
                     Spacer(minLength: 0)
-                    if live { VisualFixLaunchButton(url: session.url, controller: controller) }
+                    if live { VisualFixLaunchButton(url: session.url, controller: owner) }
                 }
 
                 HStack(spacing: 6) {
@@ -304,7 +307,7 @@ struct LocalhostTabCard: View {
 
     @ViewBuilder
     private var menu: some View {
-        Button("Fix Visually…") { VisualFixPanel.shared.show(from: controller, url: session.url) }.disabled(session.url == nil)
+        Button("Fix Visually…") { VisualFixPanel.shared.show(from: owner, url: session.url) }.disabled(session.url == nil)
         Button("Open in Browser") { LocalhostSessions.shared.openInBrowser(session.url) }.disabled(session.url == nil)
         Button("Preview in GhosttyEXTREME") {
             if let url = session.url { LocalhostPreview.show(url, title: session.project.name) }
