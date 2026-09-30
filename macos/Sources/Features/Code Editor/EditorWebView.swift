@@ -350,9 +350,9 @@ private final class EditorFileBridge: NSObject, WKScriptMessageHandlerWithReply 
             entries.append(["name": name, "path": full, "isDir": isDir.boolValue])
         }
         return entries.sorted {
-            let (a, b) = ($0["isDir"] as! Bool, $1["isDir"] as! Bool)
+            let (a, b) = ($0["isDir"] as? Bool ?? false, $1["isDir"] as? Bool ?? false)
             if a != b { return a }
-            return ($0["name"] as! String).localizedStandardCompare($1["name"] as! String) == .orderedAscending
+            return ($0["name"] as? String ?? "").localizedStandardCompare($1["name"] as? String ?? "") == .orderedAscending
         }
     }
 

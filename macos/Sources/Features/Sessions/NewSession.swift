@@ -103,8 +103,8 @@ enum NewSessionMenuBuilder {
 
     /// Menu item icons are images, so draw each logo into one.
     private static func icon(for kind: NewSessionKind) -> NSImage? {
-        if let agent = kind.agent, let asset = agent.logoAsset, let image = NSImage(named: asset) {
-            let copy = image.copy() as! NSImage
+        if let agent = kind.agent, let asset = agent.logoAsset, let image = NSImage(named: asset),
+           let copy = image.copy() as? NSImage {
             copy.size = NSSize(width: 16, height: 16)
             copy.isTemplate = agent.logoIsTemplate
             return copy

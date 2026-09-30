@@ -211,8 +211,8 @@ struct DockerSessionMenu: View {
     }
 
     private func icon(for kind: DockerSessionKind) -> Image {
-        if let agent = kind.agent, let asset = agent.logoAsset, let image = NSImage(named: asset) {
-            let copy = image.copy() as! NSImage
+        if let agent = kind.agent, let asset = agent.logoAsset, let image = NSImage(named: asset),
+           let copy = image.copy() as? NSImage {
             copy.size = NSSize(width: 16, height: 16)
             copy.isTemplate = agent.logoIsTemplate
             return Image(nsImage: copy)

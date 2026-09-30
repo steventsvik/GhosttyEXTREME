@@ -169,6 +169,8 @@ final class ActivityStats {
         return isoFractional.date(from: text) ?? iso.date(from: text)
     }
 
+    // A fixed, known-good pattern.
+    // swiftlint:disable:next force_try
     private static let testPattern = try! NSRegularExpression(
         pattern: #"(^|[\s;&|(])(pytest|jest|vitest|mocha|rspec|phpunit|go test|cargo test|swift test|zig build test|xcodebuild[^\n]*\btest\b|(npm|pnpm|yarn|bun)( run)? test|make test|python -m (pytest|unittest)|playwright test)"#)
 
@@ -260,6 +262,7 @@ final class ActivityStats {
         return session
     }
 
+    // swiftlint:disable:next force_try
     private static let execCommand = try! NSRegularExpression(pattern: #"exec_command\(\{\\?"cmd\\?":\\?"((?:[^"\\]|\\.)*)"#)
 
     static func parseCodex(_ data: Data, id: String) -> ActivitySession {
