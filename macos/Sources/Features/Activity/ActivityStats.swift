@@ -21,6 +21,11 @@ struct ActivitySession: Identifiable, Codable, Equatable {
     var linesRemoved = 0
     var tokensIn = 0
     var tokensOut = 0
+    /// Claude's cost at API prices per local day: [what it read, what it wrote] in dollars.
+    var claudeCostByDay: [String: [Double]] = [:]
+    /// Codex tokens per local day and model: [input, cached input, output]. Priced later,
+    /// with rates the user enters (see `APIPricing.codexRates`).
+    var codexTokens: [String: [String: [Int]]] = [:]
     /// Active seconds per local day ("2026-09-28") and per hour of day (0-23).
     var activeByDay: [String: Double] = [:]
     var activeByHour: [Int: Double] = [:]
@@ -44,7 +49,8 @@ final class ActivityStats {
 
     private var cache: [String: CacheEntry] = [:]
     private let lock = NSLock()
-    private static let cacheFile = AgentTools.root.appendingPathComponent("activity-cache.json")
+    // v2 added per-day API costs; older summaries are rebuilt once.
+    private static let cacheFile = AgentTools.root.appendingPathComponent("activity-cache-v2.json")
     /// Gaps longer than this between events aren't counted as active time.
     private static let idleGap: TimeInterval = 300
 
@@ -142,6 +148,17 @@ final class ActivityStats {
         m.files.formUnion(b.files)
         m.tokensIn += b.tokensIn
         m.tokensOut += b.tokensOut
+        // Sub-agents' spend is their own, so it adds up.
+        for (day, cost) in b.claudeCostByDay {
+            let mine = m.claudeCostByDay[day] ?? [0, 0]
+            m.claudeCostByDay[day] = [mine[0] + cost[0], mine[1] + cost[1]]
+        }
+        for (day, models) in b.codexTokens {
+            for (model, tokens) in models {
+                let mine = m.codexTokens[day]?[model] ?? [0, 0, 0]
+                m.codexTokens[day, default: [:]][model] = zip(mine, tokens).map(+)
+            }
+        }
         // Sub-agents run while the main agent waits, so their time overlaps; keep the larger.
         for (day, seconds) in b.activeByDay { m.activeByDay[day] = max(m.activeByDay[day] ?? 0, seconds) }
         for (hour, seconds) in b.activeByHour { m.activeByHour[hour] = max(m.activeByHour[hour] ?? 0, seconds) }
@@ -242,6 +259,11 @@ final class ActivityStats {
                     + (usage["cache_creation_input_tokens"] as? Int ?? 0)
                     + (usage["cache_read_input_tokens"] as? Int ?? 0)
                 session.tokensOut += usage["output_tokens"] as? Int ?? 0
+                if let model = message["model"] as? String, let cost = APIPricing.claudeCost(model: model, usage: usage) {
+                    let day = dayKey(time)
+                    let sofar = session.claudeCostByDay[day] ?? [0, 0]
+                    session.claudeCostByDay[day] = [sofar[0] + cost.input, sofar[1] + cost.output]
+                }
             }
             for part in message["content"] as? [[String: Any]] ?? [] where part["type"] as? String == "tool_use" {
                 guard let toolID = part["id"] as? String, seenTools.insert(toolID).inserted else { continue }
@@ -270,9 +292,13 @@ final class ActivityStats {
         var times: [Date] = []
         var userEvents = 0
         var userMessages: [String] = []
+        // Token totals are cumulative; each increase goes to the model in use at the time.
+        var model = "unknown"
+        var counted = [0, 0, 0]
         for line in lines(data) {
             guard let record = try? JSONSerialization.jsonObject(with: line) as? [String: Any] else { continue }
-            if let time = date(record["timestamp"]) { times.append(time) }
+            let time = date(record["timestamp"])
+            if let time { times.append(time) }
             let payload = record["payload"] as? [String: Any] ?? [:]
             let type = record["type"] as? String
             let kind = payload["type"] as? String
@@ -281,7 +307,10 @@ final class ActivityStats {
                 session.cwd = payload["cwd"] as? String ?? session.cwd
                 if let id = payload["id"] as? String { session = ActivitySession(id: id, agent: "codex", cwd: session.cwd) }
             }
-            if type == "turn_context", session.cwd == nil { session.cwd = payload["cwd"] as? String }
+            if type == "turn_context" {
+                if session.cwd == nil { session.cwd = payload["cwd"] as? String }
+                if let name = payload["model"] as? String, !name.isEmpty { model = name }
+            }
             if type == "event_msg", kind == "user_message", let text = payload["message"] as? String, let prompt = cleanPrompt(text) {
                 userEvents += 1
                 if session.firstPrompt == nil { session.firstPrompt = prompt }
@@ -291,6 +320,15 @@ final class ActivityStats {
                 // Cumulative for the session; keep the latest.
                 session.tokensIn = max(session.tokensIn, usage["input_tokens"] as? Int ?? 0)
                 session.tokensOut = max(session.tokensOut, usage["output_tokens"] as? Int ?? 0)
+                let total = [usage["input_tokens"] as? Int ?? 0, usage["cached_input_tokens"] as? Int ?? 0,
+                             usage["output_tokens"] as? Int ?? 0]
+                let delta = zip(total, counted).map { max(0, $0 - $1) }
+                if delta.contains(where: { $0 > 0 }), let time {
+                    let day = dayKey(time)
+                    let sofar = session.codexTokens[day]?[model] ?? [0, 0, 0]
+                    session.codexTokens[day, default: [:]][model] = zip(sofar, delta).map(+)
+                }
+                counted = zip(total, counted).map { max($0, $1) }
             }
             if type == "response_item", kind == "message", payload["role"] as? String == "user" {
                 let text = (payload["content"] as? [[String: Any]] ?? []).compactMap { $0["text"] as? String }.joined(separator: "\n")

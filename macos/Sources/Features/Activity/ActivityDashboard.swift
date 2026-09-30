@@ -54,6 +54,7 @@ private enum ActivityColors {
 private struct DayBar: Identifiable {
     let day: Date
     let agent: String
+    /// Minutes, or dollars in the API value view.
     let minutes: Double
     var id: String { "\(day.timeIntervalSince1970)-\(agent)" }
 }
@@ -63,6 +64,9 @@ private final class ActivityModel: ObservableObject {
     @Published var loading = false
     @Published var range: ActivityRange = .week {
         didSet { load() }
+    }
+    @Published var codexRates = APIPricing.codexRates {
+        didSet { APIPricing.codexRates = codexRates }
     }
 
     func load() {
@@ -92,15 +96,69 @@ private final class ActivityModel: ObservableObject {
 
     var totalActive: Double { sessions.map(active).reduce(0, +) }
 
-    var bars: [DayBar] {
+    // MARK: API value
+
+    /// What a session's usage within the range would cost at API prices, split into
+    /// what it read (input and cache) and what it wrote (output).
+    func cost(_ session: ActivitySession, days: Set<String>? = nil) -> (input: Double, output: Double) {
+        let keys = days ?? Set(dayKeys)
+        var input = 0.0, output = 0.0
+        for (day, cost) in session.claudeCostByDay where keys.contains(day) {
+            input += cost[0]
+            output += cost[1]
+        }
+        for (day, models) in session.codexTokens where keys.contains(day) {
+            for (model, tokens) in models {
+                guard let cost = APIPricing.codexCost(model: model, tokens: tokens, rates: codexRates) else { continue }
+                input += cost.input
+                output += cost.output
+            }
+        }
+        return (input, output)
+    }
+
+    func dollars(_ session: ActivitySession) -> Double {
+        let cost = cost(session)
+        return cost.input + cost.output
+    }
+
+    func dollars(agent: String) -> Double {
+        sessions.filter { $0.agent == agent }.map(dollars).reduce(0, +)
+    }
+
+    var totalDollars: (input: Double, output: Double) {
+        sessions.map { cost($0) }.reduce((0, 0)) { ($0.0 + $1.input, $0.1 + $1.output) }
+    }
+
+    /// Codex models used in the range, with their tokens: [input, cached input, output].
+    var codexModels: [(model: String, tokens: [Int])] {
+        let keys = Set(dayKeys)
+        var totals: [String: [Int]] = [:]
+        for session in sessions {
+            for (day, models) in session.codexTokens where keys.contains(day) {
+                for (model, tokens) in models { totals[model] = zip(totals[model] ?? [0, 0, 0], tokens).map(+) }
+            }
+        }
+        return totals.map { ($0.key, $0.value) }.sorted { $0.tokens[0] > $1.tokens[0] }
+    }
+
+    /// Codex models used in the range that have no prices yet.
+    var unpricedCodexModels: [String] {
+        codexModels.map(\.model).filter { codexRates[$0] == nil }
+    }
+
+    func bars(dollars: Bool) -> [DayBar] {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         var result: [DayBar] = []
         for key in dayKeys {
             guard let day = formatter.date(from: key) else { continue }
             for agent in ["claude", "codex"] {
-                let seconds = sessions.filter { $0.agent == agent }.compactMap { $0.activeByDay[key] }.reduce(0, +)
-                result.append(DayBar(day: day, agent: agent, minutes: seconds / 60))
+                let list = sessions.filter { $0.agent == agent }
+                let value = dollars
+                    ? list.map { let c = cost($0, days: [key]); return c.input + c.output }.reduce(0, +)
+                    : list.compactMap { $0.activeByDay[key] }.reduce(0, +) / 60
+                result.append(DayBar(day: day, agent: agent, minutes: value))
             }
         }
         return result
@@ -112,6 +170,7 @@ private final class ActivityModel: ObservableObject {
 
     struct ProjectRow: Identifiable {
         let name: String
+        /// Active seconds, or dollars in the API value view.
         let claude: Double
         let codex: Double
         let sessions: Int
@@ -122,11 +181,12 @@ private final class ActivityModel: ObservableObject {
         var total: Double { claude + codex }
     }
 
-    var projects: [ProjectRow] {
+    func projects(dollars: Bool) -> [ProjectRow] {
         var rows: [ProjectRow] = []
+        let measure: (ActivitySession) -> Double = dollars ? { self.dollars($0) } : active
         for (name, list) in Dictionary(grouping: sessions, by: \.project) {
-            let claude: Double = list.filter { $0.agent == "claude" }.map(active).reduce(0, +)
-            let codex: Double = list.filter { $0.agent == "codex" }.map(active).reduce(0, +)
+            let claude: Double = list.filter { $0.agent == "claude" }.map(measure).reduce(0, +)
+            let codex: Double = list.filter { $0.agent == "codex" }.map(measure).reduce(0, +)
             let prompts: Int = list.map(\.prompts).reduce(0, +)
             let files: Int = Set(list.flatMap(\.files)).count
             let lines: Int = list.map { $0.linesAdded + $0.linesRemoved }.reduce(0, +)
@@ -143,6 +203,13 @@ private func formatDuration(_ seconds: Double) -> String {
     return "\(minutes / 60)h \(minutes % 60)m"
 }
 
+/// "$391.60", "$1.2K", "$0.42".
+private func formatMoney(_ value: Double) -> String {
+    if value >= 10_000 { return String(format: "$%.1fK", value / 1000) }
+    if value >= 100 { return String(format: "$%.0f", value) }
+    return String(format: "$%.2f", value)
+}
+
 private func formatCount(_ value: Int) -> String {
     if value >= 1_000_000_000 { return String(format: "%.1fB", Double(value) / 1_000_000_000) }
     if value >= 1_000_000 { return String(format: "%.1fM", Double(value) / 1_000_000) }
@@ -152,6 +219,9 @@ private func formatCount(_ value: Int) -> String {
 
 private struct ActivityDashboardView: View {
     @StateObject private var model = ActivityModel()
+    /// Show what the usage would cost at API prices.
+    @AppStorage("ActivityShowAPIValue") private var showDollars = false
+    @State private var editingRates = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -183,6 +253,7 @@ private struct ActivityDashboardView: View {
                                subtitle: "From Claude Code and Codex session history on this Mac", sigil: true)
             Spacer()
             if model.loading { ProgressView().controlSize(.small) }
+            apiSwitch
             Picker("", selection: $model.range) {
                 ForEach(ActivityRange.allCases) { Text($0.rawValue).tag($0) }
             }
@@ -196,28 +267,78 @@ private struct ActivityDashboardView: View {
         .padding(.bottom, 12)
     }
 
+    /// The switch between time and API value, with the Codex prices editor beside it.
+    private var apiSwitch: some View {
+        HStack(spacing: 8) {
+            if showDollars, !model.codexModels.isEmpty {
+                Button {
+                    editingRates = true
+                } label: {
+                    Text(model.unpricedCodexModels.isEmpty ? "Codex prices" : "Set Codex prices")
+                }
+                .buttonStyle(ExtremeButtonStyle(prominent: !model.unpricedCodexModels.isEmpty))
+                .popover(isPresented: $editingRates, arrowEdge: .bottom) {
+                    CodexRatesEditor(models: model.codexModels, rates: $model.codexRates)
+                }
+                .transition(.opacity.combined(with: .move(edge: .trailing)))
+            }
+            Toggle(isOn: $showDollars.animation(.spring(response: 0.4, dampingFraction: 0.85))) {
+                Text("API VALUE").font(Extreme.font(10)).kerning(1.4)
+                    .foregroundColor(showDollars ? Extreme.gold : Extreme.muted)
+            }
+            .toggleStyle(.switch)
+            .tint(Extreme.gold)
+            .help("Show what this usage would cost at API prices instead of time")
+        }
+    }
+
+    /// Codex's API value: "$7.12", "$7.12+ · 3 unpriced" when only some models have prices,
+    /// or "not priced" when none do.
+    private var codexValue: String {
+        let unpriced = model.unpricedCodexModels.count
+        let dollars = model.dollars(agent: "codex")
+        if unpriced == 0 { return formatMoney(dollars) }
+        if unpriced == model.codexModels.count { return "not priced" }
+        return formatMoney(dollars) + "+ · \(unpriced) unpriced"
+    }
+
     private var tiles: some View {
         let sessions = model.sessions
         let files = Set(sessions.flatMap(\.files)).count
         let lines = sessions.map { $0.linesAdded + $0.linesRemoved }.reduce(0, +)
-        let items: [(String, String, String, String)] = [
+        let money = model.totalDollars
+        let unpriced = model.unpricedCodexModels
+        var items: [(String, String, String, String)] = [
+            ("dollarsign.circle.fill", "API value", formatMoney(money.input + money.output),
+             "Claude \(formatMoney(model.dollars(agent: "claude")))"
+                + (model.codexModels.isEmpty ? "" : " · Codex " + codexValue)),
+        ]
+        if !showDollars { items.removeAll() }
+        items += [
             ("clock.fill", "Active time", formatDuration(model.totalActive), "\(sessions.count) session\(sessions.count == 1 ? "" : "s")"),
             ("text.bubble.fill", "Prompts", "\(sessions.map(\.prompts).reduce(0, +))", "\(sessions.map(\.toolCalls).reduce(0, +)) tool calls"),
             ("doc.text.fill", "Files changed", "\(files)", "\(formatCount(lines)) lines"),
             ("terminal.fill", "Commands", "\(sessions.map(\.commands).reduce(0, +))", "\(sessions.map(\.tests).reduce(0, +)) test runs"),
-            ("arrow.down.circle.fill", "Tokens in", formatCount(sessions.map(\.tokensIn).reduce(0, +)), "incl. cached context"),
-            ("arrow.up.circle.fill", "Tokens out", formatCount(sessions.map(\.tokensOut).reduce(0, +)), "written by agents"),
+            ("arrow.down.circle.fill", "Tokens in", formatCount(sessions.map(\.tokensIn).reduce(0, +)),
+             showDollars ? "\(formatMoney(money.input)) at API prices" : "incl. cached context"),
+            ("arrow.up.circle.fill", "Tokens out", formatCount(sessions.map(\.tokensOut).reduce(0, +)),
+             showDollars ? "\(formatMoney(money.output)) at API prices" : "written by agents"),
         ]
-        return LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 12)], spacing: 12) {
+        // Seven tiles with the API value; keep them on one row in a normal-size window.
+        return LazyVGrid(columns: [GridItem(.adaptive(minimum: showDollars ? 138 : 160), spacing: 12)], spacing: 12) {
             ForEach(Array(items.enumerated()), id: \.offset) { index, item in
                 VStack(alignment: .leading, spacing: 6) {
                     Text(item.1.uppercased()).font(Extreme.font(9.5)).kerning(1.6).foregroundColor(Extreme.muted)
-                    Text(item.2).font(Extreme.font(26)).foregroundColor(index == 0 ? Extreme.core : Extreme.gold)
-                    Text(item.3).font(Extreme.font(10)).foregroundColor(Extreme.dim)
+                    Text(item.2).font(Extreme.font(showDollars ? 23 : 26)).foregroundColor(index == 0 ? Extreme.core : Extreme.gold)
+                        .lineLimit(1).minimumScaleFactor(0.7)
+                    Text(item.3).font(Extreme.font(10)).foregroundColor(showDollars && item.1.hasPrefix("Tokens") ? Extreme.gold.opacity(0.8) : Extreme.dim)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(14)
+                .frame(maxWidth: .infinity, minHeight: 72, alignment: .topLeading)
+                .padding(showDollars ? 12 : 14)
                 .extremePanel(active: index == 0)
+                .transition(.scale(scale: 0.9).combined(with: .opacity))
             }
         }
     }
@@ -233,11 +354,11 @@ private struct ActivityDashboardView: View {
     }
 
     private var dailyChart: some View {
-        card("Active time per day", "chart.bar.fill") {
-            Chart(model.bars) { bar in
+        card(showDollars ? "API value per day" : "Active time per day", "chart.bar.fill") {
+            Chart(model.bars(dollars: showDollars)) { bar in
                 BarMark(
                     x: .value("Day", bar.day, unit: .day),
-                    y: .value("Minutes", bar.minutes))
+                    y: .value(showDollars ? "Dollars" : "Minutes", bar.minutes))
                 .foregroundStyle(by: .value("Agent", bar.agent == "codex" ? "Codex" : "Claude Code"))
                 .cornerRadius(4)
             }
@@ -245,7 +366,11 @@ private struct ActivityDashboardView: View {
             .chartYAxis {
                 AxisMarks { value in
                     AxisGridLine().foregroundStyle(Extreme.text.opacity(0.08))
-                    AxisValueLabel { if let minutes = value.as(Double.self) { Text(formatDuration(minutes * 60)) } }
+                    AxisValueLabel {
+                        if let amount = value.as(Double.self) {
+                            Text(showDollars ? formatMoney(amount) : formatDuration(amount * 60))
+                        }
+                    }
                 }
             }
             .chartXAxis {
@@ -258,8 +383,8 @@ private struct ActivityDashboardView: View {
     }
 
     private var agentSplit: some View {
-        let claude = model.sessions.filter { $0.agent == "claude" }.map(model.active).reduce(0, +)
-        let codex = model.sessions.filter { $0.agent == "codex" }.map(model.active).reduce(0, +)
+        let claude = showDollars ? model.dollars(agent: "claude") : model.sessions.filter { $0.agent == "claude" }.map(model.active).reduce(0, +)
+        let codex = showDollars ? model.dollars(agent: "codex") : model.sessions.filter { $0.agent == "codex" }.map(model.active).reduce(0, +)
         return card("By agent", "person.2.fill") {
             let total = max(claude + codex, 1)
             VStack(alignment: .leading, spacing: 14) {
@@ -282,7 +407,8 @@ private struct ActivityDashboardView: View {
                                 .font(Extreme.font(10.5)).foregroundColor(Extreme.muted)
                         }
                         Spacer()
-                        Text(formatDuration(seconds)).font(Extreme.font(14))
+                        Text(showDollars ? (agent == "codex" ? codexValue : formatMoney(seconds)) : formatDuration(seconds))
+                            .font(Extreme.font(14))
                             .foregroundColor(ActivityColors.agent(agent))
                     }
                 }
@@ -318,13 +444,14 @@ private struct ActivityDashboardView: View {
     }
 
     private var projectsTable: some View {
-        card("Projects", "folder.fill") {
-            if model.projects.isEmpty {
+        let projects = model.projects(dollars: showDollars)
+        return card("Projects", "folder.fill") {
+            if projects.isEmpty {
                 Text("No agent activity in this period.").font(Extreme.font(12)).foregroundColor(Extreme.muted)
             }
-            let peak = max(model.projects.first?.total ?? 1, 1)
+            let peak = max(projects.first?.total ?? 1, showDollars ? 0.01 : 1)
             VStack(spacing: 10) {
-                ForEach(model.projects.prefix(12)) { project in
+                ForEach(projects.prefix(12)) { project in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Rectangle().fill(LocalhostProject(folder: project.name).color).frame(width: 6, height: 6)
@@ -332,8 +459,10 @@ private struct ActivityDashboardView: View {
                             Spacer()
                             Text("\(project.prompts) prompts · \(project.files) files · \(formatCount(project.lines)) lines")
                                 .font(Extreme.font(10.5)).foregroundColor(Extreme.muted)
-                            Text(formatDuration(project.total)).font(Extreme.font(12))
-                                .frame(width: 58, alignment: .trailing)
+                            Text(showDollars ? formatMoney(project.total) : formatDuration(project.total))
+                                .font(Extreme.font(12))
+                                .foregroundColor(showDollars ? Extreme.gold : Extreme.text)
+                                .frame(width: 64, alignment: .trailing)
                         }
                         GeometryReader { geometry in
                             HStack(spacing: 1) {
@@ -356,16 +485,75 @@ private struct ActivityDashboardView: View {
             }
             VStack(spacing: 6) {
                 ForEach(model.sessions.prefix(14)) { session in
-                    ActivitySessionRow(session: session, active: model.active(session))
+                    ActivitySessionRow(session: session, active: model.active(session),
+                                       dollars: showDollars ? model.dollars(session) : nil)
                 }
             }
         }
     }
 }
 
+/// Prices for the Codex models in use, per million tokens. OpenAI's prices for them aren't
+/// available on this Mac, so they're entered here once and remembered.
+private struct CodexRatesEditor: View {
+    let models: [(model: String, tokens: [Int])]
+    @Binding var rates: [String: APIPricing.CodexRates]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("CODEX PRICES").font(Extreme.font(11)).kerning(1.6).foregroundColor(Extreme.gold)
+            Text("Dollars per million tokens. Filled in from OpenAI's API pricing (Standard tier); change any of them, or price a model that isn't listed.")
+                .font(Extreme.font(10.5)).foregroundColor(Extreme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
+                GridRow {
+                    Text("MODEL")
+                    Text("INPUT")
+                    Text("CACHED")
+                    Text("OUTPUT")
+                }
+                .font(Extreme.font(9)).kerning(1.2).foregroundColor(Extreme.dim)
+                ForEach(models, id: \.model) { entry in
+                    GridRow {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(entry.model).font(Extreme.font(11.5)).foregroundColor(Extreme.text)
+                            Text("\(formatCount(entry.tokens[0])) in · \(formatCount(entry.tokens[2])) out")
+                                .font(Extreme.font(9.5)).foregroundColor(Extreme.dim)
+                        }
+                        field(entry.model, \.input)
+                        field(entry.model, \.cached)
+                        field(entry.model, \.output)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .frame(width: 460)
+        .background(Extreme.panel)
+    }
+
+    private func field(_ model: String, _ key: WritableKeyPath<APIPricing.CodexRates, Double>) -> some View {
+        TextField("$", value: Binding(
+            get: { rates[model]?[keyPath: key] },
+            set: { value in
+                var rate = rates[model] ?? APIPricing.CodexRates(input: 0, cached: 0, output: 0)
+                rate[keyPath: key] = value ?? 0
+                if rate.input == 0 && rate.cached == 0 && rate.output == 0 { rates[model] = nil } else { rates[model] = rate }
+            }), format: .number.precision(.fractionLength(0...3)))
+            .textFieldStyle(.plain)
+            .font(Extreme.font(11.5))
+            .foregroundColor(Extreme.gold)
+            .padding(.horizontal, 6).frame(width: 64, height: 24)
+            .background(Extreme.ink)
+            .overlay(Rectangle().strokeBorder(Extreme.lineStrong, lineWidth: 1))
+    }
+}
+
 private struct ActivitySessionRow: View {
     let session: ActivitySession
     let active: Double
+    /// Its API value, when the dashboard shows dollars.
+    var dollars: Double?
     @State private var hovering = false
 
     var body: some View {
@@ -388,8 +576,8 @@ private struct ActivitySessionRow: View {
                     .controlSize(.small)
                     .help("Continue this session in a new tab")
             } else {
-                Text(formatDuration(active)).font(Extreme.font(11.5))
-                    .foregroundColor(ActivityColors.agent(session.agent))
+                Text(dollars.map(formatMoney) ?? formatDuration(active)).font(Extreme.font(11.5))
+                    .foregroundColor(dollars == nil ? ActivityColors.agent(session.agent) : Extreme.gold)
             }
         }
         .padding(.horizontal, 8)
