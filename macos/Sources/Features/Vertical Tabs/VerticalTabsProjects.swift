@@ -20,7 +20,8 @@ final class VerticalTabsProjects: ObservableObject {
         let name: String
         /// Its tabs, in no particular order (the sidebar orders them).
         let members: Set<ObjectIdentifier>
-        let agentTabs: Int
+        /// Agent sessions working in the project (a tab can hold several, in splits).
+        let agents: Int
     }
 
     @Published private(set) var groups: [String: Group] = [:]
@@ -29,9 +30,11 @@ final class VerticalTabsProjects: ObservableObject {
 
     private init() {
         let center = NotificationCenter.default
-        Publishers.Merge3(
+        Publishers.Merge4(
             center.publisher(for: VerticalTabsAgents.didChange).map { _ in () },
             center.publisher(for: .verticalTabsNeedRefresh).map { _ in () },
+            // A closed tab should leave its group right away, not on the next tick.
+            center.publisher(for: NSWindow.willCloseNotification).map { _ in () },
             VerticalTabsTicker.shared.publisher)
             .debounce(for: .milliseconds(150), scheduler: RunLoop.main)
             .sink { [weak self] in self?.recompute() }
@@ -59,38 +62,60 @@ final class VerticalTabsProjects: ObservableObject {
     }
 
     /// The project a tab works in, if any: where its agent is, or else its focused pane.
-    static func project(of controller: TerminalController) -> (id: String, root: String, hasAgent: Bool)? {
+    /// `agents` counts its agent sessions in that project.
+    static func project(of controller: TerminalController) -> (id: String, root: String, agents: Int)? {
         guard !HermesSessions.shared.isHermes(controller),
               LocalhostSessions.shared.session(for: controller) == nil else { return nil }
         let surfaces = Array(controller.surfaceTree)
-        let agent = surfaces.first { surface in
+        let agentSurfaces = surfaces.filter { surface in
             guard let kind = VerticalTabsAgents.shared.info(for: surface)?.kind else { return false }
             return kind != .hermes
         }
-        guard let pwd = (agent ?? controller.focusedSurface ?? surfaces.first)?.pwd else { return nil }
-        let root = LocalhostProject(folder: pwd).root
-        let id = ProjectPath.canonical(root)
-        // A home folder or the disk isn't a project.
+        guard let pwd = (agentSurfaces.first ?? controller.focusedSurface ?? surfaces.first)?.pwd,
+              let id = projectID(of: pwd) else { return nil }
+        let agents = agentSurfaces.filter { $0.pwd.flatMap(projectID(of:)) == id }.count
+        return (id, LocalhostProject(folder: pwd).root, agents)
+    }
+
+    /// The project a folder belongs to, compared ignoring case; nil for a home folder or
+    /// the disk, which aren't projects.
+    private static func projectID(of folder: String) -> String? {
+        let id = ProjectPath.canonical(LocalhostProject(folder: folder).root)
         let home = ProjectPath.canonical(NSHomeDirectory())
         guard id != home, id != "/", !home.hasPrefix(id + "/") else { return nil }
-        return (id, root, agent != nil)
+        return id
+    }
+
+    /// Tabs that are open. A closed tab's window can linger in the app's window list for a
+    /// while after it closes.
+    static var openControllers: [TerminalController] {
+        TerminalController.all.filter { controller in
+            guard let window = controller.window else { return false }
+            if window.isVisible || window.isMiniaturized { return true }
+            // A background tab isn't "visible", but it's still in its tab group.
+            return window.tabGroup?.windows.contains(window) == true
+                && window.tabGroup?.windows.contains { $0.isVisible || $0.isMiniaturized } == true
+        }
     }
 
     private func recompute() {
         var members: [String: Set<ObjectIdentifier>] = [:]
+        var agentTabs: [String: Int] = [:]
         var agents: [String: Int] = [:]
         var roots: [String: String] = [:]
-        for controller in TerminalController.all {
+        for controller in Self.openControllers {
             guard let project = Self.project(of: controller) else { continue }
             members[project.id, default: []].insert(ObjectIdentifier(controller))
-            if project.hasAgent { agents[project.id, default: 0] += 1 }
-            if roots[project.id] == nil || project.hasAgent { roots[project.id] = project.root }
+            if project.agents > 0 { agentTabs[project.id, default: 0] += 1 }
+            agents[project.id, default: 0] += project.agents
+            if roots[project.id] == nil || project.agents > 0 { roots[project.id] = project.root }
         }
         let ungrouped = Set(UserDefaults.standard.verticalTabsUngroupedProjects)
         var next: [String: Group] = [:]
-        for (id, tabs) in members where (agents[id] ?? 0) >= 2 && !ungrouped.contains(id) {
+        // Grouping is across tabs (a tab's splits are already together).
+        for (id, tabs) in members where (agentTabs[id] ?? 0) >= 2 && !ungrouped.contains(id) {
             let root = roots[id] ?? id
-            next[id] = Group(id: id, root: root, name: ProjectPath.displayName(root), members: tabs, agentTabs: agents[id] ?? 0)
+            next[id] = Group(id: id, root: root, name: ProjectPath.displayName(root), members: tabs, agents: agents[id] ?? 0)
         }
         guard next != groups else { return }
         tabGroup = [:]
@@ -201,7 +226,7 @@ struct VerticalTabsProjectGroupView<Content: View>: View {
                 .foregroundColor(Extreme.text)
                 .lineLimit(1)
                 .truncationMode(.tail)
-            Text("\(group.agentTabs) AGENTS")
+            Text(group.agents == 1 ? "1 AGENT" : "\(group.agents) AGENTS")
                 .font(Extreme.font(9))
                 .kerning(1)
                 .foregroundColor(color)
@@ -313,7 +338,7 @@ struct VerticalTabsProjectGroupView<Content: View>: View {
     private func update() {
         var next = ProjectGroupSummary()
         var changedBy: [String: Set<ObjectIdentifier>] = [:]
-        for controller in controllers {
+        for controller in controllers where VerticalTabsProjects.openControllers.contains(where: { $0 === controller }) {
             for surface in controller.surfaceTree {
                 guard let info = VerticalTabsAgents.shared.info(for: surface), info.kind != .hermes else { continue }
                 switch info.activity {
