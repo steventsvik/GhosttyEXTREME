@@ -360,6 +360,7 @@ struct VerticalTabsSidebar: View {
     @AppStorage(VerticalTabs.condensedKey) private var condensed = false
     @ObservedObject private var collapse = VerticalTabsCollapse.shared
     @ObservedObject private var localhost = LocalhostSessions.shared
+    @ObservedObject private var projects = VerticalTabsProjects.shared
 
     var body: some View {
         let palette = VerticalTabsPalette(config: config)
@@ -381,21 +382,34 @@ struct VerticalTabsSidebar: View {
                     }
                     .padding(.horizontal, 12)
                     .padding(.top, 10)
-                    ForEach(Array(model.tabs.enumerated()), id: \.element.id) { index, entry in
-                        if let controller = entry.controller, !isLocalhost(entry) {
-                            VerticalTabGroup(
-                                controller: controller,
-                                owner: owner,
-                                index: index + 1,
-                                tabColor: entry.tabColor,
-                                condensed: condensed,
-                                collapsed: collapse.collapsed.contains(entry.id),
-                                palette: palette,
-                                onToggleCollapse: { collapse.toggle(entry.id) })
+                    ForEach(items(excluding: isLocalhost)) { item in
+                        switch item {
+                        case .tab(let index, let entry):
+                            if let controller = entry.controller {
+                                tabGroup(controller, entry: entry, index: index, palette: palette)
+                                    .transition(.opacity)
+                            }
+                        case .project(let group, let members):
+                            VerticalTabsProjectGroupView(
+                                group: group,
+                                controllers: members.compactMap(\.1.controller),
+                                owner: owner
+                            ) {
+                                VStack(spacing: 6) {
+                                    ForEach(members, id: \.1.id) { index, entry in
+                                        if let controller = entry.controller {
+                                            tabGroup(controller, entry: entry, index: index, palette: palette, inProject: true)
+                                        }
+                                    }
+                                }
+                            }
+                            .transition(.asymmetric(insertion: .scale(scale: 0.97, anchor: .top).combined(with: .opacity),
+                                                    removal: .opacity))
                         }
                     }
                 }
                 .padding(.bottom, 10)
+                .animation(.spring(response: 0.45, dampingFraction: 0.85), value: projects.groups)
             }
 
             // Localhost sessions stay in view, whatever else is open.
@@ -410,6 +424,51 @@ struct VerticalTabsSidebar: View {
         }
         .background(sidebarBackground)
         .onAppear { Extreme.registerFonts() }
+    }
+
+    /// One sidebar entry: a tab on its own, or a project's tabs bracketed together.
+    private enum Item: Identifiable {
+        case tab(Int, VerticalTabEntry)
+        case project(VerticalTabsProjects.Group, [(Int, VerticalTabEntry)])
+
+        var id: String {
+            switch self {
+            case .tab(_, let entry): return "tab-\(entry.id.hashValue)"
+            case .project(let group, _): return "project-" + group.id
+            }
+        }
+    }
+
+    /// Tabs in order, with each project's tabs gathered where its first tab is.
+    private func items(excluding isLocalhost: (VerticalTabEntry) -> Bool) -> [Item] {
+        var result: [Item] = []
+        var placed: Set<String> = []
+        let tabs = Array(model.tabs.enumerated()).filter { !isLocalhost($0.element) }
+        for (offset, entry) in tabs {
+            guard let controller = entry.controller else { continue }
+            if let group = projects.group(for: controller) {
+                guard placed.insert(group.id).inserted else { continue }
+                let members = tabs.filter { $0.element.controller.map { group.members.contains(ObjectIdentifier($0)) } ?? false }
+                result.append(.project(group, members.map { ($0.offset + 1, $0.element) }))
+            } else {
+                result.append(.tab(offset + 1, entry))
+            }
+        }
+        return result
+    }
+
+    private func tabGroup(_ controller: TerminalController, entry: VerticalTabEntry, index: Int,
+                          palette: VerticalTabsPalette, inProject: Bool = false) -> some View {
+        VerticalTabGroup(
+            controller: controller,
+            owner: owner,
+            index: index,
+            tabColor: entry.tabColor,
+            condensed: condensed,
+            collapsed: collapse.collapsed.contains(entry.id),
+            palette: palette,
+            inProject: inProject,
+            onToggleCollapse: { collapse.toggle(entry.id) })
     }
 
     /// The terminal's own background, a shade deeper.
@@ -583,6 +642,8 @@ private struct VerticalTabGroup: View {
     let condensed: Bool
     let collapsed: Bool
     let palette: VerticalTabsPalette
+    /// Inside a project bracket, which already provides the side margin.
+    var inProject = false
     let onToggleCollapse: () -> Void
 
     @State private var snapshot: VerticalTabSnapshot = .empty
@@ -612,7 +673,8 @@ private struct VerticalTabGroup: View {
         }
         .extremePanel(active: isSelected, fill: isSelected ? Extreme.panel : Color.clear)
         .overlay(alignment: .leading) { colorCard }
-        .padding(.horizontal, 8)
+        .padding(.leading, inProject ? 0 : 8)
+        .padding(.trailing, 8)
         .onAppear(perform: update)
         .onReceive(VerticalTabsTicker.shared.publisher) {
             // Every tab window carries a sidebar, but only the one on screen needs
@@ -689,6 +751,13 @@ private struct VerticalTabGroup: View {
 
     @ViewBuilder
     private var contextMenu: some View {
+        if let project = VerticalTabsProjects.project(of: controller),
+           UserDefaults.standard.verticalTabsUngroupedProjects.contains(project.id) {
+            Button("Group \(ProjectPath.displayName(project.root)) Tabs Again") {
+                VerticalTabsProjects.shared.regroup(project.id)
+            }
+            Divider()
+        }
         Button("Rename Tab…") {
             select()
             controller.promptTabTitle()
