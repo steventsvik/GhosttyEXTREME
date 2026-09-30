@@ -12,6 +12,9 @@ struct VerticalTabsLayout<Content: View>: View {
     @ObservedObject private var editorPanel = EditorPanel.shared
     @ObservedObject private var hermes = HermesSessions.shared
     @ObservedObject private var commandBlocks = CommandBlocksPanel.shared
+    @ObservedObject private var visualFix = VisualFixPanel.shared
+    @AppStorage(EditorPanel.widthKey) private var editorWidth: Double = EditorPanel.defaultWidth
+    @AppStorage(VisualFixPanel.widthKey) private var visualFixWidth: Double = VisualFixPanel.defaultWidth
     @AppStorage(VerticalTabs.visibleKey) private var visible: Bool = true
     @AppStorage(VerticalTabs.widthKey) private var width: Double = VerticalTabs.defaultWidth
     private let content: Content
@@ -31,17 +34,25 @@ struct VerticalTabsLayout<Content: View>: View {
         // hand a window back smaller, e.g. from Stage Manager), the editor gives way so
         // nothing is pushed past the window's edge.
         GeometryReader { geometry in
-            layout(maxEditorWidth: maxEditorWidth(in: geometry.size.width))
+            let limits = panelLimits(in: geometry.size.width)
+            layout(maxEditorWidth: limits.editor, maxVisualFixWidth: limits.visualFix)
         }
     }
 
-    private func maxEditorWidth(in total: CGFloat) -> CGFloat {
+    /// The most room the editor and Visual Fix can each have. When both want more than the
+    /// window has, they share it in proportion.
+    private func panelLimits(in total: CGFloat) -> (editor: CGFloat, visualFix: CGFloat) {
         let sidebar = visible && ghostty.readiness == .ready ? CGFloat(width) + 1 : 0
         let history: CGFloat = commandBlocks.isVisible(controller) ? 400 : 0
-        return max(240, total - sidebar - history - minTerminalWidth - 1)
+        let available = max(0, total - sidebar - history - minTerminalWidth - 2)
+        let editor = editorPanel.isVisible(controller) ? CGFloat(editorWidth) : 0
+        let fix = visualFix.isVisible(controller) ? CGFloat(visualFixWidth) : 0
+        guard editor + fix > available, editor + fix > 0 else { return (max(240, available), max(360, available)) }
+        let scale = available / (editor + fix)
+        return (max(240, editor * scale), max(300, fix * scale))
     }
 
-    private func layout(maxEditorWidth: CGFloat) -> some View {
+    private func layout(maxEditorWidth: CGFloat, maxVisualFixWidth: CGFloat) -> some View {
         HStack(spacing: 0) {
             if visible && ghostty.readiness == .ready {
                 VerticalTabsSidebar(model: model, owner: controller, config: ghostty.config)
@@ -56,7 +67,7 @@ struct VerticalTabsLayout<Content: View>: View {
                     HermesSessionView(controller: controller)
                 }
                 // "Your app is live" when a localhost session starts listening.
-                LocalhostToastLayer()
+                LocalhostToastLayer(controller: controller)
                 // Branding: pixel corner brackets (a traveling light while an agent works)
                 // and the sigil assembling when the tab opens.
                 TerminalFrameOverlay(controller: controller)
@@ -65,6 +76,10 @@ struct VerticalTabsLayout<Content: View>: View {
             // Each tab has its own editor.
             if editorPanel.isVisible(controller) {
                 EditorPanelColumn(controller: controller, maxWidth: maxEditorWidth)
+            }
+            // Point at the running app and have the agent change it.
+            if visualFix.isVisible(controller) {
+                VisualFixColumn(controller: controller, maxWidth: maxVisualFixWidth)
             }
             if commandBlocks.isVisible(controller) {
                 CommandBlocksColumn(controller: controller)
@@ -101,6 +116,7 @@ enum VerticalTabsTestSupport {
     static func openTestTabsIfRequested(from controller: TerminalController) {
         guard !didOpen else { return }
         didOpen = true
+        MainActor.assumeIsolated { DemoDirector.startIfRequested(from: controller) }
         if overlayMode != nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
                 NotificationCenter.default.post(name: showOverlay, object: nil)
@@ -136,6 +152,10 @@ enum VerticalTabsTestSupport {
                     }
                 }
             }
+        }
+        // `GHOSTTY_EXTREME_TEST_VISUAL=<seconds>`: open Visual Fix on the best running app then.
+        if let value = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_VISUAL"], let delay = Double(value) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { VisualFixPanel.shared.show(from: controller) }
         }
         // `GHOSTTY_EXTREME_TEST_PALETTE=1`: open the command palette in the visible tab after 11s.
         if ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_PALETTE"] == "1" {

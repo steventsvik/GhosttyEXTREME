@@ -180,6 +180,7 @@ final class VerticalTabsModel: ObservableObject {
 
 extension UserDefaults {
     /// KVO-observable accessor; the key path name must match `VerticalTabs.visibleKey`.
+    // swiftlint:disable:next identifier_name
     @objc dynamic var VerticalTabsVisible: Bool {
         object(forKey: VerticalTabs.visibleKey) as? Bool ?? true
     }
@@ -230,6 +231,7 @@ final class VerticalTabsMenu: NSObject {
             ("Review Changes", #selector(showReview(_:)), "i"),
             ("Command History", #selector(toggleCommandBlocks(_:)), "b"),
             ("Agent Activity", #selector(showActivity(_:)), "a"),
+            ("Visual Fix", #selector(toggleVisualFix(_:)), "v"),
         ]
         for (offset, extra) in extras.enumerated() {
             let item = NSMenuItem(title: extra.0, action: extra.1, keyEquivalent: extra.2)
@@ -251,6 +253,10 @@ final class VerticalTabsMenu: NSObject {
     @objc func toggleCommandBlocks(_ sender: Any?) {
         guard let owner = EditorPanel.frontController else { return }
         CommandBlocksPanel.shared.toggle(owner)
+    }
+
+    @objc func toggleVisualFix(_ sender: Any?) {
+        VisualFixPanel.shared.toggle(nil)
     }
 
     @objc func showActivity(_ sender: Any?) {
@@ -293,6 +299,10 @@ extension VerticalTabsMenu: NSMenuItemValidation {
         if menuItem.action == #selector(raceAgents(_:)) { return !TerminalController.all.isEmpty }
         if menuItem.action == #selector(showLocalhost(_:)) || menuItem.action == #selector(showReview(_:))
             || menuItem.action == #selector(showActivity(_:)) { return true }
+        if menuItem.action == #selector(toggleVisualFix(_:)) {
+            menuItem.state = EditorPanel.frontController.map { VisualFixPanel.shared.isVisible($0) } == true ? .on : .off
+            return VisualFixPanel.frontController != nil
+        }
         if menuItem.action == #selector(toggleCommandBlocks(_:)) {
             menuItem.state = EditorPanel.frontController.map { CommandBlocksPanel.shared.isVisible($0) } == true ? .on : .off
             return EditorPanel.frontController != nil

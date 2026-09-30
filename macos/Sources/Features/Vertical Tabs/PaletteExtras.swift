@@ -85,6 +85,14 @@ enum PaletteExtras {
                 ) {
                     EditorPanel.shared.toggle(from: owner)
                 })
+                options.append(CommandOption(
+                    title: "Visual Fix",
+                    description: "Point at anything in your running app and have the agent change it",
+                    symbols: ["⌃", "⌘", "V"],
+                    leadingIcon: "scope"
+                ) {
+                    VisualFixPanel.shared.toggle(owner)
+                })
             }
         }
         options.append(CommandOption(

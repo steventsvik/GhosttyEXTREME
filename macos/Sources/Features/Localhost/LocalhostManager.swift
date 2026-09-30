@@ -213,6 +213,9 @@ private struct LocalhostManagerCard: View {
                         if let url = session.url { LocalhostPreview.show(url, title: session.project.name) }
                     } label: { Label("Preview", systemImage: "eye").fixedSize() }.disabled(session.url == nil)
                     Button { LocalhostSessions.shared.focus(session) } label: { Label("Logs", systemImage: "text.alignleft").fixedSize() }
+                    if session.state == .live {
+                        VisualFixLaunchButton(url: session.url, controller: nil)
+                    }
                     Spacer(minLength: 4)
                     LocalhostIconButton(symbol: session.isRunning ? "arrow.clockwise" : "play.fill",
                                         help: session.isRunning ? "Restart" : "Start again",

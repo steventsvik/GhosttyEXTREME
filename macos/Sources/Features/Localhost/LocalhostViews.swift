@@ -232,6 +232,7 @@ struct LocalhostTabCard: View {
                             .foregroundColor(.secondary)
                     }
                     Spacer(minLength: 0)
+                    if live { VisualFixLaunchButton(url: session.url, controller: controller) }
                 }
 
                 HStack(spacing: 6) {
@@ -303,6 +304,7 @@ struct LocalhostTabCard: View {
 
     @ViewBuilder
     private var menu: some View {
+        Button("Fix Visually…") { VisualFixPanel.shared.show(from: controller, url: session.url) }.disabled(session.url == nil)
         Button("Open in Browser") { LocalhostSessions.shared.openInBrowser(session.url) }.disabled(session.url == nil)
         Button("Preview in GhosttyEXTREME") {
             if let url = session.url { LocalhostPreview.show(url, title: session.project.name) }
@@ -356,6 +358,7 @@ struct LocalhostHeaderButton: View {
 /// "Your app is live" pop-up shown over the terminal when a session starts listening.
 struct LocalhostToastView: View {
     let session: LocalhostSession
+    var controller: TerminalController?
     let dismiss: () -> Void
 
     var body: some View {
@@ -377,6 +380,7 @@ struct LocalhostToastView: View {
                     .font(.system(size: 11)).foregroundColor(.secondary).lineLimit(1)
             }
             LocalhostURLPill(session: session, large: true)
+            VisualFixLaunchButton(url: session.url, controller: controller, large: true)
             LocalhostIconButton(symbol: "xmark", help: "Dismiss", size: 20, action: dismiss)
         }
         .padding(.horizontal, 14)
@@ -397,12 +401,13 @@ struct LocalhostToastView: View {
 
 /// Places the toast at the top of the terminal area.
 struct LocalhostToastLayer: View {
+    var controller: TerminalController?
     @ObservedObject private var store = LocalhostSessions.shared
 
     var body: some View {
         VStack {
             if let session = store.toast {
-                LocalhostToastView(session: session) { store.toast = nil }
+                LocalhostToastView(session: session, controller: controller) { store.toast = nil }
                     .padding(.top, 14)
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .onTapGesture { LocalhostSessions.shared.focus(session) }

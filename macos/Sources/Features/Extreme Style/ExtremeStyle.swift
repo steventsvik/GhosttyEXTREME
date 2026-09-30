@@ -233,7 +233,8 @@ struct AgentBadge: View {
 
 /// 9×9 pixel icons for the chrome.
 enum PixelIcon: String {
-    case plus, globe, inbox, grid, condense, expand, close, restart, stop, play, eye, chevronDown, chevronRight, pin, bolt, more, branch, chart, code
+    case plus, globe, inbox, grid, condense, expand, close, restart, stop, play, eye, chevronDown, chevronRight, pin, bolt, more, branch, chart, code,
+         target, desktop, tablet, phone
 
     var rows: [String] {
         switch self {
@@ -254,6 +255,10 @@ enum PixelIcon: String {
         case .chart: return [".......oo", ".......oo", "....oo.oo", "....oo.oo", ".oo.oo.oo", ".oo.oo.oo", ".oo.oo.oo", ".oo.oo.oo", "ooooooooo"]
         case .more: return [".........", ".........", ".........", ".........", "oo.oo.oo.", "oo.oo.oo.", ".........", ".........", "........."]
         case .branch: return [".o.......", ".o.....o.", ".o.....o.", ".o....o..", ".o...o...", ".o..o....", ".oo......", ".o.......", ".o......."]
+        case .target: return ["....o....", "..ooooo..", ".o..o..o.", ".o.....o.", "ooo.o.ooo", ".o.....o.", ".o..o..o.", "..ooooo..", "....o...."]
+        case .desktop: return ["ooooooooo", "o.......o", "o.......o", "o.......o", "o.......o", "ooooooooo", "....o....", "..ooooo..", "........."]
+        case .tablet: return [".ooooooo.", ".o.....o.", ".o.....o.", ".o.....o.", ".o.....o.", ".o.....o.", ".o.....o.", ".o..o..o.", ".ooooooo."]
+        case .phone: return ["..ooooo..", "..o...o..", "..o...o..", "..o...o..", "..o...o..", "..o...o..", "..o...o..", "..o.o.o..", "..ooooo.."]
         case .code: return [".....o...", ".....o...", "..o.o.o..", ".o..o..o.", "o...o...o", ".o..o..o.", "..o.o.o..", "...o.....", "...o....."]
         case .bolt: return ["....oo...", "...oo....", "..oo.....", ".ooooo...", "...oo....", "..oo.....", ".oo......", "oo.......", "........."]
         }
