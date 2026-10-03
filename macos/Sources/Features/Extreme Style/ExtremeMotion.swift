@@ -52,6 +52,19 @@ final class WindowMotion: ObservableObject {
     }
 }
 
+/// Test hook: `GHOSTTY_EXTREME_TEST_NOANIM=comet,spinner,bar,dot,film,bracket` turns those off, to
+/// measure what each costs the window server.
+enum MotionTest {
+    static let off = Set((ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_NOANIM"] ?? "").split(separator: ",").map(String.init))
+}
+
+/// Frame rate for the chrome's smooth motion. At the display's full 120 Hz, a sweeping bar
+/// makes the window server re-composite the whole window 120 times a second (and re-render
+/// the clipped sprite avatars each time); at 30 it looks the same and costs a quarter.
+enum Motion {
+    static let chromeRate = CAFrameRateRange(minimum: 15, maximum: 30, preferred: 30)
+}
+
 // MARK: - Core Animation primitives
 
 /// A layer-hosting view that doesn't clip its glow.
@@ -107,18 +120,21 @@ struct PulseDotLayer: NSViewRepresentable {
             dot.frame = bounds
             dot.cornerRadius = bounds.width / 2
             dot.shadowRadius = bounds.width * 0.6
+            // Glows drawn from a known shape skip an offscreen render pass every frame.
+            dot.shadowPath = CGPath(ellipseIn: dot.bounds, transform: nil)
             CATransaction.commit()
         }
 
         override func restartAnimations() {
             dot.removeAnimation(forKey: "pulse")
-            guard blinking else { return }
+            guard blinking, !MotionTest.off.contains("dot") else { return }
             let pulse = CABasicAnimation(keyPath: "opacity")
             pulse.fromValue = 1
             pulse.toValue = 0.25
             pulse.duration = interval
             pulse.autoreverses = true
             pulse.repeatCount = .infinity
+            pulse.preferredFrameRateRange = Motion.chromeRate
             pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             dot.add(pulse, forKey: "pulse")
         }
@@ -177,17 +193,20 @@ struct SpinnerLayer: NSViewRepresentable {
             let line = max(1.4, bounds.width * 0.17)
             ring.lineWidth = line
             ring.path = CGPath(ellipseIn: bounds.insetBy(dx: line / 2, dy: line / 2), transform: nil)
+            spin.shadowPath = ring.path?.copy(strokingWithWidth: line, lineCap: .round, lineJoin: .round, miterLimit: 1)
             CATransaction.commit()
             if spin.animation(forKey: "spin") == nil { restartAnimations() }
         }
 
         override func restartAnimations() {
             spin.removeAnimation(forKey: "spin")
+            if MotionTest.off.contains("spinner") { return }
             let turn = CABasicAnimation(keyPath: "transform.rotation.z")
             turn.fromValue = 0
             turn.toValue = Double.pi * 2
             turn.duration = 0.85
             turn.repeatCount = .infinity
+            turn.preferredFrameRateRange = Motion.chromeRate
             spin.add(turn, forKey: "spin")
         }
     }
@@ -238,12 +257,13 @@ struct ActivityBarLayer: NSViewRepresentable {
 
         override func restartAnimations() {
             sweep.removeAnimation(forKey: "sweep")
-            guard bounds.width > 0 else { return }
+            guard bounds.width > 0, !MotionTest.off.contains("bar") else { return }
             let move = CABasicAnimation(keyPath: "position.x")
             move.fromValue = -bounds.width * 0.175
             move.toValue = bounds.width * 1.175
             move.duration = 1.3
             move.repeatCount = .infinity
+            move.preferredFrameRateRange = Motion.chromeRate
             move.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             sweep.add(move, forKey: "sweep")
         }

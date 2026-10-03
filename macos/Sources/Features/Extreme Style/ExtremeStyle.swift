@@ -334,13 +334,15 @@ struct ExtremePanel: ViewModifier {
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: Extreme.radius, style: .continuous)
+        // The shadow comes from the card's shape, not its contents: cast from the contents, it
+        // had to be redrawn every frame anything inside moved (a sprite, a spinner, a bar).
         content
             .background(
                 shape.fill(fill)
                     .overlay(shape.fill(LinearGradient(colors: [Color.white.opacity(0.035), .clear],
-                                                       startPoint: .top, endPoint: .center))))
+                                                       startPoint: .top, endPoint: .center)))
+                    .shadow(color: active ? Extreme.gold.opacity(0.14) : .black.opacity(0.25), radius: active ? 10 : 3, y: active ? 0 : 1))
             .overlay(shape.strokeBorder(active ? Extreme.gold.opacity(0.55) : Extreme.line.opacity(0.9), lineWidth: 1))
-            .shadow(color: active ? Extreme.gold.opacity(0.14) : .black.opacity(0.25), radius: active ? 10 : 3, y: active ? 0 : 1)
     }
 }
 

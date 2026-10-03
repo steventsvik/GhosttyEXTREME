@@ -22,11 +22,21 @@ private extension CALayer {
     func addLoop(_ animation: CAAnimation, duration: CFTimeInterval, key: String) {
         animation.duration = duration
         animation.repeatCount = .infinity
+        animation.preferredFrameRateRange = Motion.chromeRate
         animation.isRemovedOnCompletion = false
         animation.beginTime = convertTime(CACurrentMediaTime(), from: nil)
         animation.timeOffset = Date().timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: duration)
         add(animation, forKey: key)
     }
+}
+
+/// A glow around `layer`'s rectangle, from a known shape (no offscreen pass per frame).
+private func glow(_ layer: CALayer, _ color: CGColor, _ opacity: CGFloat, _ radius: CGFloat) {
+    layer.shadowColor = color
+    layer.shadowOpacity = Float(opacity)
+    layer.shadowRadius = radius
+    layer.shadowOffset = .zero
+    layer.shadowPath = CGPath(rect: layer.bounds, transform: nil)
 }
 
 private func discrete(_ keyPath: String, _ values: [Any]) -> CAKeyframeAnimation {
@@ -84,7 +94,7 @@ struct FilmStrip<Frame: View>: NSViewRepresentable {
             film.contentsScale = scale
             film.contents = images.first
             film.removeAnimation(forKey: "film")
-            guard images.count > 1 else { return }
+            guard images.count > 1, !MotionTest.off.contains("film") else { return }
             film.addLoop(discrete("contents", images), duration: duration, key: "film")
         }
 
@@ -107,10 +117,23 @@ struct FilmStrip<Frame: View>: NSViewRepresentable {
                 let renderer = ImageRenderer(content: frame(index).frame(width: size.width, height: size.height)
                     .environment(\.colorScheme, .dark))
                 renderer.scale = scale
-                return renderer.cgImage
+                return renderer.cgImage.flatMap(gpuReady)
             }
         }, scale: scale, duration: Double(frames) * frameDuration)
     }
+}
+
+/// The image in the GPU's own format (8-bit premultiplied BGRA, sRGB). SwiftUI renders in
+/// extended-range color; left that way, the window server converts the film's current frame
+/// again every time the window is composited (120 times a second while anything else on
+/// screen moves). Converted once here, it's uploaded once and reused.
+private func gpuReady(_ image: CGImage) -> CGImage? {
+    guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+          let context = CGContext(data: nil, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: space, bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)
+    else { return image }
+    context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+    return context.makeImage() ?? image
 }
 
 /// Rendered loops, shared by every view showing the same thing.
@@ -149,10 +172,6 @@ struct FrameLights: NSViewRepresentable {
             super.init(frame: frame)
             wantsLayer = true
             layer?.masksToBounds = false
-            cometLayer.shadowColor = NSColor(Extreme.core).cgColor
-            cometLayer.shadowOpacity = 0.7
-            cometLayer.shadowRadius = 4
-            cometLayer.shadowOffset = .zero
             layer?.addSublayer(corners)
             layer?.addSublayer(cometLayer)
         }
@@ -201,7 +220,7 @@ struct FrameLights: NSViewRepresentable {
             cometLayer.frame = bounds
             cometLayer.sublayers?.forEach { $0.removeFromSuperlayer() }
             cometLayer.isHidden = !comet
-            if comet { buildComet(w: w, h: h) }
+            if comet && !MotionTest.off.contains("comet") { buildComet(w: w, h: h) }
             CATransaction.commit()
         }
 
@@ -218,12 +237,14 @@ struct FrameLights: NSViewRepresentable {
                 piece.backgroundColor = NSColor(Extreme.core).withAlphaComponent(1 - CGFloat(i) / 7).cgColor
                 piece.anchorPoint = .zero
                 piece.frame = rects[0]
+                glow(piece, NSColor(Extreme.core).cgColor, 0.7 * (1 - CGFloat(i) / 7), 4)
                 cometLayer.addSublayer(piece)
                 let shifted = (0..<steps).map { rects[($0 - i + steps) % steps] }
                 let position = discrete("position", shifted.map { NSValue(point: $0.origin) })
                 let bounds = discrete("bounds", shifted.map { NSValue(rect: CGRect(origin: .zero, size: $0.size)) })
+                let shadow = discrete("shadowPath", shifted.map { CGPath(rect: CGRect(origin: .zero, size: $0.size), transform: nil) })
                 let group = CAAnimationGroup()
-                group.animations = [position, bounds]
+                group.animations = [position, bounds, shadow]
                 piece.addLoop(group, duration: lap, key: "comet")
             }
         }
@@ -266,9 +287,6 @@ struct BracketLights: NSViewRepresentable {
             super.init(frame: frame)
             wantsLayer = true
             layer?.masksToBounds = false
-            layer?.shadowOpacity = 0.5
-            layer?.shadowRadius = 3
-            layer?.shadowOffset = .zero
             [spine, ticks, fall].forEach { layer?.addSublayer($0) }
         }
 
@@ -294,8 +312,9 @@ struct BracketLights: NSViewRepresentable {
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             let t: CGFloat = 2, tick: CGFloat = 8, h = bounds.height
-            layer?.shadowColor = state == .working ? NSColor(Extreme.core).cgColor : color
+            let shadow = state == .working ? NSColor(Extreme.core).cgColor : color
             spine.frame = CGRect(x: 0, y: 0, width: t, height: h)
+            glow(spine, shadow, 0.5, 3)
             spine.backgroundColor = NSColor(cgColor: color)?.withAlphaComponent(0.55).cgColor
             ticks.frame = bounds
             ticks.sublayers?.forEach { $0.removeFromSuperlayer() }
@@ -305,6 +324,7 @@ struct BracketLights: NSViewRepresentable {
                 let bar = CALayer()
                 bar.frame = rect
                 bar.backgroundColor = tickColor
+                glow(bar, shadow, 0.5, 3)
                 ticks.addSublayer(bar)
             }
             ticks.removeAnimation(forKey: "blink")
@@ -315,7 +335,7 @@ struct BracketLights: NSViewRepresentable {
             }
             fall.frame = bounds
             fall.sublayers?.forEach { $0.removeFromSuperlayer() }
-            if state == .working && h > 20 {
+            if state == .working && h > 20 && !MotionTest.off.contains("bracket") {
                 // Five pixels falling down the spine in steps, a lap every ~1.2 s or more.
                 let segment: CGFloat = 6
                 let lap = max(1.2, Double(h) / 110)
@@ -325,6 +345,7 @@ struct BracketLights: NSViewRepresentable {
                     piece.anchorPoint = .zero
                     piece.frame = CGRect(x: 0, y: -segment, width: t, height: segment - 1)
                     piece.backgroundColor = NSColor(Extreme.core).withAlphaComponent(1 - CGFloat(i) / 5).cgColor
+                    glow(piece, shadow, 0.5 * (1 - CGFloat(i) / 5), 3)
                     fall.addSublayer(piece)
                     let ys = (0..<steps).map { step -> NSValue in
                         let y = CGFloat(step) * segment - CGFloat(i) * segment
