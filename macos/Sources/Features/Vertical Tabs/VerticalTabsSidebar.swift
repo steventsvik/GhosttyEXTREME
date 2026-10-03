@@ -389,7 +389,9 @@ struct VerticalTabsSidebar: View {
             Rectangle().fill(Extreme.line).frame(height: 1)
 
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 6) {
+                // Not lazy: a lazy stack estimates the height of rows scrolled out of view, so
+                // when agent rows change height it loses the scroll position and jumps.
+                VStack(alignment: .leading, spacing: 6) {
                     ExtremeSectionLabel("Sessions") {
                         Text("\(model.tabs.count - localhostTabs.count)")
                             .font(Extreme.font(10)).foregroundColor(Extreme.dim)
@@ -423,7 +425,7 @@ struct VerticalTabsSidebar: View {
                     }
                 }
                 .padding(.bottom, 10)
-                .animation(.spring(response: 0.45, dampingFraction: 0.85), value: projects.groups)
+                .animation(.spring(response: 0.45, dampingFraction: 0.85), value: groupLayout)
             }
 
             // Localhost sessions stay in view, whatever else is open.
@@ -441,6 +443,11 @@ struct VerticalTabsSidebar: View {
         }
         .background(sidebarBackground)
         .onAppear { Extreme.registerFonts() }
+    }
+
+    /// What the list's layout depends on: which groups exist and how many tabs each holds.
+    private var groupLayout: [String] {
+        projects.groups.values.map { "\($0.id):\($0.members.count)" }.sorted()
     }
 
     /// One sidebar entry: a tab on its own, or a project's tabs bracketed together.
@@ -983,7 +990,9 @@ private struct VerticalTabPaneRow: View {
                     // A pending review already counts the changes.
                     ReviewOrDiffChip(surface: pane.surface) { diffChip }
                 }
-                if let agent = pane.agent, agent.activity != .ready { detailLine(agent) }
+                // Always there for an agent (dimmed while it's ready), so rows don't change
+                // height between turns and push the list around.
+                if let agent = pane.agent { detailLine(agent).opacity(agent.activity == .ready ? 0.55 : 1) }
             }
         }
     }

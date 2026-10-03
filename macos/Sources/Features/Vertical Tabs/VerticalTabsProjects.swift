@@ -113,7 +113,10 @@ final class VerticalTabsProjects: ObservableObject {
         let ungrouped = Set(UserDefaults.standard.verticalTabsUngroupedProjects)
         var next: [String: Group] = [:]
         // Grouping is across tabs (a tab's splits are already together).
-        for (id, tabs) in members where (agentTabs[id] ?? 0) >= 2 && !ungrouped.contains(id) {
+        // A group forms with two agent tabs, and stays while it still has two tabs and an
+        // agent, so one session finishing doesn't pull the sidebar apart.
+        for (id, tabs) in members where !ungrouped.contains(id)
+            && ((agentTabs[id] ?? 0) >= 2 || groups[id] != nil && tabs.count >= 2 && (agentTabs[id] ?? 0) >= 1) {
             let root = roots[id] ?? id
             next[id] = Group(id: id, root: root, name: ProjectPath.displayName(root), members: tabs, agents: agents[id] ?? 0)
         }
