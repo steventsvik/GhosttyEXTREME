@@ -43,12 +43,14 @@ final class AgentChangeWatcher {
     private var shadow: [String: String] = [:]
     private var pending: Set<String> = []
     private var flushScheduled = false
+    /// Whether git ignores a path (build output, secrets, caches), so it isn't the agent's change.
+    private var ignored: [String: Bool] = [:]
 
     private static let maxSize = 1_000_000
     private static let skipped: Set<String> = [
         ".git", "node_modules", ".next", ".nuxt", ".svelte-kit", "dist", "build", ".build", "DerivedData", ".venv",
         "venv", "__pycache__", ".pytest_cache", ".mypy_cache", "target", ".zig-cache", "zig-out", ".turbo", ".cache",
-        ".parcel-cache", "coverage", ".gradle", "Pods",
+        ".parcel-cache", "coverage", ".gradle", "Pods", ".open-next", ".vercel", ".wrangler", ".output", ".expo",
     ]
 
     deinit { stopStream() }
@@ -72,6 +74,7 @@ final class AgentChangeWatcher {
             self.baseline = baseline
             shadow.removeAll()
             pending.removeAll()
+            ignored.removeAll()
             startStream(root)
         }
     }
@@ -133,8 +136,47 @@ final class AgentChangeWatcher {
             flushScheduled = false
             let paths = pending
             pending.removeAll()
-            for path in paths.sorted() { process(path) }
+            let ignoredNow = gitIgnored(paths)
+            for path in paths.sorted() where !ignoredNow.contains(path) { process(path) }
         }
+    }
+
+    /// The paths among `paths` that the repository's .gitignore rules exclude. Asks git once
+    /// per batch for paths it hasn't seen, and remembers the answers.
+    private func gitIgnored(_ paths: Set<String>) -> Set<String> {
+        guard let repoRoot else { return [] }
+        let unknown = paths.filter { ignored[$0] == nil && $0.hasPrefix(repoRoot + "/") }
+        if !unknown.isEmpty {
+            let relatives = unknown.map { String($0.dropFirst(repoRoot.count + 1)) }
+            var matched = Self.checkIgnore(relatives, in: repoRoot)
+            if matched == nil {
+                // One bad path (e.g. beyond a symlink) fails the whole batch: ask one at a time.
+                matched = Set(relatives.prefix(200).flatMap { Self.checkIgnore([$0], in: repoRoot) ?? [] })
+            }
+            for path in unknown {
+                ignored[path] = matched?.contains(String(path.dropFirst(repoRoot.count + 1))) ?? false
+            }
+        }
+        return Set(paths.filter { ignored[$0] == true })
+    }
+
+    /// The ignored ones among `relatives`, or nil if git failed.
+    private static func checkIgnore(_ relatives: [String], in repoRoot: String) -> Set<String>? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        process.arguments = ["-C", repoRoot, "check-ignore", "--stdin", "-z"]
+        let input = Pipe(), output = Pipe()
+        process.standardInput = input
+        process.standardOutput = output
+        process.standardError = FileHandle.nullDevice
+        guard (try? process.run()) != nil else { return nil }
+        input.fileHandleForWriting.write(Data((relatives.joined(separator: "\0") + "\0").utf8))
+        try? input.fileHandleForWriting.close()
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        // 0: some are ignored, 1: none are; anything else is an error.
+        guard process.terminationStatus <= 1 else { return nil }
+        return Set(data.split(separator: 0).compactMap { String(data: Data($0), encoding: .utf8) })
     }
 
     static func realPath(_ path: String) -> String {

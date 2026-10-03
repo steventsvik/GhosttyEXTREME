@@ -15,7 +15,7 @@ struct VerticalTabsLayout<Content: View>: View {
     @ObservedObject private var visualFix = VisualFixPanel.shared
     @AppStorage(EditorPanel.widthKey) private var editorWidth: Double = EditorPanel.defaultWidth
     @AppStorage(VisualFixPanel.widthKey) private var visualFixWidth: Double = VisualFixPanel.defaultWidth
-    @AppStorage(AgentAurora.enabledKey) private var aurora = true
+    @AppStorage(AgentAurora.enabledKey) private var aurora = false
     @AppStorage(VerticalTabs.visibleKey) private var visible: Bool = true
     @AppStorage(VerticalTabs.widthKey) private var width: Double = VerticalTabs.defaultWidth
     private let content: Content

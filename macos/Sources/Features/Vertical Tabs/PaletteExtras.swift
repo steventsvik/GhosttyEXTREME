@@ -101,7 +101,7 @@ enum PaletteExtras {
             leadingIcon: "sparkles"
         ) {
             let defaults = UserDefaults.standard
-            defaults.set(!(defaults.object(forKey: AgentAurora.enabledKey) as? Bool ?? true), forKey: AgentAurora.enabledKey)
+            defaults.set(!(defaults.object(forKey: AgentAurora.enabledKey) as? Bool ?? false), forKey: AgentAurora.enabledKey)
         })
         options.append(CommandOption(
             title: "Mission Control",
