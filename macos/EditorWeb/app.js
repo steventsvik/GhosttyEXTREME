@@ -661,6 +661,7 @@ function agentItems(items, reset) {
   const feed = $('agent-feed');
   if (reset) { feed.replaceChildren(); agent.tools.clear(); }
   if (window.pov) { if (reset) window.pov.reset(items); else items.forEach(i => window.pov.item(i, false)); }
+  window.starmap?.items(items, reset);
   const stick = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 40;
   for (const item of items) {
     const node = renderItem(item);
@@ -694,6 +695,7 @@ function agentItems(items, reset) {
 function agentStatus(status) {
   agent.status = status;
   window.pov?.status(status);
+  window.starmap?.status(status);
   const logo = $('agent-logo'), pill = $('agent-pill');
   if (!status) {
     logo.style.display = 'none';
@@ -843,8 +845,30 @@ setInterval(paintHeat, 10000);
 
 const agentName = () => (agent.status?.name || 'Agent').replace(/ Code$/, '');
 
-/** Don't pull the file out from under someone typing in the editor. */
-const userIsEditing = () => editor?.hasTextFocus() && Date.now() - lastUserEdit < 6000;
+/** Don't pull the file out from under someone typing in the editor, or who just picked a
+ *  file to look at (from the map), unless it's that pick being shown. */
+let userPickedAt = 0, showingPick = false;
+const userIsEditing = () => !showingPick
+  && ((editor?.hasTextFocus() && Date.now() - lastUserEdit < 6000) || Date.now() - userPickedAt < 12000);
+
+/** Opens a file the user picked, holding off follow mode for a moment so it stays put. */
+async function openPicked(path, change) {
+  userPickedAt = Date.now();
+  showingPick = true;
+  try {
+    if (change) await revisitChange(change); else await openFile(path);
+  } finally {
+    showingPick = false;
+    userPickedAt = Date.now();
+  }
+}
+
+/** Opens a file the user picked at a line (a symbol on the map, a code reference). */
+async function openPickedAt(path, line) {
+  userPickedAt = Date.now();
+  showingPick = true;
+  try { await openFile(path, { line }); } finally { showingPick = false; userPickedAt = Date.now(); }
+}
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const LANE_COLORS = ['--act-think', '--act-read', '--act-edit', '--act-write', '--act-agent', '--act-search'];
@@ -1002,6 +1026,7 @@ function agentChange(change) {
   }
   // New and deleted files show up in (or leave) the Explorer right away.
   if (change.created || change.deleted) refreshExplorer();
+  if (change.live) window.starmap?.change(change);
   if (change.live && !panelVisible) {
     // The editor is closed: remember the change; it's revealed when the editor opens.
     rememberTurnChange(change);
@@ -1493,6 +1518,7 @@ function renderTurnStrip() {
     $('agent-feed').before(strip);
   }
   const files = [...turn.files.values()].sort((a, b) => b.time - a.time);
+  window.starmap?.turnChanged();
   strip.classList.toggle('show', files.length > 0);
   if (!files.length) { strip.replaceChildren(); return; }
   const added = files.reduce((n, f) => n + (f.hunks || []).reduce((m, h) => m + h.count, 0), 0);
@@ -1526,6 +1552,7 @@ async function agentCatchUp(changes) {
   changes.forEach(c => turn.files.set(canonical(c.path), { ...c, time: c.mtime * 1000 }));
   renderTurnStrip();
   changes.forEach(c => markFile(c.path, 'edit'));
+  changes.slice().reverse().forEach(c => window.starmap?.change(c));
   if (!agent.follow || userIsEditing()) return;
   const latest = changes.find(c => !c.deleted);
   if (!latest) return;
@@ -1607,6 +1634,7 @@ $('panel-close').onclick = () => fs('close');
     const collapsed = $('agent').classList.toggle('collapsed');
     $('agent-toggle').className = `codicon codicon-chevron-${collapsed ? 'up' : 'down'}`;
     root.style.setProperty('--agent-h', collapsed ? '30px' : '38%');
+    if (!collapsed) window.starmap?.visible();
   };
   const follow = $('agent-follow');
   follow.classList.add('on');
@@ -1627,6 +1655,7 @@ window.app = {
       state.files = null;
       $('root-name').textContent = (name || basename(root)).toUpperCase();
       await loadDir(root);
+      window.starmap?.folder();
     }
     branch = gitBranch || '';
     renderTree();
@@ -1642,6 +1671,7 @@ window.app = {
     const was = panelVisible;
     panelVisible = visible;
     if (visible && !was) panelShown();
+    if (visible) window.starmap?.visible();
   },
   focus() { (editor?.getModel() ? editor : $('tree')).focus(); },
 };

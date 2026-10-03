@@ -326,6 +326,9 @@ private final class EditorFileBridge: NSObject, WKScriptMessageHandlerWithReply 
             return result
         case "files":
             return allFiles()
+        case "backend":
+            guard let root, let action = body["action"] as? String else { return ["error": "No folder open"] }
+            return BackendProbe.run(action, root: root, body: body)
         default:
             return ["error": "unknown op \(op)"]
         }
@@ -335,8 +338,10 @@ private final class EditorFileBridge: NSObject, WKScriptMessageHandlerWithReply 
         guard let raw = value as? String else { return nil }
         let path = (raw as NSString).standardizingPath
         if allowedFiles.contains(path) { return path }
-        let roots = allowedRoots.union(root.map { [$0] } ?? [])
-        return roots.contains { path == $0 || path.hasPrefix($0 == "/" ? "/" : $0 + "/") } ? path : nil
+        // Case-insensitive: the shell's folder and the disk's can differ in case (projects vs Projects).
+        let roots = allowedRoots.union(root.map { [$0] } ?? []).map { $0.lowercased() }
+        let lower = path.lowercased()
+        return roots.contains { lower == $0 || lower.hasPrefix($0 == "/" ? "/" : $0 + "/") } ? path : nil
     }
 
     private func list(_ path: String) -> [[String: Any]] {
