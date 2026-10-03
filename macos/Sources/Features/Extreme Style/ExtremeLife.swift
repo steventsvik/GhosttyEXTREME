@@ -71,24 +71,67 @@ struct LivingSigil: View {
     @Environment(\.extremeMotion) private var motion
 
     var body: some View {
-        let active = pulse.working > 0 || pulse.waiting > 0 || flaring(at: Date())
-        // At rest (or off screen) it's still: no timeline at all.
-        TimelineView(.animation(minimumInterval: 1.0 / 15, paused: !(active && motion))) { context in
-            let t = context.date.timeIntervalSinceReferenceDate
-            ZStack {
-                glow(t)
-                ExtremeSigil(size: size, alive: false)
-                Canvas { gc, canvas in
-                    orbiters(gc, canvas, t)
-                    waitingTicks(gc, canvas, t)
-                    flare(gc, canvas, context.date)
+        let animating = (pulse.working > 0 || pulse.waiting > 0) && motion
+        Group {
+            if flaring(at: Date()) && motion {
+                // The 1.6 s finish flare: brief, so SwiftUI draws it.
+                TimelineView(ExtremeClock.schedule(every: ExtremeClock.beat)) { context in
+                    let t = context.date.timeIntervalSinceReferenceDate
+                    frame(glow: glowLevel(at: t), orbit: t * orbitSpeed / (2 * .pi), waiting: Int(t / 0.32) % 2 == 0, flareAt: context.date)
                 }
-                .frame(width: size * 1.6, height: size * 1.6)
-                .allowsHitTesting(false)
+            } else if animating {
+                // Working or waiting: one loop rendered once and played by Core Animation.
+                let frames = loopFrames
+                FilmStrip(key: "sigil|\(min(pulse.working, 6))|\(pulse.waiting > 0)|\(size)", frames: frames,
+                          frameDuration: ExtremeClock.beat, size: CGSize(width: size, height: size * 31 / 32)) { index in
+                    let phase = Double(index) / Double(frames)
+                    frame(glow: level(phase * Double(glowCycles(frames))), orbit: phase, waiting: (index / 4) % 2 == 0, flareAt: nil)
+                }
+            } else {
+                frame(glow: glowLevel(at: Date().timeIntervalSinceReferenceDate), orbit: 0, waiting: true, flareAt: nil)
             }
         }
         .frame(width: size, height: size * 31 / 32)
         .help(help)
+    }
+
+    /// One frame of the sigil: `glow` 0…1, `orbit` in turns, the amber ticks on or off.
+    private func frame(glow: Double, orbit: Double, waiting: Bool, flareAt: Date?) -> some View {
+        ZStack {
+            glowView(glow)
+            ExtremeSigil(size: size, alive: false)
+            Canvas { gc, canvas in
+                orbiters(gc, canvas, turns: orbit)
+                if waiting { waitingTicks(gc, canvas) }
+                if let flareAt { flare(gc, canvas, flareAt) }
+            }
+            .frame(width: size * 1.6, height: size * 1.6)
+            .allowsHitTesting(false)
+        }
+        .frame(width: size, height: size * 31 / 32)
+    }
+
+    private var glowPeriod: Double { pulse.working > 0 ? max(0.45, 1.5 / Double(1 + pulse.working)) : 2.8 }
+    private var orbitSpeed: Double { 1.6 + Double(min(pulse.working, 6)) * 0.25 }
+
+    /// The loop: one orbit while agents work (or one slow breath while one only waits),
+    /// in whole beats and a multiple of the amber blink.
+    private var loopFrames: Int {
+        let seconds = pulse.working > 0 ? 2 * .pi / orbitSpeed : glowPeriod
+        return max(8, Int((seconds / ExtremeClock.beat / 8).rounded()) * 8)
+    }
+
+    /// Whole breaths per loop, so the glow joins up where the loop repeats.
+    private func glowCycles(_ frames: Int) -> Int {
+        max(1, Int((Double(frames) * ExtremeClock.beat / glowPeriod).rounded()))
+    }
+
+    private func glowLevel(at t: TimeInterval) -> Double { level((t / glowPeriod).truncatingRemainder(dividingBy: 1)) }
+
+    /// Stepped, like a sprite: eight levels per breath.
+    private func level(_ cycles: Double) -> Double {
+        let step = Double(Int(cycles.truncatingRemainder(dividingBy: 1) * 8))
+        return step < 4 ? step / 3 : (7 - step) / 3
     }
 
     private var help: String {
@@ -99,12 +142,7 @@ struct LivingSigil: View {
     }
 
     /// The core's light: slow breathing at rest, faster with each working agent.
-    private func glow(_ t: TimeInterval) -> some View {
-        let period = pulse.working > 0 ? max(0.45, 1.5 / Double(1 + pulse.working)) : 2.8
-        // Stepped, like a sprite: eight levels per beat.
-        let phase = (t / period).truncatingRemainder(dividingBy: 1)
-        let step = Double(Int(phase * 8))
-        let level = step < 4 ? step / 3 : (7 - step) / 3
+    private func glowView(_ level: Double) -> some View {
         let color = pulse.waiting > 0 ? Extreme.warn : Extreme.core
         let strength = pulse.working > 0 || pulse.waiting > 0 ? 0.5 : 0.24
         return Circle()
@@ -115,17 +153,16 @@ struct LivingSigil: View {
     }
 
     /// One pixel per working agent, circling the seal, each with a short fading trail.
-    private func orbiters(_ gc: GraphicsContext, _ canvas: CGSize, _ t: TimeInterval) {
+    private func orbiters(_ gc: GraphicsContext, _ canvas: CGSize, turns: Double) {
         let count = min(pulse.working, 6)
         guard count > 0 else { return }
         let center = CGPoint(x: canvas.width / 2, y: canvas.height / 2)
         let radius = size * 0.6
         let pixel = max(2, size / 11)
-        let speed = 1.6 + Double(count) * 0.25
         for i in 0..<count {
             for trail in 0..<4 {
                 // Snap the angle to 32 positions so it moves in pixel steps.
-                let raw = t * speed + Double(i) * 2 * .pi / Double(count) - Double(trail) * 0.2
+                let raw = turns * 2 * .pi + Double(i) * 2 * .pi / Double(count) - Double(trail) * 0.2
                 let angle = (raw / (2 * .pi / 32)).rounded(.down) * (2 * .pi / 32)
                 let x = center.x + CGFloat(cos(angle)) * radius
                 let y = center.y + CGFloat(sin(angle)) * radius * 0.92
@@ -136,8 +173,8 @@ struct LivingSigil: View {
     }
 
     /// Amber ticks at the four points while an agent needs you.
-    private func waitingTicks(_ gc: GraphicsContext, _ canvas: CGSize, _ t: TimeInterval) {
-        guard pulse.waiting > 0, Int(t / 0.3) % 2 == 0 else { return }
+    private func waitingTicks(_ gc: GraphicsContext, _ canvas: CGSize) {
+        guard pulse.waiting > 0 else { return }
         let c = CGPoint(x: canvas.width / 2, y: canvas.height / 2)
         let r = size * 0.66, p = max(2, size / 12)
         for (dx, dy) in [(0.0, -1.0), (1, 0), (0, 1), (-1, 0)] {
@@ -213,16 +250,32 @@ struct MoodSprite: View {
         if kind == nil || mood == .idle && !blinks || !motion {
             AgentSprite(kind: kind, pixel: pixel)
         } else {
-            TimelineView(.periodic(from: .now, by: 0.15)) { context in
-                let frame = Int(context.date.timeIntervalSinceReferenceDate / 0.15)
-                ZStack {
-                    AgentSprite(kind: kind, pixel: pixel, eyes: eyes(frame))
-                        .offset(x: jitter(frame), y: bob(frame))
-                    Canvas { gc, size in decorate(gc, size, frame) }
-                        .frame(width: 34, height: 34)
-                        .allowsHitTesting(false)
+            // The mood's loop, rendered once and played by Core Animation: no per-frame work.
+            GeometryReader { geometry in
+                FilmStrip(key: "mood|\(kind.map { "\($0)" } ?? "")|\(mood)|\(pixel)", frames: loopFrames,
+                          frameDuration: 0.16, size: geometry.size) { frame in
+                    ZStack {
+                        AgentSprite(kind: kind, pixel: pixel, eyes: eyes(frame))
+                            .offset(x: jitter(frame), y: bob(frame))
+                        Canvas { gc, size in decorate(gc, size, frame) }
+                            .frame(width: 34, height: 34)
+                    }
                 }
             }
+        }
+    }
+
+    /// Frames in the mood's loop: a whole number of every cycle it shows.
+    private var loopFrames: Int {
+        switch mood {
+        case .reading: return 24
+        case .thinking: return 48
+        case .editing: return 10
+        case .running: return 6
+        case .waiting: return 12
+        case .celebrating: return 40 // it lasts six seconds
+        case .failed: return 120
+        case .idle: return 34
         }
     }
 

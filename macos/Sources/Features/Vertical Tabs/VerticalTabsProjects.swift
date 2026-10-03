@@ -378,33 +378,8 @@ private struct ProjectBracket: View {
     @Environment(\.extremeMotion) private var motion
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: state == .idle || !motion ? 3600 : 1.0 / 12)) { context in
-            Canvas { gc, size in
-                let t: CGFloat = 2, tick: CGFloat = 8
-                let h = size.height
-                let blinkOn = Int(context.date.timeIntervalSinceReferenceDate / 0.3) % 2 == 0
-                let cornerColor = state == .waiting ? (blinkOn ? Extreme.warn : Extreme.warn.opacity(0.25)) : color
-                // The spine and the ticks.
-                gc.fill(Path(CGRect(x: 0, y: 0, width: t, height: h)), with: .color(color.opacity(0.55)))
-                gc.fill(Path(CGRect(x: 0, y: 0, width: tick, height: t)), with: .color(cornerColor))
-                gc.fill(Path(CGRect(x: 0, y: h - t, width: tick, height: t)), with: .color(cornerColor))
-                gc.fill(Path(CGRect(x: 0, y: 0, width: t, height: tick)), with: .color(cornerColor))
-                gc.fill(Path(CGRect(x: 0, y: h - tick, width: t, height: tick)), with: .color(cornerColor))
-                guard state == .working, h > 20 else { return }
-                // A short run of pixels falling down the spine, stepped.
-                let segment: CGFloat = 6
-                let lap = max(1.2, Double(h) / 110)
-                let progress = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: lap) / lap
-                let head = (CGFloat(progress) * (h + segment * 5) / segment).rounded(.down) * segment
-                for i in 0..<5 {
-                    let y = head - CGFloat(i) * segment
-                    guard y >= 0, y < h else { continue }
-                    gc.fill(Path(CGRect(x: 0, y: y, width: t, height: segment - 1)),
-                            with: .color(Extreme.core.opacity(1 - Double(i) / 5)))
-                }
-            }
-        }
-        .shadow(color: (state == .working ? Extreme.core : color).opacity(0.5), radius: 3)
+        // Core Animation layers: the falling light and the blink cost the app nothing per frame.
+        BracketLights(color: color, state: motion ? state : (state == .working ? .idle : state))
     }
 }
 #endif

@@ -261,6 +261,24 @@ struct ActivityBarLayer: NSViewRepresentable {
     }
 }
 
+// MARK: - One clock for every animation
+
+/// The sidebar's animations all tick on this one clock. Each tick of any SwiftUI timeline
+/// lays out the whole sidebar; timelines that start at different moments tick at different
+/// moments, so six agent sprites, the sigil, the bracket and the frame light used to cost
+/// ~80 layouts a second. On a shared epoch and a common beat, their ticks coincide and
+/// SwiftUI handles them in one pass: ~12 a second however many agents are working.
+enum ExtremeClock {
+    /// Seconds per beat (12.5 a second). Slower animations use whole multiples of it.
+    static let beat: TimeInterval = 0.08
+    static let epoch = Date(timeIntervalSinceReferenceDate: 0)
+
+    /// A schedule on the shared beat; `every` is rounded to a whole number of beats.
+    static func schedule(every seconds: TimeInterval) -> PeriodicTimelineSchedule {
+        .periodic(from: epoch, by: max(1, (seconds / beat).rounded()) * beat)
+    }
+}
+
 // MARK: - Sparse timelines
 
 /// Ticks only for a short burst (`steps` frames across `burst` seconds) once every

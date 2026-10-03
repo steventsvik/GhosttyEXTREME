@@ -20,24 +20,13 @@ struct TerminalFrameOverlay: View {
     var body: some View {
         Group {
             switch mode {
+            // Core Animation layers: the blink and the travelling light cost nothing per frame.
             case .idle:
-                corners(color: Extreme.bronze.opacity(0.55))
-            case .waiting where !motion:
-                corners(color: Extreme.warn, length: 20)
-            case .working where !motion:
-                corners(color: Extreme.core.opacity(0.8))
+                FrameLights(color: Extreme.bronze.opacity(0.55))
             case .waiting:
-                TimelineView(.periodic(from: .now, by: 0.35)) { context in
-                    let on = Int(context.date.timeIntervalSinceReferenceDate / 0.35) % 2 == 0
-                    corners(color: Extreme.warn.opacity(on ? 1 : 0.25), length: 20)
-                }
+                FrameLights(color: Extreme.warn, length: 20, blink: motion)
             case .working:
-                TimelineView(.periodic(from: .now, by: 1.0 / 15)) { context in
-                    ZStack {
-                        corners(color: Extreme.core.opacity(0.8))
-                        comet(at: context.date)
-                    }
-                }
+                FrameLights(color: Extreme.core.opacity(0.8), comet: motion)
             }
         }
         .allowsHitTesting(false)
