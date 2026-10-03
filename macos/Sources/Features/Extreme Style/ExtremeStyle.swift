@@ -373,8 +373,8 @@ struct ExtremeSectionLabel<Trailing: View>: View {
     }
 }
 
-/// A glowing status light that pulses softly when `blinking`. The pulse is a system
-/// animation, so it costs nothing on the main thread.
+/// A glowing status light that pulses softly when `blinking`. Drawn and animated by Core
+/// Animation (see ExtremeMotion.swift), so a pulsing dot never wakes the app.
 struct PixelDot: View {
     let color: Color
     var blinking = false
@@ -382,70 +382,32 @@ struct PixelDot: View {
     /// Seconds per pulse; urgent states pulse faster.
     var interval: Double = 0.5
 
-    @State private var dim = false
-
     var body: some View {
-        Circle()
-            .fill(color)
+        PulseDotLayer(color: color, blinking: blinking, size: size, interval: interval)
             .frame(width: size, height: size)
-            .shadow(color: color.opacity(0.85), radius: size * 0.6)
-            .opacity(blinking && dim ? 0.25 : 1)
-            .onAppear(perform: pulse)
-            .onChange(of: blinking) { _ in pulse() }
-    }
-
-    private func pulse() {
-        guard blinking else { dim = false; return }
-        withAnimation(.easeInOut(duration: interval).repeatForever(autoreverses: true)) { dim = true }
     }
 }
 
-/// A smooth spinner: a glowing arc turning, for "working".
+/// A smooth spinner: a glowing arc turning, for "working". Core Animation.
 struct PixelSpinner: View {
     var color: Color = Extreme.core
     /// Size, as in the pixel spinner it replaced (three "pixels" across).
     var pixel: CGFloat = 2.5
 
-    @State private var turning = false
-
     var body: some View {
-        let diameter = pixel * 3
-        Circle()
-            .trim(from: 0.12, to: 1)
-            .stroke(AngularGradient(colors: [color.opacity(0), color], center: .center),
-                    style: StrokeStyle(lineWidth: max(1.4, diameter * 0.17), lineCap: .round))
-            .frame(width: diameter, height: diameter)
-            .rotationEffect(.degrees(turning ? 360 : 0))
-            .shadow(color: color.opacity(0.6), radius: 2)
-            .onAppear {
-                withAnimation(.linear(duration: 0.85).repeatForever(autoreverses: false)) { turning = true }
-            }
+        SpinnerLayer(color: color, diameter: pixel * 3)
+            .frame(width: pixel * 3, height: pixel * 3)
     }
 }
 
-/// A thin track with a light sweeping along it: an agent at work.
+/// A thin track with a light sweeping along it: an agent at work. Core Animation.
 struct PixelActivityBar: View {
     var color: Color = Extreme.core
     var pixel: CGFloat = 2
 
-    @State private var sweep = false
-
     var body: some View {
-        GeometryReader { geometry in
-            let width = geometry.size.width
-            ZStack(alignment: .leading) {
-                Capsule().fill(color.opacity(0.12))
-                Capsule()
-                    .fill(LinearGradient(colors: [color.opacity(0), color, color.opacity(0)], startPoint: .leading, endPoint: .trailing))
-                    .frame(width: width * 0.35)
-                    .offset(x: sweep ? width : -width * 0.35)
-            }
-            .clipShape(Capsule())
-        }
-        .frame(height: max(2, pixel))
-        .onAppear {
-            withAnimation(.easeInOut(duration: 1.3).repeatForever(autoreverses: false)) { sweep = true }
-        }
+        ActivityBarLayer(color: color)
+            .frame(height: max(2, pixel))
     }
 }
 

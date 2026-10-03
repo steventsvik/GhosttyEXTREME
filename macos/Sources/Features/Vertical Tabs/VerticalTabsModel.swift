@@ -232,6 +232,7 @@ final class VerticalTabsMenu: NSObject {
             ("Command History", #selector(toggleCommandBlocks(_:)), "b"),
             ("Agent Activity", #selector(showActivity(_:)), "a"),
             ("Visual Fix", #selector(toggleVisualFix(_:)), "v"),
+            ("Background Processes", #selector(showHousekeeping(_:)), "k"),
         ]
         for (offset, extra) in extras.enumerated() {
             let item = NSMenuItem(title: extra.0, action: extra.1, keyEquivalent: extra.2)
@@ -261,6 +262,10 @@ final class VerticalTabsMenu: NSObject {
 
     @objc func showActivity(_ sender: Any?) {
         ActivityDashboard.toggle()
+    }
+
+    @objc func showHousekeeping(_ sender: Any?) {
+        HousekeepingWindow.toggle()
     }
 
     @objc func showMissionControl(_ sender: Any?) {

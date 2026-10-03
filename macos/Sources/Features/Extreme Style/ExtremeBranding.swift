@@ -15,19 +15,24 @@ struct TerminalFrameOverlay: View {
 
     private enum Mode: Equatable { case idle, working, waiting }
     @State private var mode: Mode = .idle
+    @Environment(\.extremeMotion) private var motion
 
     var body: some View {
         Group {
             switch mode {
             case .idle:
                 corners(color: Extreme.bronze.opacity(0.55))
+            case .waiting where !motion:
+                corners(color: Extreme.warn, length: 20)
+            case .working where !motion:
+                corners(color: Extreme.core.opacity(0.8))
             case .waiting:
                 TimelineView(.periodic(from: .now, by: 0.35)) { context in
                     let on = Int(context.date.timeIntervalSinceReferenceDate / 0.35) % 2 == 0
                     corners(color: Extreme.warn.opacity(on ? 1 : 0.25), length: 20)
                 }
             case .working:
-                TimelineView(.periodic(from: .now, by: 1.0 / 30)) { context in
+                TimelineView(.periodic(from: .now, by: 1.0 / 15)) { context in
                     ZStack {
                         corners(color: Extreme.core.opacity(0.8))
                         comet(at: context.date)
@@ -222,10 +227,20 @@ struct AgentLinkSweep: View {
 /// A slow shine that passes across text every so often, in steps.
 struct GlintModifier: ViewModifier {
     var every: TimeInterval = 9
+    @Environment(\.extremeMotion) private var motion
 
     func body(content: Content) -> some View {
+        if motion && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            glint(content)
+        } else {
+            content
+        }
+    }
+
+    /// Wakes only for the sweep's 13 steps, then sleeps until the next one.
+    private func glint(_ content: Content) -> some View {
         content.overlay(
-            TimelineView(.periodic(from: .now, by: 1.0 / 20)) { context in
+            TimelineView(BurstSchedule(every: every, burst: 0.9, steps: 12)) { context in
                 GeometryReader { geometry in
                     let phase = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: every)
                     let progress = min(1, phase / 0.9)

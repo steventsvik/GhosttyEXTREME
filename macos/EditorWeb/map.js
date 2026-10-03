@@ -185,7 +185,8 @@
     node.seq = ++seq;
     for (let p = node.parent; p; p = p.parent) p.touchedInside = node.last;
     if (!quiet) pulses.push({ node, kind, t: performance.now() });
-    if (filesLoaded) refreshDust(); else loadFiles();
+    // The project's file list is only fetched for a map someone is looking at.
+    if (filesLoaded) refreshDust(); else if (visible()) loadFiles();
     if (selected && (selected === node || node.rel.startsWith(selected.rel + '/') || !selected.rel)) renderSideSoon();
     wake();
     return node;
@@ -1472,7 +1473,7 @@
         const keep = filesLoaded;
         const was = selected?.rel;
         reset();
-        if (keep) loadFiles();
+        if (keep && visible()) loadFiles();
         if (was != null && nodes.has(was)) select(nodes.get(was));
       }
       for (const item of items) agentItem(item, resetAll);
@@ -1502,8 +1503,9 @@
     },
     turnChanged() { renderHUD(); wake(); if (selected) renderSideSoon(); },
     status(s) { status(s); updateEmpty(); },
-    folder() { reset(); loadFiles(); renderHUD(); updateEmpty(); wake(); window.backend?.folder(); },
-    visible() { if (mode === 'map') requestAnimationFrame(resize); window.backend?.shown(mode === 'backend'); },
+    // Wait a moment: a page that's about to be hidden (a background tab's) never needs it.
+    folder() { reset(); setTimeout(() => { if (visible()) loadFiles(); }, 1200); renderHUD(); updateEmpty(); wake(); window.backend?.folder(); },
+    visible() { if (mode === 'map') { loadFiles(); requestAnimationFrame(resize); } window.backend?.shown(mode === 'backend'); },
     /** Selects a project file on the map (from the Backend tab's code links). */
     reveal(rel) {
       setMode('map');

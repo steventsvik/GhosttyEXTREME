@@ -409,16 +409,66 @@ private final class EditorFileBridge: NSObject, WKScriptMessageHandlerWithReply 
                 }
             }
         }
+        // Not a repository: walk the folder, but cheaply. Hidden folders and bundles are
+        // skipped, a home folder (or anything above it) is only read two levels deep, and
+        // the walk stops at 20,000 files or 1.5 seconds. Answers are reused for a while, so
+        // several editor pages asking at once (one per tab) walk it once.
+        return Self.walkCache.value(for: root, ttl: 30) { Self.walk(root) }
+    }
+
+    private static let walkCache = WalkCache()
+
+    private static func walk(_ root: String) -> [String] {
+        let home = NSHomeDirectory()
+        let shallow = root == home || home.hasPrefix(root + "/") || root == "/"
+        let skip: Set<String> = ["node_modules", "Library", "Applications", "Pictures", "Movies", "Music", "build",
+                                 "DerivedData", "zig-out", ".build", "dist", "Pods", "venv", ".venv", "__pycache__"]
+        let base = URL(fileURLWithPath: root)
+        guard let enumerator = FileManager.default.enumerator(
+            at: base, includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey],
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { return [] }
+        let deadline = Date().addingTimeInterval(1.5)
         var results: [String] = []
-        let enumerator = FileManager.default.enumerator(atPath: root)
-        while let item = enumerator?.nextObject() as? String, results.count < 50_000 {
-            let name = (item as NSString).lastPathComponent
-            if hidden.contains(name) { enumerator?.skipDescendants(); continue }
-            if let type = enumerator?.fileAttributes?[.type] as? FileAttributeType, type == .typeRegular {
-                results.append(item)
+        let prefix = base.standardizedFileURL.path.count + 1
+        while let url = enumerator.nextObject() as? URL, results.count < 20_000 {
+            if results.count % 500 == 0 && Date() > deadline { break }
+            let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isDirectoryKey])
+            if values?.isDirectory == true {
+                if skip.contains(url.lastPathComponent) || (shallow && enumerator.level >= 2) { enumerator.skipDescendants() }
+                continue
+            }
+            if values?.isRegularFile == true {
+                let path = url.standardizedFileURL.path
+                if path.count > prefix { results.append(String(path.dropFirst(prefix))) }
             }
         }
         return results
+    }
+}
+
+/// Recent folder listings, shared by every editor page; concurrent requests for the same
+/// folder wait for one walk.
+private final class WalkCache {
+    private var entries: [String: (Date, [String])] = [:]
+    private var running: Set<String> = []
+    private let condition = NSCondition()
+
+    func value(for key: String, ttl: TimeInterval, _ compute: () -> [String]) -> [String] {
+        condition.lock()
+        while running.contains(key) { condition.wait() }
+        if let (time, value) = entries[key], Date().timeIntervalSince(time) < ttl {
+            condition.unlock()
+            return value
+        }
+        running.insert(key)
+        condition.unlock()
+        let value = compute()
+        condition.lock()
+        entries[key] = (Date(), value)
+        running.remove(key)
+        condition.broadcast()
+        condition.unlock()
+        return value
     }
 }
 #endif

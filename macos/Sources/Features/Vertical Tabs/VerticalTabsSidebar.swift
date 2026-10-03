@@ -13,6 +13,8 @@ struct VerticalTabsLayout<Content: View>: View {
     @ObservedObject private var hermes = HermesSessions.shared
     @ObservedObject private var commandBlocks = CommandBlocksPanel.shared
     @ObservedObject private var visualFix = VisualFixPanel.shared
+    /// Pauses the chrome's animations while this window (tab) isn't on screen.
+    @StateObject private var motion = WindowMotion()
     @AppStorage(EditorPanel.widthKey) private var editorWidth: Double = EditorPanel.defaultWidth
     @AppStorage(VisualFixPanel.widthKey) private var visualFixWidth: Double = VisualFixPanel.defaultWidth
     @AppStorage(AgentAurora.enabledKey) private var aurora = false
@@ -38,6 +40,9 @@ struct VerticalTabsLayout<Content: View>: View {
             let limits = panelLimits(in: geometry.size.width)
             layout(maxEditorWidth: limits.editor, maxVisualFixWidth: limits.visualFix)
         }
+        .environment(\.extremeMotion, motion.active)
+        .onAppear { motion.attach(controller.window) }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in motion.attach(controller.window) }
     }
 
     /// The most room the editor and Visual Fix can each have. When both want more than the
@@ -157,6 +162,10 @@ enum VerticalTabsTestSupport {
                     }
                 }
             }
+        }
+        // `GHOSTTY_EXTREME_TEST_BACKGROUND=<seconds>`: open the Background window then.
+        if let value = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_BACKGROUND"], let delay = Double(value) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { HousekeepingWindow.show() }
         }
         // `GHOSTTY_EXTREME_TEST_VISUAL=<seconds>`: open Visual Fix on the best running app then.
         if let value = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_VISUAL"], let delay = Double(value) {
@@ -422,6 +431,9 @@ struct VerticalTabsSidebar: View {
                 Rectangle().fill(Extreme.line).frame(height: 1)
                 LocalhostSidebarSection(entries: localhostTabs, owner: owner)
             }
+
+            // Things left running in the background that look finished (only when there are some).
+            HousekeepingChip().padding(.horizontal, 8).padding(.bottom, 6)
 
             // Bottom left: live usage of the user's AI subscriptions.
             Rectangle().fill(Extreme.line).frame(height: 1)

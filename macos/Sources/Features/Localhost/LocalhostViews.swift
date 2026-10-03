@@ -195,11 +195,12 @@ struct LocalhostTabCard: View {
     let owner: TerminalController
     let isSelected: Bool
     @State private var hovering = false
+    @Environment(\.extremeMotion) private var motion
 
     var body: some View {
         let accent = session.project.color
         let live = session.state == .live
-        TimelineView(.periodic(from: .now, by: 1)) { context in
+        TimelineView(.periodic(from: .now, by: motion ? 1 : 3600)) { context in
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     ZStack(alignment: .bottomTrailing) {

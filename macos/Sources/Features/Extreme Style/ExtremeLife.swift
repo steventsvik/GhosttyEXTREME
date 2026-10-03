@@ -68,9 +68,12 @@ struct LivingSigil: View {
     var size: CGFloat = 26
     @ObservedObject private var pulse = AgentPulse.shared
 
+    @Environment(\.extremeMotion) private var motion
+
     var body: some View {
         let active = pulse.working > 0 || pulse.waiting > 0 || flaring(at: Date())
-        TimelineView(.animation(minimumInterval: active ? 1.0 / 30 : 1.0 / 6)) { context in
+        // At rest (or off screen) it's still: no timeline at all.
+        TimelineView(.animation(minimumInterval: 1.0 / 15, paused: !(active && motion))) { context in
             let t = context.date.timeIntervalSinceReferenceDate
             ZStack {
                 glow(t)
@@ -204,12 +207,14 @@ struct MoodSprite: View {
     let mood: AgentMood
     var pixel: CGFloat = 2
 
+    @Environment(\.extremeMotion) private var motion
+
     var body: some View {
-        if kind == nil || mood == .idle && !blinks {
+        if kind == nil || mood == .idle && !blinks || !motion {
             AgentSprite(kind: kind, pixel: pixel)
         } else {
-            TimelineView(.periodic(from: .now, by: 0.12)) { context in
-                let frame = Int(context.date.timeIntervalSinceReferenceDate / 0.12)
+            TimelineView(.periodic(from: .now, by: 0.15)) { context in
+                let frame = Int(context.date.timeIntervalSinceReferenceDate / 0.15)
                 ZStack {
                     AgentSprite(kind: kind, pixel: pixel, eyes: eyes(frame))
                         .offset(x: jitter(frame), y: bob(frame))
@@ -316,9 +321,12 @@ struct AgentAurora: View {
     @State private var finishedAt: Date?
     @State private var previous: Mode = .idle
 
+    @Environment(\.extremeMotion) private var motion
+
     var body: some View {
         let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        TimelineView(.animation(minimumInterval: reduceMotion ? 3600 : (mode == .idle && !sweeping ? 1.0 / 6 : 1.0 / 20))) { context in
+        TimelineView(.animation(minimumInterval: mode == .idle && !sweeping ? 1.0 / 4 : 1.0 / 15,
+                                paused: reduceMotion || !motion)) { context in
             Canvas { gc, size in draw(gc, size, context.date) }
         }
         .blur(radius: 22)

@@ -104,6 +104,14 @@ enum PaletteExtras {
             defaults.set(!(defaults.object(forKey: AgentAurora.enabledKey) as? Bool ?? false), forKey: AgentAurora.enabledKey)
         })
         options.append(CommandOption(
+            title: "Background Processes",
+            description: "Dev servers, VMs, agents and more left running; close what's stale",
+            symbols: ["⌃", "⌘", "K"],
+            leadingIcon: "gauge.with.dots.needle.67percent"
+        ) {
+            HousekeepingWindow.show()
+        })
+        options.append(CommandOption(
             title: "Mission Control",
             description: "Every agent at a glance",
             symbols: ["⌃", "⌘", "M"],

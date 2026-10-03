@@ -141,6 +141,9 @@ enum DockerSessions {
       if command -v colima >/dev/null 2>&1; then
         echo "Starting Docker (Colima)…"
         colima start || back_to_mac
+        # Remember that this session started it, so it's stopped again afterwards.
+        started_colima=1
+        mkdir -p "$HOME/.ghostty-extreme" && date +%s > "$HOME/.ghostty-extreme/colima-started"
       else
         echo "Docker isn't running. Start Docker Desktop, OrbStack or Colima, then try again."
         back_to_mac
@@ -184,6 +187,12 @@ enum DockerSessions {
 
     printf '\\033[1;36m▣ Isolated %s session\\033[0m  %s\\n  Type exit to leave; the container is deleted.\\n\\n' "$kind" "$shared"
     docker run "${args[@]}" "$image" "${cmd[@]}"
+    # The VM uses gigabytes of memory: if a GhosttyEXTREME session started it and no
+    # containers are left running, stop it.
+    if [ -f "$HOME/.ghostty-extreme/colima-started" ] && [ -z "$(docker ps -q 2>/dev/null)" ]; then
+      echo "Stopping Docker (Colima); nothing else is using it…"
+      colima stop >/dev/null 2>&1 && rm -f "$HOME/.ghostty-extreme/colima-started"
+    fi
     back_to_mac
     """
 }

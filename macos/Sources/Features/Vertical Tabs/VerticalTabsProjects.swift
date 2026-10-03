@@ -372,9 +372,10 @@ struct ProjectGroupSummary: Equatable {
 private struct ProjectBracket: View {
     let color: Color
     let state: ProjectGroupSummary.State
+    @Environment(\.extremeMotion) private var motion
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: state == .idle ? 3600 : 1.0 / 24)) { context in
+        TimelineView(.periodic(from: .now, by: state == .idle || !motion ? 3600 : 1.0 / 12)) { context in
             Canvas { gc, size in
                 let t: CGFloat = 2, tick: CGFloat = 8
                 let h = size.height
