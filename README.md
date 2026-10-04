@@ -12,6 +12,7 @@
 
 <p align="center">
   <b><a href="https://github.com/steventsvik/GhosttyEXTREME/releases/latest">Download</a></b> ·
+  <a href="#watch-your-agents-work-live">Live agents</a> ·
   <a href="#features">Features</a> ·
   <a href="#install">Install</a> ·
   <a href="#keyboard-shortcuts">Shortcuts</a> ·
@@ -19,20 +20,43 @@
 </p>
 
 <p align="center">
-  <img src="images/readme/main-window.png" alt="GhosttyEXTREME's main window: the agent sidebar with Claude Code and Codex working, one waiting for permission, and Claude's live output" width="100%">
+  <img src="images/readme/main-window.png" alt="GhosttyEXTREME with a live Claude Code agent: the agent sidebar, the terminal, the code editor typing in the agent's edit, and the code map tracing its path" width="100%">
 </p>
 
+<p align="center"><sub>One window, one live agent: the sidebar, the agent in the terminal, the editor typing in its
+edit as it happens, and the code map tracing every file it has read and changed.</sub></p>
+
 **GhosttyEXTREME** is [Ghostty](https://ghostty.org), the fast native macOS terminal, rebuilt
-for working with coding agents like **Claude Code** and **Codex**. Every agent shows up
-live in a vertical sidebar. A code editor follows what it reads and changes, a map shows
-where it's been in your project, and a backend view shows what your app runs on. When it
-finishes, its changes wait for you in a review inbox.
+for working with AI coding agents like **Claude Code** and **Codex**. You see every agent
+work, live: what it's doing in each tab, the code it's writing as it writes it, where it is
+in your project and what part of your backend it touches. When it finishes, its changes wait
+for you in a review inbox.
 
 Everything Ghostty does still works. This fork tracks official Ghostty releases and adds
 its features on top.
 
 > [!NOTE]
 > Unofficial fork. Not affiliated with or endorsed by the Ghostty project.
+
+<br>
+
+## Watch your agents work, live
+
+Run Claude Code, Codex, Gemini CLI or another agent in a tab, the way you already do.
+GhosttyEXTREME follows each one as it works, with nothing to set up beyond its hooks.
+
+| As the agent… | …you see |
+|---|---|
+| **starts a task** | Its card in the sidebar shows the task, a working spinner and a timer. Its sprite starts typing and the terminal's frame lights up cyan. |
+| **reads a file** | The editor opens that file at the lines it read; the file lights up cyan on the code map, and a comet flies there. |
+| **edits a file** | The change types itself into the editor with the lines highlighted, the file turns orange on the map, and the turn's diff count goes up. |
+| **thinks or replies** | The agent panel shows its thinking, messages and every tool call as a timeline, sub-agents included. |
+| **touches your backend** | The Worker, database or bucket that code belongs to lights up in the Backend view. |
+| **needs you** | Its card turns amber and jumps to the top of the command palette and Mission Control; you get a notification and a Dock badge. |
+| **finishes** | Its sprite sparkles, the sigil flares gold, and its changes land in Review with the full diff. |
+
+Several agents at once? Each tab follows its own, tabs in the same repository are grouped,
+and you're warned when two agents edit the same file.
 
 <br>
 
