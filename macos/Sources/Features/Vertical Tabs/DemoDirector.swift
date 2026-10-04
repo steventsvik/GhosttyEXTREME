@@ -17,6 +17,10 @@ import AppKit
 ///     close <window id>       close a tool window (mission-control, activity, ...)
 ///     race <n> <task>         race one Claude and one Codex in tab n's folder
 ///     mark <label>            append "<label> <unix time>" to GHOSTTY_EXTREME_DEMO_MARKS
+///     editorat <n> <folder>   open tab n's code editor on a folder
+///     js <n> <script>         run JavaScript in tab n's code editor
+///     background              open the Background window
+///     visualfix <n>           open Visual Fix from tab n
 @MainActor
 enum DemoDirector {
     private static var started = false
@@ -82,6 +86,15 @@ enum DemoDirector {
             model.sendKeyEvent(.init(key: key, action: .release))
         case "editor":
             EditorPanel.shared.show(from: target)
+        case "editorat":
+            EditorPanel.shared.show(from: target, folder: rest)
+        case "js":
+            guard let target else { return }
+            EditorPanel.shared.session(for: target).webView.evaluateJavaScript(rest)
+        case "background":
+            HousekeepingWindow.show()
+        case "visualfix":
+            VisualFixPanel.shared.show(from: target)
         case "editorhide":
             EditorPanel.shared.hide(returningFocusTo: target)
         case "palette":

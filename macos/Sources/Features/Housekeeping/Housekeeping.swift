@@ -159,6 +159,13 @@ final class Housekeeping: ObservableObject {
     // MARK: Scanning
 
     func refresh() {
+        // Test-only: representative sample data, for screenshots that shouldn't show this Mac.
+        if ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_BACKGROUND_SAMPLE"] == "1" {
+            items = Self.sample()
+            scannedAt = Date()
+            selfUsage = (1.2, 162_000_000)
+            return
+        }
         guard !scanning else { return }
         scanning = true
         queue.async { [self] in
@@ -442,6 +449,48 @@ final class Housekeeping: ObservableObject {
             items += containers
         }
         return items
+    }
+
+    /// Test-only sample data (see `refresh`).
+    private static func sample() -> [Item] {
+        let now = Date()
+        func item(_ id: String, _ kind: Kind, _ title: String, _ detail: String, _ command: String, folder: String?,
+                  memory: Int64, reserved: Int64 = 0, cpu: Double = 0, up: TimeInterval, idle: TimeInterval, source: String,
+                  ports: [Int] = [], terminal: Bool = false, orphaned: Bool = false, close: CloseAction = .terminate([1])) -> Item {
+            var i = Item(id: id, kind: kind, title: title, detail: detail, command: command)
+            i.folder = folder; i.memory = memory; i.reserved = reserved; i.cpu = cpu; i.ports = ports
+            i.started = now.addingTimeInterval(-up); i.lastActive = now.addingTimeInterval(-idle); i.activeSource = source
+            i.inTerminal = terminal; i.orphaned = orphaned; i.close = close
+            return i
+        }
+        let home = FileManager.default.homeDirectoryForCurrentUser.path + "/Demo/"
+        var items = [
+            item("vm", .vm, "Colima VM “default”", "4 CPUs · 6.0 GB memory reserved · 0 containers", "colima start", folder: nil,
+                 memory: 0, reserved: 6_442_450_944, up: 5 * 86400 + 11 * 3600, idle: 4 * 86400, source: "had a busy container",
+                 close: .colimaStop("default")),
+            item("pw", .browser, "Playwright browser", "atlas-api", "node ~/.cache/ms-playwright/mcp-chrome --headed", folder: home + "atlas-api",
+                 memory: 581_000_000, up: 2 * 86400, idle: 2 * 86400, source: "used CPU", orphaned: true),
+            item("logs", .logs, "docker logs -f", "atlas-api", "docker logs -f atlas-db", folder: home + "atlas-api",
+                 memory: 24_000_000, up: 2 * 86400, idle: 2 * 86400, source: "printed to its terminal", orphaned: true),
+            item("pg", .container, "atlas-db", "postgres:17 · 127.0.0.1:54330->5432/tcp", "postgres:17", folder: nil,
+                 memory: 294_000_000, up: 13 * 86400, idle: 9 * 86400, source: "container busy", close: .dockerStop(context: "colima", id: "a1b2")),
+            item("docs", .devServer, "Astro dev server", "pixel-docs · :4321", "astro dev --port 4321", folder: home + "pixel-docs",
+                 memory: 212_000_000, up: 26 * 3600, idle: 19 * 3600, source: "has a live connection", ports: [4321]),
+            item("codex", .agent, "Codex", "atlas-api", "codex", folder: home + "atlas-api",
+                 memory: 184_000_000, up: 3 * 3600, idle: 2 * 3600 + 900, source: "typed in its terminal", terminal: true),
+            item("next", .devServer, "Next.js dev server", "acme-shop · :3000 · in a GhosttyEXTREME tab", "next dev", folder: home + "acme-shop",
+                 memory: 1_400_000_000, cpu: 3, up: 4 * 3600, idle: 60, source: "has a live connection", ports: [3000], terminal: true),
+            item("claude", .agent, "Claude Code", "acme-shop · in a GhosttyEXTREME tab", "claude", folder: home + "acme-shop",
+                 memory: 512_000_000, cpu: 9, up: 3 * 3600, idle: 5, source: "agent transcript updated", terminal: true),
+            item("svc", .service, "dev.acme.preview-tunnel", "", "cloudflared tunnel run acme-preview", folder: nil,
+                 memory: 41_000_000, up: 6 * 86400, idle: 6 * 86400, source: "", close: .launchdStop("dev.acme.preview-tunnel")),
+        ]
+        for index in items.indices {
+            if items[index].kind == .vm { items[index].reasons = ["No containers running (for at least 4d 0h)"] }
+            if items[index].kind == .container { items[index].reasons = ["In Colima VM “default”"] }
+            shared.rate(&items[index], now: now)
+        }
+        return items.sorted { ($0.rating, $0.score, $0.memory) > ($1.rating, $1.score, $1.memory) }
     }
 
     // MARK: Closing

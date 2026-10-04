@@ -340,6 +340,8 @@
     if (links.has(node.rel)) return links.get(node.rel);
     const entry = { imports: [], importers: [], loading: true };
     links.set(node.rel, entry);
+    // Resolving imports needs the project's file list; it may not be loaded yet.
+    if (!state.files && visible()) state.files = await fs('files').catch(() => []);
     const fileSet = new Set(state.files || []);
     const text = await textOf(node);
     if (text) {
@@ -1507,12 +1509,20 @@
     folder() { reset(); setTimeout(() => { if (visible()) loadFiles(); }, 1200); renderHUD(); updateEmpty(); wake(); window.backend?.folder(); },
     visible() { if (mode === 'map') { loadFiles(); requestAnimationFrame(resize); } window.backend?.shown(mode === 'backend'); },
     /** Selects a project file on the map (from the Backend tab's code links). */
-    reveal(rel) {
+    reveal(rel, { zoom = true } = {}) {
       setMode('map');
       const node = nodes.get(rel) || ensure(rel, 'dust');
-      if (node) { focusOn(node); select(node); }
+      if (node) { if (zoom) focusOn(node); select(node); }
     },
     roleOf,
+    /** Runs the layout to rest and frames it, at once (for screenshots and tests). */
+    settle(ticks = 600) {
+      alpha = Math.max(alpha, 1);
+      for (let i = 0; i < ticks && alpha > 0; i++) simulate();
+      if (cam.auto) fit();
+      cam.x = cam.tx; cam.y = cam.ty; cam.k = cam.tk; cam.s = cam.ts;
+      if (visible()) draw(Date.now());
+    },
   };
 
   build();

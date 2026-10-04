@@ -1755,7 +1755,9 @@
     if (t.rls === true) chips.push(chip(`RLS on · ${t.policies} polic${t.policies === 1 ? 'y' : 'ies'}`, 'new'));
     else if (t.rls === false) chips.push(chip('RLS off', 'err'));
     if (t.rows != null) chips.push(chip(`${num(t.rows)} rows`));
-    const parts = [sideHead(el('i', 'codicon codicon-table'), name, `public.${name}`, chips)];
+    const postgres = ['supabase', 'postgres'].includes(curDB()?.provider);
+    const label = postgres && !name.includes('.') ? `public.${name}` : `${curDB()?.label || 'Database'} · ${name}`;
+    const parts = [sideHead(el('i', 'codicon codicon-table'), name, label, chips)];
     const sb = B.byId.get('supabase');
     if (sb?.ref) {
       const actions = el('div', 'side-actions');
@@ -1810,7 +1812,8 @@
     }
     const uses = B.tables.get(`table:${name}`) || [];
     const s = section('Used in code', new Set(uses.map(u => u.path)).size);
-    if (uses.length) s.append(codeList(uses)); else s.append(el('div', 'side-dim-text', `No .from('${name}') calls found.`));
+    if (uses.length) s.append(codeList(uses));
+    else s.append(el('div', 'side-dim-text', curDB()?.provider === 'supabase' ? `No .from('${name}') calls found.` : 'No references found yet.'));
     body.append(s);
     const touch = B.agent.get(`table:${name}`);
     if (touch) {
