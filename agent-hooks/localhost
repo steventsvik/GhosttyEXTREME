@@ -34,7 +34,8 @@ term() {
 send() {
   local tty
   tty=$(term) || return 1
-  printf '\e]777;notify;ghostty-extreme://localhost;%s\a' "$1" > "$tty" 2>/dev/null
+  # Add this launch's secret, so the app can tell real events from printed text.
+  printf '\e]777;notify;ghostty-extreme://localhost;{"t":"%s",%s\a' "${GHOSTTY_EXTREME_EVENT_TOKEN:-}" "${1#\{}" > "$tty" 2>/dev/null
 }
 
 # True for commands that start a long-running local web server.

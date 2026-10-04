@@ -12,6 +12,7 @@ final class EditorWebView: WKWebView {
     static let scheme = "ghostty-editor"
 
     private let files = EditorFileBridge()
+    private let navigationGuard = EditorNavigationGuard()
     private(set) var isReady = false
     /// Called (on a background queue) after the editor saves a file.
     var onFileSaved: ((String, String) -> Void)?
@@ -22,6 +23,7 @@ final class EditorWebView: WKWebView {
     init() {
         let configuration = WKWebViewConfiguration()
         configuration.setURLSchemeHandler(EditorAssetHandler(), forURLScheme: Self.scheme)
+        // The editor's page has a bridge to your files: it must only ever show its own pages.
         super.init(frame: .zero, configuration: configuration)
         configuration.userContentController.addScriptMessageHandler(files, contentWorld: .page, name: "fs")
         files.onReady = { [weak self] in self?.didBecomeReady() }
@@ -29,6 +31,7 @@ final class EditorWebView: WKWebView {
         files.onBrowser = { [weak self] body in self?.povBrowser(body) }
         files.onClose = { [weak self] in self?.onClose?() }
         uiDelegate = self
+        navigationDelegate = navigationGuard
         setValue(false, forKey: "drawsBackground")
         load(URLRequest(url: URL(string: "\(Self.scheme)://app/index.html")!))
     }
@@ -219,6 +222,23 @@ extension EditorWebView: WKUIDelegate {
 }
 
 // MARK: - Serving the bundled page
+
+/// Keeps the editor on its own pages. Its page can read and write your project's files, so
+/// it never navigates anywhere else; web links open in your browser instead.
+private final class EditorNavigationGuard: NSObject, WKNavigationDelegate {
+    func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
+                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        guard let url = action.request.url else { decisionHandler(.cancel); return }
+        if url.scheme == EditorWebView.scheme || url.absoluteString == "about:blank" {
+            decisionHandler(.allow)
+            return
+        }
+        if action.navigationType == .linkActivated, url.scheme == "https" || url.scheme == "http" {
+            NSWorkspace.shared.open(url)
+        }
+        decisionHandler(.cancel)
+    }
+}
 
 /// Serves macos/EditorWeb from the app bundle under ghostty-editor://app/. A custom
 /// scheme (rather than file://) lets Monaco start its web workers.

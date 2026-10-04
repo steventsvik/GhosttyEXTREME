@@ -159,6 +159,8 @@ def main():
         status = record_event(payload, event, home)
         if status:
             namespace = "ghostty-extreme" if os.environ.get("GHOSTTY_EXTREME_AGENT_EVENTS") == "1" else "ghostty-custom"
+            # This launch's secret, so the app can tell real events from printed text.
+            status["t"] = os.environ.get("GHOSTTY_EXTREME_EVENT_TOKEN", "")
             sequence = f"\x1b]777;notify;{namespace}://agent;{json.dumps(status, ensure_ascii=True, separators=(',', ':'))}\x07"
             tty = tty_path()
             if tty:

@@ -211,6 +211,9 @@ final class VisualFixSession: NSObject, ObservableObject {
     }
 
     private func received(_ body: Any) {
+        // Only your own app's pages talk to Visual Fix. If the preview follows a link or a
+        // login redirect to an outside site, that page gets no say in what's selected.
+        guard let url = webView.url, Self.isLocal(url) else { return }
         guard let message = body as? [String: Any], let type = message["type"] as? String else { return }
         switch type {
         case "ready":
@@ -466,6 +469,23 @@ final class VisualFixSession: NSObject, ObservableObject {
     func surface(for request: VisualFixRequest) -> Ghostty.SurfaceView? { targets[request.id]?.surface }
 
     private static func js(_ string: String) -> String { EditorWebView.js(string) }
+}
+
+extension VisualFixSession {
+    /// A dev server on this Mac or the local network: localhost, loopback, private and
+    /// link-local addresses, `.local` and `.localhost` names.
+    static func isLocal(_ url: URL) -> Bool {
+        guard url.scheme == "http" || url.scheme == "https", let host = url.host?.lowercased() else { return false }
+        if ["localhost", "127.0.0.1", "::1", "0.0.0.0", "[::1]"].contains(host) { return true }
+        if host.hasSuffix(".localhost") || host.hasSuffix(".local") { return true }
+        let parts = host.split(separator: ".").compactMap { Int($0) }
+        guard parts.count == 4 else { return host.hasPrefix("fe80:") || host.hasPrefix("fd") }
+        switch (parts[0], parts[1]) {
+        case (127, _), (10, _), (192, 168), (169, 254): return true
+        case (172, 16...31): return true
+        default: return false
+        }
+    }
 }
 
 extension VisualFixSession: WKNavigationDelegate {

@@ -62,7 +62,9 @@ fi
 case "$event" in pre_tool_use|subagent_start|subagent_stop) exit 0 ;; esac
 
 # Ghostty caps notification bodies at 255 bytes, so keep details short.
-sequence=$(jq -r --arg agent "$agent" --arg event "$event" --arg ns "$namespace" '
+# Every event carries this launch's secret, so the app can tell real events from printed text.
+token="${GHOSTTY_EXTREME_EVENT_TOKEN:-}"
+sequence=$(jq -r --arg agent "$agent" --arg event "$event" --arg ns "$namespace" --arg t "$token" '
   def clip: gsub("[\\s]+"; " ") | ltrimstr(" ") | if length > 48 then .[0:47] + "…" else . end;
   def tool_detail:
     (.tool_name // "") as $tool
@@ -82,7 +84,7 @@ sequence=$(jq -r --arg agent "$agent" --arg event "$event" --arg ns "$namespace"
         elif $e == "input_needed" then (.message // "")
         else "" end | clip)
     }
-  | {agent: $agent} + .
+  | {agent: $agent, t: $t} + .
   | "\u001b]777;notify;\($ns)://agent;\(tojson)\u0007"
 ' <<<"$input" 2>/dev/null) || exit 0
 
@@ -90,9 +92,9 @@ sequence=$(jq -r --arg agent "$agent" --arg event "$event" --arg ns "$namespace"
 # actions live. Sent separately to stay under Ghostty's 255-byte notification body limit.
 if [ "$event" = "session_start" ] || [ "$event" = "prompt_submit" ]; then
   transcript=$(jq -r '.transcript_path // empty' <<<"$input" 2>/dev/null)
-  if [ -n "$transcript" ] && [ ${#transcript} -lt 200 ]; then
-    sequence+=$(jq -rn --arg agent "$agent" --arg path "$transcript" --arg ns "$namespace" \
-      '"\u001b]777;notify;\($ns)://agent;\({agent: $agent, event: "transcript", detail: $path} | tojson)\u0007"')
+  if [ -n "$transcript" ] && [ ${#transcript} -lt 160 ]; then
+    sequence+=$(jq -rn --arg agent "$agent" --arg path "$transcript" --arg ns "$namespace" --arg t "$token" \
+      '"\u001b]777;notify;\($ns)://agent;\({agent: $agent, t: $t, event: "transcript", detail: $path} | tojson)\u0007"')
   fi
 fi
 [ -n "$sequence" ] || exit 0

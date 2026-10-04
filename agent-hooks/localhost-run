@@ -13,7 +13,8 @@ cmd=$(jq -r .command "$req")
 log=$(jq -r '.log // empty' "$req")
 : "${log:=$dir/$id.log}"
 
-osc() { printf '\e]777;notify;ghostty-extreme://localhost;%s\a' "$1"; }
+# Every event carries this launch's secret, so the app can tell real events from printed text.
+osc() { printf '\e]777;notify;ghostty-extreme://localhost;{"t":"%s",%s\a' "${GHOSTTY_EXTREME_EVENT_TOKEN:-}" "${1#\{}"; }
 
 cd "$cwd" 2>/dev/null || { echo "Folder not found: $cwd"; osc "{\"event\":\"exited\",\"id\":\"$id\",\"code\":127}"; exit 1; }
 # Ctrl-C stops the server, not this loop.

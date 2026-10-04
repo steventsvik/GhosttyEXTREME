@@ -2,6 +2,10 @@ import AppKit
 import Cocoa
 import GhosttyKit
 
+// GhosttyEXTREME: the secret this launch's hooks prove their events with (see EventToken),
+// set before any terminal starts so they all inherit it.
+EventToken.install()
+
 // Initialize Ghostty global state. We do this once right away because the
 // CLI APIs require it and it lets us ensure it is done immediately for the
 // rest of the app.

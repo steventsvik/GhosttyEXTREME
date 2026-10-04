@@ -41,7 +41,7 @@ typeset -gA _gc_agent_commands=(
 )
 
 _gc_agent_event() {
-  printf '\e]777;notify;%s://agent;{"agent":"%s","event":"%s"}\a' "$_gc_namespace" "$1" "$2" 2>/dev/null >/dev/tty
+  printf '\e]777;notify;%s://agent;{"agent":"%s","event":"%s","t":"%s"}\a' "$_gc_namespace" "$1" "$2" "${GHOSTTY_EXTREME_EVENT_TOKEN:-}" 2>/dev/null >/dev/tty
 }
 
 _gc_agent_preexec() {
