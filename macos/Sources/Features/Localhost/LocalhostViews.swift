@@ -4,35 +4,16 @@ import SwiftUI
 
 // MARK: - Shared pieces
 
-/// A dot that radiates while the server is live.
+/// A dot that radiates while the server is live. Core Animation, so it costs no
+/// SwiftUI layout per frame (a `repeatForever` here re-laid out the whole window).
 struct LocalhostPulse: View {
     let color: Color
     let active: Bool
     var size: CGFloat = 8
-    @State private var animate = false
 
     var body: some View {
-        ZStack {
-            if active {
-                Circle()
-                    .fill(color.opacity(0.55))
-                    .frame(width: size, height: size)
-                    .scaleEffect(animate ? 2.6 : 1)
-                    .opacity(animate ? 0 : 0.9)
-            }
-            Circle().fill(color).frame(width: size, height: size)
-                .shadow(color: active ? color.opacity(0.8) : .clear, radius: 3)
-        }
-        .frame(width: size * 2.6, height: size * 2.6)
-        .onAppear {
-            guard active else { return }
-            withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) { animate = true }
-        }
-        .onChange(of: active) { now in
-            animate = false
-            guard now else { return }
-            withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) { animate = true }
-        }
+        RadiateDotLayer(color: color, active: active, size: size)
+            .frame(width: size * 2.6, height: size * 2.6)
     }
 }
 

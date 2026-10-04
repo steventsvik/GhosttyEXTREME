@@ -94,6 +94,86 @@ private extension Color {
     var cg: CGColor { NSColor(self).cgColor }
 }
 
+/// A dot with a ring that radiates outward (scale 1 → `spread`, fading out) when `active`.
+struct RadiateDotLayer: NSViewRepresentable {
+    let color: Color
+    let active: Bool
+    let size: CGFloat
+    var spread: CGFloat = 2.6
+    var period: Double = 1.6
+
+    final class View: MotionLayerView {
+        let ring = CALayer()
+        let dot = CALayer()
+        var size: CGFloat = 8
+        var active = false
+        var spread: CGFloat = 2.6
+        var period = 1.6
+
+        override init(frame: NSRect) {
+            super.init(frame: frame)
+            dot.shadowOffset = .zero
+            layer?.addSublayer(ring)
+            layer?.addSublayer(dot)
+        }
+
+        override func layout() {
+            super.layout()
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            let rect = CGRect(x: (bounds.width - size) / 2, y: (bounds.height - size) / 2, width: size, height: size)
+            for shape in [ring, dot] {
+                shape.frame = rect
+                shape.cornerRadius = size / 2
+            }
+            dot.shadowRadius = 3
+            dot.shadowPath = CGPath(ellipseIn: dot.bounds, transform: nil)
+            CATransaction.commit()
+        }
+
+        override func restartAnimations() {
+            ring.removeAnimation(forKey: "radiate")
+            ring.isHidden = !active
+            dot.shadowOpacity = active ? 0.8 : 0
+            guard active, !MotionTest.off.contains("radiate") else { return }
+            let grow = CABasicAnimation(keyPath: "transform.scale")
+            grow.fromValue = 1
+            grow.toValue = spread
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 0.9
+            fade.toValue = 0
+            let group = CAAnimationGroup()
+            group.animations = [grow, fade]
+            group.duration = period
+            group.repeatCount = .infinity
+            group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            group.preferredFrameRateRange = Motion.chromeRate
+            ring.add(group, forKey: "radiate")
+        }
+    }
+
+    func makeNSView(context: Context) -> View {
+        let side = size * spread
+        return View(frame: NSRect(x: 0, y: 0, width: side, height: side))
+    }
+
+    func updateNSView(_ view: View, context: Context) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        view.dot.backgroundColor = color.cg
+        view.dot.shadowColor = color.cg
+        view.ring.backgroundColor = NSColor(color).withAlphaComponent(0.55).cgColor
+        CATransaction.commit()
+        if view.size != size { view.size = size; view.needsLayout = true }
+        if view.active != active || view.spread != spread || view.period != period {
+            view.active = active
+            view.spread = spread
+            view.period = period
+            view.restartAnimations()
+        }
+    }
+}
+
 /// A glowing dot that pulses (opacity 1 → 0.25) when `blinking`.
 struct PulseDotLayer: NSViewRepresentable {
     let color: Color

@@ -101,6 +101,7 @@ struct ExtremeSigil: View {
     var size: CGFloat = 32
     /// The core glows, breathing in steps.
     var alive = true
+    @Environment(\.extremeMotion) private var motion
 
     static let rows = [
         "...............gg...............",
@@ -144,7 +145,7 @@ struct ExtremeSigil: View {
     var body: some View {
         let pixel = size / 32
         ZStack {
-            if alive {
+            if alive && motion {
                 TimelineView(.periodic(from: .now, by: 0.35)) { context in
                     // Four steps up, four down: the core breathes like a pixel sprite.
                     let step = Int(context.date.timeIntervalSinceReferenceDate / 0.35) % 8
