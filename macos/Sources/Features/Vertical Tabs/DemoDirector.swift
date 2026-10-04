@@ -20,7 +20,7 @@ import AppKit
 ///     editorat <n> <folder>   open tab n's code editor on a folder
 ///     js <n> <script>         run JavaScript in tab n's code editor
 ///     background              open the Background window
-///     visualfix <n>           open Visual Fix from tab n
+///     visualfix <n> [url]     open Visual Fix from tab n, optionally on a URL
 @MainActor
 enum DemoDirector {
     private static var started = false
@@ -94,7 +94,7 @@ enum DemoDirector {
         case "background":
             HousekeepingWindow.show()
         case "visualfix":
-            VisualFixPanel.shared.show(from: target)
+            VisualFixPanel.shared.show(from: target, url: rest.isEmpty ? nil : URL(string: rest))
         case "editorhide":
             EditorPanel.shared.hide(returningFocusTo: target)
         case "palette":

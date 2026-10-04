@@ -18,6 +18,10 @@
   <a href="#security-and-privacy">Security</a>
 </p>
 
+<p align="center">
+  <img src="images/readme/main-window.png" alt="GhosttyEXTREME's main window: the agent sidebar with Claude Code and Codex working, one waiting for permission, and Claude's live output" width="100%">
+</p>
+
 **GhosttyEXTREME** is [Ghostty](https://ghostty.org), the fast native macOS terminal, rebuilt
 for working with coding agents like **Claude Code** and **Codex**. Every agent shows up
 live in a vertical sidebar. A code editor follows what it reads and changes, a map shows
@@ -34,23 +38,69 @@ its features on top.
 
 ## Features
 
+<table>
+<tr>
+<td width="33%" valign="top"><b><a href="#every-agent-at-a-glance">Agent sidebar</a></b><br><sub>Live status for every agent in every tab</sub></td>
+<td width="33%" valign="top"><b><a href="#a-code-editor-that-follows-the-agent">Code editor</a></b><br><sub>Opens what the agent reads and animates its edits</sub></td>
+<td width="33%" valign="top"><b><a href="#code-map">Code map</a></b><br><sub>Your project as a star map of what the agent touched</sub></td>
+</tr>
+<tr>
+<td valign="top"><b><a href="#see-your-backend">Backend view</a></b><br><sub>Cloudflare, Supabase, Vercel and more, with live status</sub></td>
+<td valign="top"><b><a href="#database">Database view</a></b><br><sub>Tables, columns and relations from your schema</sub></td>
+<td valign="top"><b><a href="#visual-fix">Visual Fix</a></b><br><sub>Click an element in your app, say what to change</sub></td>
+</tr>
+<tr>
+<td valign="top"><b><a href="#review-changes">Review changes</a></b><br><sub>An inbox for each agent's diff, with line comments</sub></td>
+<td valign="top"><b><a href="#agent-races">Agent races</a></b><br><sub>Several agents, one task, keep the best result</sub></td>
+<td valign="top"><b><a href="#localhost-sessions">Localhost sessions</a></b><br><sub>Dev servers that outlive the agent that started them</sub></td>
+</tr>
+<tr>
+<td valign="top"><b><a href="#background-processes">Background processes</a></b><br><sub>Find and close what's been left running</sub></td>
+<td valign="top"><b><a href="#command-history">Command history</a></b><br><sub>Every command as a block, with one-click fixes</sub></td>
+<td valign="top"><b><a href="#agent-activity">Agent activity</a></b><br><sub>Time, prompts, changes and tokens per day and project</sub></td>
+</tr>
+<tr>
+<td valign="top"><b><a href="#mission-control">Mission Control</a></b><br><sub>Every agent in every window on one screen</sub></td>
+<td valign="top"><b><a href="#sessions">Sessions</a></b><br><sub>Agents, Docker sandboxes, Hermes and cloud sessions</sub></td>
+<td valign="top"><b><a href="#handoff">Handoff</a></b><br><sub>Pass a pane's work to Claude or Codex</sub></td>
+</tr>
+</table>
+
+<br>
+
 ### Every agent, at a glance
 
-A vertical sidebar shows every tab and the agent running in it: Claude Code, Codex,
-Gemini CLI, Copilot, Cursor, Amp, opencode, Goose, Droid or Hermes.
+A Warp-style vertical sidebar (⌃⌘S) lists every tab with its folder, git branch and
+uncommitted changes. Tabs can be pinned, colored and renamed, and hovering one shows a card
+with more detail.
 
-- **Live status** for each agent: working, waiting for permission, waiting for input,
-  done or failed, with how long it's been at it and its last action.
-- **Agents act out their mood.** Their sprite reads, types, runs commands, thinks, hops
-  when it needs you and sparkles when it's done. The sigil at the top orbits once per
-  working agent.
-- **Project groups.** Tabs with agents in the same repository are bracketed together,
-  with a live summary ("2 working · 1 waiting") and a warning when two agents touch the
-  same file.
-- **Mission Control** (⌃⌘M) shows every agent in every window. Agents waiting on you come
-  first in the **command palette** (⌘P), and a notification and Dock badge tell you when one
-  needs you.
-- **Usage meters** for your Claude and ChatGPT plans sit at the bottom of the sidebar.
+- **It recognizes the agent in each tab:** Claude Code, Codex, Gemini CLI, Copilot, Cursor,
+  Amp, opencode, Goose, Droid and Hermes, each with its own logo.
+- **Live status:** working, waiting for permission, waiting for input, done or failed. Each
+  card shows the task, how long the agent has been at it and its last action.
+- **Agents act out their mood.** Their sprite reads, types, runs commands and thinks, hops
+  when it needs you and sparkles when it's done.
+- **The sigil comes alive.** One cyan pixel orbits the sidebar's sigil per working agent;
+  it glows amber while one waits and flares gold when one finishes.
+- **The terminal's frame lights up too.** A cyan light travels around the edge while the
+  tab's agent works, and the corners blink amber when it needs you.
+- **Project groups:** tabs whose agents share a repository are bracketed together, with a
+  live summary ("2 working · 1 waiting") and a warning when two agents edit the same file.
+- **Alerts:** when an agent waits on you in a pane you aren't looking at, you get a
+  notification (click it to jump there) and a count on the Dock icon.
+- **Usage meters** for your Claude and ChatGPT plans (5-hour and weekly windows), with
+  graphs.
+
+### Mission Control
+
+⌃⌘M shows every agent (or every pane) in every window as a live card: status, task, last
+action, time in that state and the last lines of its terminal. Agents waiting on you come
+first. Click a card to jump to it.
+
+The **command palette** (⌘P) puts waiting agents at the top too, so you can answer one in
+two keystrokes. It also starts new sessions and opens every tool.
+
+<br>
 
 ### A code editor that follows the agent
 
@@ -58,20 +108,33 @@ Gemini CLI, Copilot, Cursor, Amp, opencode, Goose, Droid or Hermes.
   <img src="images/readme/code-map.png" alt="The code map: the project as a star map, with the agent's path and a file's blast radius" width="100%">
 </p>
 
-A VS Code–style editor (Monaco) opens beside any tab (⌃⌘E), on that tab's folder and in
-your terminal theme. As the agent works, it opens the files it reads and animates its
-edits in. With several sub-agents, it splits into a pane per agent.
+Each tab has its own VS Code–style editor (Monaco, ⌃⌘E) on that tab's folder, in your
+terminal theme.
 
-**Code map.** Your project as a star map. Folders are tinted by what they are: frontend,
-API, database, tests, config. Files light up as the agent reads (cyan) and edits (orange)
-them, and the agent flies between them as a comet.
+- **Follow mode:** the editor opens each file the agent reads and animates its edits in as
+  they happen. It follows even while closed, so opening it mid-task shows where the agent
+  is right away.
+- **Agent panel:** a timeline of the session: prompts, thinking, messages, tool calls and
+  results, sub-agents included. With several sub-agents, the editor splits into a pane for
+  each.
+- **AI POV:** replay a session as if you were at the agent's keyboard: files opening, code
+  being typed, commands running.
 
-- **Zoom levels:** the **Overview** shows the project's areas and how much the agent did
-  in each. **Files** shows every file. **Symbols** shows the functions and classes inside,
-  with the ones changed this turn lit.
-- **Details for anything you click:** what the agent did there, this turn's diff, its
-  symbols, what imports it (drawn on the map as its blast radius, with a warning when
-  no test covers it), and the backend pieces it uses.
+#### Code map
+
+Your project as a star map. Folders are tinted by what they are: frontend, API, database,
+tests, config. Files light up as the agent reads (cyan) and edits (orange) them, and the
+agent flies between them as a comet.
+
+- **Zoom levels:** **Overview** shows the project's areas and how much the agent did in
+  each. **Files** shows every file. **Symbols** shows the functions and classes inside, with
+  the ones changed this turn lit.
+- **Details for anything you click:** what the agent did there, this turn's diff, the
+  file's symbols, what imports it, and the backend pieces it uses.
+- **Blast radius:** what imports the file is drawn on the map, with a warning when no
+  test covers the change.
+
+<br>
 
 ### See your backend
 
@@ -94,8 +157,12 @@ It works offline and without logins.
   using the logins you already have and only read-only commands. It shows deploys per
   environment, project health, migrations not applied yet, and commits newer than the
   last deploy.
+- **Code links:** click any piece to see every file that uses it, and open the provider's
+  dashboard or your live site.
 - **Agent awareness:** when the agent edits something that belongs to a piece of your
   backend, that piece lights up.
+
+#### Database
 
 <p align="center">
   <img src="images/readme/database.png" alt="The Database view: tables, columns and relations" width="100%">
@@ -103,43 +170,109 @@ It works offline and without logins.
 
 The **Database** view draws your schema: tables, columns and relations for Supabase,
 Cloudflare D1, Postgres behind Hyperdrive (read from your migrations) and Prisma.
-Row-level security is checked on every Postgres table, and large schemas can be searched.
 
-### Point at your app and have the agent change it
+- **Click a table** to see its columns, what references it and where your code queries it.
+- **Row-level security** is checked on every Postgres table.
+- **Large schemas** can be searched, and unrelated tables fade back.
 
-**Visual Fix** (⌃⌘V) previews your running dev server beside the terminal, at desktop,
-tablet or phone size.
+<br>
 
-- **Pick an element:** hover and click any element, then say what should change.
+### Visual Fix
+
+<p align="center">
+  <img src="images/readme/visual-fix.png" alt="Visual Fix: your running app beside the terminal, ready to pick an element" width="100%">
+</p>
+
+⌃⌘V previews your running dev server beside the terminal, at desktop, tablet or phone size.
+
+- **Pick an element:** hover any element and click it, then say what should change.
 - **What the agent gets:** the element's HTML and CSS selector, the component and source
   file that render it (React, Vue and Svelte), its computed styles, and a screenshot.
-- **Where it goes:** the request goes to the agent working in that project. When the change
-  lands, the preview reloads where you were.
+- **Where it goes:** the request goes to the agent working in that project, pinned to the
+  element. When the change lands, the preview reloads where you were.
 
-### Clean up what's left running
+### Review changes
 
-**Background** (⌃⌘K) finds everything left running: dev servers, Colima VMs and
-containers, agent sessions, browser automation, databases, watchers, log followers and
-login services.
+When an agent finishes working in a git repository, its changes land in an inbox (⌃⌘I).
 
-- **When it was last really used:** the last typing or output in its terminal, its agent
-  transcript being written, a live connection to its port, or a busy container.
+- **Read the diff** file by file.
+- **Comment on lines** and send the comments back as the agent's next prompt.
+- **Finish up:** approve or undo files, commit, or open a pull request.
+
+### Agent races
+
+⌃⌘R gives the same task to several agents at once (Claude Code and Codex, or several of
+one), each in its own git worktree so they can't touch each other's work or yours. Compare
+their diffs side by side and apply the one you want.
+
+### Handoff
+
+Pass a pane's work to a fresh Claude Code or Codex session in a split beside it. Its first
+prompt has the task, the last agent's final message and what's changed in git. **Continue
+with** picks up where the last agent stopped; **Review with** checks the work without
+editing anything.
+
+<br>
+
+### Localhost sessions
+
+When an agent starts a dev server (`npm run dev`, `vite`, `rails s`,
+`python -m http.server`, …), it opens in its own tab instead, so it keeps running after
+the agent is done. The agent is told the URL and how to read the logs.
+
+- **Sidebar cards:** each server gets a card with live status, its `localhost` URL,
+  framework, uptime, restart and stop.
+- **The Localhost manager** (⌃⌘L) groups servers by project and shows their CPU and memory.
+  It previews pages in a built-in browser and finds dev servers running elsewhere on your
+  Mac, with **Keep alive** to move one into its own tab.
+- **Start one yourself** from **New → Localhost Server…**, which offers your
+  `package.json` scripts.
+
+### Background processes
+
+<p align="center">
+  <img src="images/readme/background.png" alt="The Background window: leftover VMs, containers, agent sessions and browsers with staleness ratings" width="85%">
+</p>
+
+⌃⌘K finds everything left running: dev servers, Colima VMs and containers, agent sessions,
+browser automation, databases, watchers, log followers and login services.
+
+- **Last really used:** the last typing or output in its terminal, its agent transcript
+  being written, a live connection to its port, or a busy container.
 - **A staleness rating** (Active, Idle, Stale or Ready to close), with the reasons.
-- **One-click cleanup** that always asks first. Login services are never marked ready to
-  close.
+- **Cleanup in one click,** always with a confirmation first. Login services are never
+  marked ready to close.
 
-### And more
+### Command history
 
-| | |
-|---|---|
-| **Localhost sessions** (⌃⌘L) | Dev servers an agent starts (`npm run dev`, `vite`, `rails s`, …) open in their own tab and keep running after it's done; the agent is told the URL and how to read the logs. Each gets a live card with its URL, framework, CPU, memory, restart and stop. |
-| **Review changes** (⌃⌘I) | When an agent finishes, its diff lands in an inbox. Comment on lines and send them back as its next prompt, approve or undo files, commit or open a pull request. |
-| **Agent races** (⌃⌘R) | Run the same task with several agents in separate git worktrees, compare their diffs and keep the best one. |
-| **Command history** (⌃⌘B) | Every command becomes a block with its output, exit code and duration. A failed one offers **Fix with Claude** or **Fix with Codex**. |
-| **Agent activity** (⌃⌘A) | Active time, prompts, files and lines changed, tests and tokens, per day, agent and project. Flip **API value** to see what it would cost at API prices. |
-| **Isolated sessions** | Ubuntu, Python, Node and sandboxed Claude Code or Codex in Docker. Only the project folder is shared. |
-| **Handoff** | Pass a pane's context to a fresh Claude Code session in a split. |
-| **AI POV** | Replay the agent's session as if you were at its keyboard: files opening, code typed, commands run. |
+Every command becomes a block with its output, exit code and duration (⌃⌘B). When one
+fails, a chip offers **Fix with Claude** or **Fix with Codex**, which opens the agent in a
+split with the command and its output.
+
+### Agent activity
+
+⌃⌘A shows active time, prompts, files and lines changed, commands, test runs and tokens,
+per day, hour, agent and project. It reads the session history Claude Code and Codex
+already keep.
+
+- **Resume** any recent session in a new tab.
+- **API value** shows what your usage would cost at API prices.
+
+### Sessions
+
+**+ New** in the sidebar opens a terminal, Claude Code, Codex, a Claude Code cloud
+session, Hermes, or a localhost server.
+
+- **Isolated sessions** run Ubuntu, Python, Node, or sandboxed Claude Code or Codex in a
+  throwaway Docker container. Only the project folder is shared (never your home
+  folder), and the container is deleted when you exit.
+- **Hermes tabs** open Hermes's own app (chat, sessions, skills, models and cron) right in
+  the tab.
+
+### Everything Ghostty already does
+
+GPU-accelerated rendering, native tabs and splits, the quick terminal, hundreds of themes,
+ligatures, shell integration, AppleScript and Shortcuts. Your Ghostty config works as-is.
 
 <br>
 
