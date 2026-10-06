@@ -20,11 +20,10 @@
 </p>
 
 <p align="center">
-  <img src="images/readme/main-window.png" alt="GhosttyEXTREME with a live Claude Code agent: the agent sidebar, the terminal, the code editor typing in the agent's edit, and the code map tracing its path" width="100%">
+  <img src="images/readme/tour.gif" alt="A 30-second tour: Claude Code working live with the editor and code map following it, Allow and Deny on a permission prompt, the code map, the Backend and Database views, Visual Fix, the command palette and the Background window" width="100%">
 </p>
 
-<p align="center"><sub>One window, one live agent: the sidebar, the agent in the terminal, the editor typing in its
-edit as it happens, and the code map tracing every file it has read and changed.</sub></p>
+<p align="center"><sub>30 seconds, real app, demo project. <a href="images/readme/tour.mp4">Watch it in full quality</a>.</sub></p>
 
 **GhosttyEXTREME** is [Ghostty](https://ghostty.org), the fast native macOS terminal, rebuilt
 for working with AI coding agents like **Claude Code** and **Codex**. You see every agent
@@ -44,6 +43,10 @@ its features on top.
 
 Run Claude Code, Codex, Gemini CLI or another agent in a tab, the way you already do.
 GhosttyEXTREME follows each one as it works, with nothing to set up beyond its hooks.
+
+<p align="center">
+  <img src="images/readme/main-window.png" alt="GhosttyEXTREME with a live Claude Code agent: the agent sidebar, the terminal, the code editor typing in the agent's edit, and the code map tracing its path" width="100%">
+</p>
 
 | As the agent… | …you see |
 |---|---|
