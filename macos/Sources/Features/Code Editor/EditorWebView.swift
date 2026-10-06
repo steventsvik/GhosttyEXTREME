@@ -18,6 +18,8 @@ final class EditorWebView: WKWebView {
     var onFileSaved: ((String, String) -> Void)?
     /// Called when the page's close button is clicked.
     var onClose: (() -> Void)?
+    /// Called with a checkpoint's id when "Restore to before this" is clicked in the timeline.
+    var onRestore: ((String) -> Void)?
     private var pending: [String] = []
 
     init() {
@@ -30,6 +32,7 @@ final class EditorWebView: WKWebView {
         files.onWrite = { [weak self] path, content in self?.onFileSaved?(path, content) }
         files.onBrowser = { [weak self] body in self?.povBrowser(body) }
         files.onClose = { [weak self] in self?.onClose?() }
+        files.onRestore = { [weak self] id in self?.onRestore?(id) }
         uiDelegate = self
         navigationDelegate = navigationGuard
         setValue(false, forKey: "drawsBackground")
@@ -39,6 +42,16 @@ final class EditorWebView: WKWebView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) is not supported")
+    }
+
+    /// Stops the page and lets WebKit release it (and its web content process).
+    func close() {
+        stopLoading()
+        configuration.userContentController.removeAllScriptMessageHandlers()
+        pending.removeAll()
+        onFileSaved = nil
+        onClose = nil
+        onRestore = nil
     }
 
     // MARK: Commands from the app
@@ -132,6 +145,13 @@ final class EditorWebView: WKWebView {
         guard let data = try? JSONSerialization.data(withJSONObject: changes.prefix(60).map(\.json)),
               let text = String(data: data, encoding: .utf8) else { return }
         run("app.agentCatchUp(\(text))")
+    }
+
+    /// The turns that can be restored, for the timeline's prompts: [{id, time (ms), title}].
+    func sendCheckpoints(_ checkpoints: [[String: Any]]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: checkpoints),
+              let json = String(data: data, encoding: .utf8) else { return }
+        run("app.setCheckpoints(\(json))")
     }
 
     func sendAgentStatus(_ status: [String: Any]?) {
@@ -279,6 +299,7 @@ private final class EditorFileBridge: NSObject, WKScriptMessageHandlerWithReply 
     var onWrite: ((String, String) -> Void)?
     var onBrowser: (([String: Any]) -> Void)?
     var onClose: (() -> Void)?
+    var onRestore: ((String) -> Void)?
 
     private let maxFileSize = 8 * 1024 * 1024
     private let hidden: Set<String> = [".git", ".DS_Store", "node_modules", ".zig-cache", "zig-out", ".build", "build", "DerivedData"]
@@ -316,6 +337,12 @@ private final class EditorFileBridge: NSObject, WKScriptMessageHandlerWithReply 
         }
         if op == "browser" {
             onBrowser?(body)
+            replyHandler(true, nil)
+            return
+        }
+        if op == "restore" {
+            // The app asks before changing any file.
+            if let id = body["id"] as? String { onRestore?(id) }
             replyHandler(true, nil)
             return
         }

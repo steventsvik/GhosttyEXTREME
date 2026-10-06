@@ -21,6 +21,8 @@ import AppKit
 ///     js <n> <script>         run JavaScript in tab n's code editor
 ///     background              open the Background window
 ///     visualfix <n> [url]     open Visual Fix from tab n, optionally on a URL
+///     answer <n> allow|deny   answer tab n's permission prompt, as its sidebar buttons do
+///     restorelast <n>         ask to undo tab n's last agent turn
 @MainActor
 enum DemoDirector {
     private static var started = false
@@ -41,6 +43,16 @@ enum DemoDirector {
                 MainActor.assumeIsolated { run(command, in: controller, marks: marks) }
             }
         }
+    }
+
+    /// Appends a line to GHOSTTY_EXTREME_TEST_LOG, where a test run reads it.
+    nonisolated static func note(_ line: String) {
+        guard let path = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_LOG"] else { return }
+        if !FileManager.default.fileExists(atPath: path) { FileManager.default.createFile(atPath: path, contents: nil) }
+        guard let handle = FileHandle(forWritingAtPath: path) else { return }
+        handle.seekToEndOfFile()
+        handle.write(Data("[demo] \(line)\n".utf8))
+        handle.closeFile()
     }
 
     private static func tab(_ n: String, of controller: TerminalController) -> TerminalController? {
@@ -93,6 +105,18 @@ enum DemoDirector {
             EditorPanel.shared.session(for: target).webView.evaluateJavaScript(rest)
         case "background":
             HousekeepingWindow.show()
+        case "answer":
+            if let surface = target?.focusedSurface {
+                let sent = AgentPermissions.answer(rest == "deny" ? .deny : .allow, on: surface)
+                note("answer \(rest) sent=\(sent)")
+            }
+        case "restorelast":
+            if let surface = target?.focusedSurface, let turn = TurnCheckpoints.shared.lastTurn(for: surface) {
+                note("restorelast: checkpoint “\(turn.title)” tree \(turn.tree.prefix(8))")
+                TurnCheckpoints.shared.confirmAndRestore(turn, on: surface)
+            } else {
+                note("restorelast: no checkpoint (target \(target == nil ? "missing" : "ok"))")
+            }
         case "visualfix":
             VisualFixPanel.shared.show(from: target, url: rest.isEmpty ? nil : URL(string: rest))
         case "editorhide":

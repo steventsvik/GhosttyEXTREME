@@ -108,6 +108,7 @@ struct VerticalTabsLayout<Content: View>: View {
         .onAppear {
             VerticalTabsMenu.shared.installIfNeeded()
             ReviewInbox.start()
+            TurnCheckpoints.start()
             VerticalTabsTestSupport.openTestTabsIfRequested(from: controller)
         }
     }
@@ -993,6 +994,11 @@ private struct VerticalTabPaneRow: View {
                 // Always there for an agent (dimmed while it's ready), so rows don't change
                 // height between turns and push the list around.
                 if let agent = pane.agent { detailLine(agent).opacity(agent.activity == .ready ? 0.55 : 1) }
+                // Answer a permission prompt without switching to the pane.
+                if pane.agent?.activity == .needsPermission, let surface = pane.surface,
+                   let prompt = AgentPermissions.prompt(on: surface) {
+                    AgentPermissionButtons(surface: surface, prompt: prompt, compact: true).padding(.top, 3)
+                }
             }
         }
     }

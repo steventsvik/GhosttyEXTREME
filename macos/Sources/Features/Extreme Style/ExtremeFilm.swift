@@ -154,17 +154,17 @@ enum FilmCache {
 
 // MARK: - The terminal frame's lights
 
-/// The four corner brackets around the terminal (blinking when `blink`), and, when
-/// `comet`, a short run of pixels chasing around the edge with a fading tail.
+/// The four corner brackets around the terminal. They pulse when `pulse` (an agent needs
+/// you) and breathe slowly when `breathe` (an agent is working). Kept to the corners and
+/// eased, so the terminal's edge stays calm.
 struct FrameLights: NSViewRepresentable {
     let color: Color
     var length: CGFloat = 14
-    var blink = false
-    var comet = false
+    var pulse = false
+    var breathe = false
 
     final class View: NSView {
         let corners = CALayer()
-        let cometLayer = CALayer()
         var config: (CGColor, CGFloat, Bool, Bool)?
         var built: CGSize = .zero
 
@@ -173,7 +173,6 @@ struct FrameLights: NSViewRepresentable {
             wantsLayer = true
             layer?.masksToBounds = false
             layer?.addSublayer(corners)
-            layer?.addSublayer(cometLayer)
         }
 
         @available(*, unavailable)
@@ -193,7 +192,7 @@ struct FrameLights: NSViewRepresentable {
         }
 
         func rebuild() {
-            guard let (color, length, blink, comet) = config, bounds.width > 0 else { return }
+            guard let (color, length, pulse, breathe) = config, bounds.width > 0 else { return }
             built = bounds.size
             CATransaction.begin()
             CATransaction.setDisableActions(true)
@@ -210,58 +209,27 @@ struct FrameLights: NSViewRepresentable {
                     corners.addSublayer(bar)
                 }
             }
-            corners.removeAnimation(forKey: "blink")
-            if blink {
-                // On 0.32 s, dim 0.32 s, like the stepped blink it replaces.
-                let animation = discrete("opacity", [1.0, 0.25])
-                animation.keyTimes = [0, 0.5]
-                corners.addLoop(animation, duration: 0.64, key: "blink")
+            corners.removeAnimation(forKey: "pulse")
+            if (pulse || breathe) && !MotionTest.off.contains("frame") {
+                // Needs you: a clear but smooth amber pulse. Working: a slow breath.
+                let animation = CABasicAnimation(keyPath: "opacity")
+                animation.fromValue = 1
+                animation.toValue = pulse ? 0.3 : 0.45
+                animation.duration = pulse ? 0.9 : 1.8
+                animation.autoreverses = true
+                animation.repeatCount = .infinity
+                animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                animation.preferredFrameRateRange = Motion.chromeRate
+                corners.add(animation, forKey: "pulse")
             }
-            cometLayer.frame = bounds
-            cometLayer.sublayers?.forEach { $0.removeFromSuperlayer() }
-            cometLayer.isHidden = !comet
-            if comet && !MotionTest.off.contains("comet") { buildComet(w: w, h: h) }
             CATransaction.commit()
-        }
-
-        /// Seven segments, each stepping one segment length at a time around the edge.
-        private func buildComet(w: CGFloat, h: CGFloat) {
-            let perimeter = 2 * (w + h)
-            let segment: CGFloat = 10
-            let steps = max(4, Int(perimeter / segment))
-            let lap: CFTimeInterval = 3.5
-            // Every position the head visits, as frames for each segment.
-            let rects = (0..<steps).map { rect(along: CGFloat($0) * segment, length: segment - 2, w: w, h: h) }
-            for i in 0..<7 {
-                let piece = CALayer()
-                piece.backgroundColor = NSColor(Extreme.core).withAlphaComponent(1 - CGFloat(i) / 7).cgColor
-                piece.anchorPoint = .zero
-                piece.frame = rects[0]
-                glow(piece, NSColor(Extreme.core).cgColor, 0.7 * (1 - CGFloat(i) / 7), 4)
-                cometLayer.addSublayer(piece)
-                let shifted = (0..<steps).map { rects[($0 - i + steps) % steps] }
-                let position = discrete("position", shifted.map { NSValue(point: $0.origin) })
-                let bounds = discrete("bounds", shifted.map { NSValue(rect: CGRect(origin: .zero, size: $0.size)) })
-                let shadow = discrete("shadowPath", shifted.map { CGPath(rect: CGRect(origin: .zero, size: $0.size), transform: nil) })
-                let group = CAAnimationGroup()
-                group.animations = [position, bounds, shadow]
-                piece.addLoop(group, duration: lap, key: "comet")
-            }
-        }
-
-        private func rect(along distance: CGFloat, length: CGFloat, w: CGFloat, h: CGFloat) -> CGRect {
-            let t: CGFloat = 2
-            if distance < w { return CGRect(x: distance, y: 0, width: length, height: t) }
-            if distance < w + h { return CGRect(x: w - t, y: distance - w, width: t, height: length) }
-            if distance < 2 * w + h { return CGRect(x: w - (distance - w - h) - length, y: h - t, width: length, height: t) }
-            return CGRect(x: 0, y: h - (distance - 2 * w - h) - length, width: t, height: length)
         }
     }
 
     func makeNSView(context: Context) -> View { View(frame: .zero) }
 
     func updateNSView(_ view: View, context: Context) {
-        let next = (color.cgColor, length, blink, comet)
+        let next = (color.cgColor, length, pulse, breathe)
         if let old = view.config, old.0 == next.0, old.1 == next.1, old.2 == next.2, old.3 == next.3 { return }
         view.config = next
         view.rebuild()

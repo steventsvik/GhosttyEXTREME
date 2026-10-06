@@ -183,6 +183,15 @@ kbd { font: 11px var(--font-ui); background: #8080802b; border: 1px solid #33333
 .text { white-space: pre-wrap; word-break: break-word; line-height: 1.5; margin-top: 3px; }
 .item.prompt { --c: var(--act-you); }
 .item.prompt .text { color: var(--fg); }
+.item.prompt { position: relative; }
+.item.prompt .restore {
+  display: none; align-items: center; gap: 4px; margin-top: 6px; padding: 2px 8px;
+  font: inherit; font-size: 11px; color: var(--fg-dim, #aaa); background: transparent;
+  border: 1px solid var(--line, rgba(255,255,255,.14)); border-radius: 6px; cursor: pointer;
+}
+.item.prompt:hover .restore { display: inline-flex; }
+.item.prompt .restore:hover { color: var(--fg); border-color: var(--act-you); }
+.item.prompt .restore .codicon { font-size: 12px; }
 .item.message { --c: var(--fg-dim); }
 .item.message .text { color: var(--fg); }
 .item.thinking { --c: var(--act-think); }

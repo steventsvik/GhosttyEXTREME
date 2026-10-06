@@ -4,9 +4,11 @@ import Combine
 import SwiftUI
 
 /// The code editor panels. Each terminal tab has its own editor — its own folder, open
-/// files and Agent timeline, following only that tab's terminal. It's created as soon as an
-/// agent starts in the tab and follows it in the background, so opening the editor mid-prompt
-/// shows what the agent is doing right away.
+/// files and Agent timeline, following only that tab's terminal. Its web view (a whole
+/// WebKit page with Monaco) is only created when the editor is first opened; the Agent
+/// timeline replays the current turn from the transcript, so opening the editor mid-prompt
+/// still shows everything the agent did. Once opened, it keeps following its agent in the
+/// background, and is released again when it's closed and the agent has left.
 final class EditorPanel: ObservableObject {
     static let shared = EditorPanel()
 
@@ -17,7 +19,8 @@ final class EditorPanel: ObservableObject {
     @Published private(set) var visibleTabs: Set<ObjectIdentifier> = []
 
     private var sessions: [ObjectIdentifier: EditorSession] = [:]
-    private var themeJSON: String?
+    /// Terminal colors and font for the editors: nil until first needed, "" while loading.
+    private(set) var themeJSON: String?
     private var followTimer: Timer?
     private var cancellables: Set<AnyCancellable> = []
 
@@ -53,12 +56,6 @@ final class EditorPanel: ObservableObject {
         if let session = sessions[id] { return session }
         let session = EditorSession(controller: controller)
         sessions[id] = session
-        if let themeJSON {
-            // Empty while the theme is still loading; loadTheme applies it to all sessions.
-            if !themeJSON.isEmpty { session.webView.setTheme(themeJSON) }
-        } else {
-            loadTheme()
-        }
         // The editor goes away with its tab.
         NotificationCenter.default.publisher(for: NSWindow.willCloseNotification, object: controller.window)
             .sink { [weak self] _ in
@@ -89,16 +86,17 @@ final class EditorPanel: ObservableObject {
         if let surface = controller.focusedSurface { Ghostty.moveFocus(to: surface) }
     }
 
-    /// An agent's state changed in a pane: make sure its tab's editor is following it, even
-    /// while the editor is closed.
+    /// An agent's state changed in a pane: an editor that's been opened keeps following it
+    /// while closed. Tabs whose editor was never opened get no web view at all.
     private func trackAgent(in surface: Ghostty.SurfaceView) {
         guard let controller = surface.window?.windowController as? TerminalController,
-              !HermesSessions.shared.isHermes(controller) else { return }
+              let session = sessions[ObjectIdentifier(controller)] else { return }
         guard let info = VerticalTabsAgents.shared.info(for: surface), info.kind != .hermes else {
-            sessions[ObjectIdentifier(controller)]?.agentMayHaveLeft()
+            session.agentMayHaveLeft()
             return
         }
-        session(for: controller).track()
+        guard session.hasWebView else { return }
+        session.track()
         startFollowing()
     }
 
@@ -130,12 +128,12 @@ final class EditorPanel: ObservableObject {
     }
 
     /// Terminal colors and font, shared by every editor.
-    private func loadTheme() {
+    func loadTheme() {
         themeJSON = themeJSON ?? ""
         EditorTheme.load { [weak self] json in
             guard let self else { return }
             self.themeJSON = json
-            self.sessions.values.forEach { $0.webView.setTheme(json) }
+            self.sessions.values.forEach { $0.applyTheme(json) }
         }
     }
 
@@ -148,10 +146,19 @@ final class EditorPanel: ObservableObject {
 /// One tab's editor: a web view following that tab's terminal pane and its agent.
 final class EditorSession {
     private weak var controller: TerminalController?
-    let webView = EditorWebView()
+    private var loadedWebView: EditorWebView?
+    /// The editor page, created on first use.
+    var webView: EditorWebView {
+        if let loadedWebView { return loadedWebView }
+        let webView = makeWebView()
+        loadedWebView = webView
+        return webView
+    }
+    var hasWebView: Bool { loadedWebView != nil }
     private let feed = AgentFeed()
     private let watcher = AgentChangeWatcher()
     private var lastStatus: [String: String]?
+    private var lastCheckpoints: [UUID] = []
     private var isVisible = false
     /// Following an agent in the background, while the editor is closed.
     private(set) var isTracking = false
@@ -167,14 +174,45 @@ final class EditorSession {
 
     init(controller: TerminalController) {
         self.controller = controller
-        feed.onItems = { [weak self] items, reset in self?.webView.sendAgentItems(items, reset: reset) }
+        // Following only runs while there's a web view (see `follow`), but never make one here.
+        feed.onItems = { [weak self] items, reset in self?.loadedWebView?.sendAgentItems(items, reset: reset) }
         watcher.onChange = { [weak self] change in
             guard let self else { return }
-            self.webView.sendAgentChange(change, live: self.agentIsActive)
+            self.loadedWebView?.sendAgentChange(change, live: self.agentIsActive)
         }
+    }
+
+    private func makeWebView() -> EditorWebView {
+        let webView = EditorWebView()
         webView.onFileSaved = { [weak self] path, content in self?.watcher.noteOwnWrite(path: path, content: content) }
         webView.onClose = { [weak self] in EditorPanel.shared.hide(returningFocusTo: self?.controller) }
+        webView.onRestore = { [weak self] id in
+            guard let surface = self?.agentSurface,
+                  let checkpoint = TurnCheckpoints.shared.list(for: surface).first(where: { $0.id.uuidString == id }) else { return }
+            TurnCheckpoints.shared.confirmAndRestore(checkpoint, on: surface)
+        }
         webView.setPanelVisible(false)
+        let panel = EditorPanel.shared
+        if let theme = panel.themeJSON {
+            // Empty while the theme is still loading; loadTheme applies it when it arrives.
+            if !theme.isEmpty { webView.setTheme(theme) }
+        } else {
+            panel.loadTheme()
+        }
+        return webView
+    }
+
+    func applyTheme(_ json: String) { loadedWebView?.setTheme(json) }
+
+    /// Frees the editor page (its WebKit process and Monaco) while nothing needs it.
+    private func releaseWebView() {
+        guard !isVisible, let webView = loadedWebView else { return }
+        loadedWebView = nil
+        caughtUp = nil
+        lastCheckpoints = []
+        lastStatus = nil
+        webView.removeFromSuperview()
+        webView.close()
     }
 
     private var agentIsActive: Bool {
@@ -193,13 +231,15 @@ final class EditorSession {
 
     func hide() {
         isVisible = false
-        webView.setPanelVisible(false)
+        loadedWebView?.setPanelVisible(false)
         caughtUp = nil
-        // Keep following an agent in the background so reopening is instant.
+        // Keep following an agent in the background so reopening is instant; with no agent,
+        // give the memory back.
         if agentSurface.flatMap({ VerticalTabsAgents.shared.info(for: $0) }) != nil {
             isTracking = true
         } else {
             stopFollowing()
+            releaseWebView()
         }
         if let window = controller?.window { narrow(window) }
     }
@@ -215,6 +255,7 @@ final class EditorSession {
     func agentMayHaveLeft() {
         guard !isVisible, agentSurface.flatMap({ VerticalTabsAgents.shared.info(for: $0) }) == nil else { return }
         stopFollowing()
+        releaseWebView()
     }
 
     private func stopFollowing() {
@@ -228,6 +269,8 @@ final class EditorSession {
     func close() {
         feed.stop()
         watcher.stop()
+        loadedWebView?.close()
+        loadedWebView = nil
     }
 
     func followIfOnScreen() {
@@ -275,7 +318,7 @@ final class EditorSession {
 
     /// Shows this tab's agent pane: its folder in the Explorer, its agent in the panel.
     func follow() {
-        guard isVisible || isTracking, let surface = agentSurface else { return }
+        guard isVisible || isTracking, hasWebView, let surface = agentSurface else { return }
         if let pwd = surface.pwd, pwd != webView.currentFolder { webView.openFolder(pwd) }
 
         let info = VerticalTabsAgents.shared.info(for: surface)
@@ -307,9 +350,20 @@ final class EditorSession {
                 "live": transcriptPath == nil ? "no" : "yes",
             ]
         }
+        sendCheckpoints(for: surface)
         guard status != lastStatus else { return }
         lastStatus = status
         webView.sendAgentStatus(status)
+    }
+
+    /// Lets the timeline offer "Restore to before this" on each prompt that has a checkpoint.
+    private func sendCheckpoints(for surface: Ghostty.SurfaceView) {
+        let turns = TurnCheckpoints.shared.list(for: surface).filter { !$0.isRestorePoint }
+        guard turns.map(\.id) != lastCheckpoints else { return }
+        lastCheckpoints = turns.map(\.id)
+        webView.sendCheckpoints(turns.map {
+            ["id": $0.id.uuidString, "time": Int($0.time.timeIntervalSince1970 * 1000), "title": $0.title]
+        })
     }
 
     /// Makes room for the panel when the screen has space. Tabs share their window's

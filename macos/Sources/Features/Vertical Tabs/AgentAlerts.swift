@@ -55,7 +55,11 @@ final class AgentAlerts {
             center.getNotificationSettings { settings in
                 guard settings.authorizationStatus == .authorized else { return }
                 DispatchQueue.main.async { [weak surface] in
-                    surface?.showUserNotification(title: title, body: body)
+                    // Permission prompts get Allow / Deny buttons (see AgentPermissions).
+                    surface?.showUserNotification(
+                        title: title, body: body,
+                        category: info.activity == .needsPermission ? AgentPermissions.notificationCategory
+                                                                    : Ghostty.userNotificationCategory)
                 }
             }
         }

@@ -226,6 +226,7 @@ private struct VerticalTabsMenuPanel: View {
 
     @ObservedObject private var pins = VerticalTabsPins.shared
     @ObservedObject private var editorPanel = EditorPanel.shared
+    @ObservedObject private var checkpoints = TurnCheckpoints.shared
 
     var body: some View {
         let position = VerticalTabsActions.index(of: controller)
@@ -269,6 +270,7 @@ private struct VerticalTabsMenuPanel: View {
                 VerticalTabsActions.select(controller)
                 AgentRaces.showSetup(from: controller)
             }
+            undoItems
             separator
             item("Rename tab") {
                 VerticalTabsActions.select(controller)
@@ -293,6 +295,25 @@ private struct VerticalTabsMenuPanel: View {
         .padding(.vertical, 6)
         .frame(width: 290)
         .modifier(VerticalTabsPanelStyle(palette: palette))
+    }
+
+    /// Undo the agent's last turn, an earlier one, or a restore (see TurnCheckpoints).
+    @ViewBuilder
+    private var undoItems: some View {
+        if let surface = pane.surface {
+            let list = checkpoints.list(for: surface)
+            if !list.isEmpty {
+                separator
+                let lastTurn = list.last { !$0.isRestorePoint }?.id
+                ForEach(Array(list.suffix(4).reversed())) { checkpoint in
+                    let prompt = TurnCheckpoints.short(checkpoint.title, 34)
+                    let title = checkpoint.isRestorePoint ? "Undo restore"
+                        : checkpoint.id == lastTurn ? "Undo last turn: “\(prompt)”"
+                        : "Restore to before “\(prompt)”"
+                    item(title) { TurnCheckpoints.shared.confirmAndRestore(checkpoint, on: surface) }
+                }
+            }
+        }
     }
 
     private var separator: some View {

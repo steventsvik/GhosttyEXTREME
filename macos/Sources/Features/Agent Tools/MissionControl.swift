@@ -240,6 +240,10 @@ private struct MissionCardView: View {
                     .background(Rectangle().fill(Color.black.opacity(0.35)))
                     .clipped()
             }
+            if card.agent?.activity == .needsPermission, let surface = card.surface.value,
+               let prompt = AgentPermissions.prompt(on: surface) {
+                AgentPermissionButtons(surface: surface, prompt: prompt)
+            }
             actions
         }
         .padding(12)

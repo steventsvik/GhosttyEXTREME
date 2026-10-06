@@ -294,7 +294,9 @@ class AppDelegate: NSObject,
                 actions: actions,
                 intentIdentifiers: [],
                 options: [.customDismissAction]
-            )
+            ),
+            // Allow / Deny on an agent's permission prompt.
+            AgentPermissions.category,
         ])
         center.delegate = self
 
@@ -914,7 +916,9 @@ class AppDelegate: NSObject,
         didReceive: UNNotificationResponse,
         withCompletionHandler: () -> Void
     ) {
-        ghostty.handleUserNotification(response: didReceive)
+        if !AgentPermissions.handle(didReceive) {
+            ghostty.handleUserNotification(response: didReceive)
+        }
         withCompletionHandler()
     }
 

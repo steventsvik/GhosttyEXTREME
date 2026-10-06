@@ -586,6 +586,7 @@ function codeBlock(lines, cls, max = 10) {
 function renderItem(item) {
   const node = el('div', 'item ' + item.kind);
   if (item.kind === 'prompt') {
+    if (!item.sub && item.time) node.dataset.time = Date.parse(item.time) || '';
     node.append(el('div', 'label', 'YOU'));
     const t = el('div', 'text');
     t.append(richText(item.text));
@@ -690,6 +691,37 @@ function agentItems(items, reset) {
   }
   if (stick || reset) feed.scrollTop = feed.scrollHeight;
   $('agent').classList.remove('empty');
+  decoratePrompts();
+}
+
+// Turns the app snapshotted when they started (see TurnCheckpoints): [{id, time, title}].
+let checkpoints = [];
+
+function setCheckpoints(list) {
+  checkpoints = list || [];
+  decoratePrompts();
+}
+
+// "Restore to before this" on each of your prompts that has a checkpoint: the one taken
+// within half a minute of the prompt.
+function decoratePrompts() {
+  for (const node of $('agent-feed').querySelectorAll('.item.prompt[data-time]')) {
+    const time = Number(node.dataset.time);
+    let best = null;
+    for (const c of checkpoints) {
+      const gap = Math.abs(c.time - time);
+      if (gap < 30000 && (!best || gap < Math.abs(best.time - time))) best = c;
+    }
+    let button = node.querySelector('.restore');
+    if (!best) { button?.remove(); continue; }
+    if (!button) {
+      button = el('button', 'restore');
+      button.append(el('i', 'codicon codicon-discard'), 'Restore to before this');
+      button.title = 'Put your files back to how they were before this prompt (asks first)';
+      node.append(button);
+    }
+    button.onclick = (e) => { e.stopPropagation(); fs('restore', { id: best.id }); };
+  }
 }
 
 function agentStatus(status) {
@@ -1667,6 +1699,7 @@ window.app = {
   agentChange(change) { agentChange(change); },
   agentCatchUp(changes) { agentCatchUp(changes); },
   agentStatus(status) { agentStatus(status); },
+  setCheckpoints(list) { setCheckpoints(list); },
   setVisible(visible) {
     const was = panelVisible;
     panelVisible = visible;

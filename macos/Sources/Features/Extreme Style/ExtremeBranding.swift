@@ -8,8 +8,8 @@ import SwiftUI
 
 // MARK: - Terminal frame
 
-/// Pixel corner brackets around the terminal. While an agent in the tab works, a cyan light
-/// travels around the edge; when one needs you, the corners blink amber.
+/// Corner brackets around the terminal: they breathe cyan while an agent in the tab works
+/// and pulse amber when one needs you.
 struct TerminalFrameOverlay: View {
     let controller: TerminalController
 
@@ -20,13 +20,13 @@ struct TerminalFrameOverlay: View {
     var body: some View {
         Group {
             switch mode {
-            // Core Animation layers: the blink and the travelling light cost nothing per frame.
+            // Core Animation layers: the pulse and the breath cost nothing per frame.
             case .idle:
                 FrameLights(color: Extreme.bronze.opacity(0.55))
             case .waiting:
-                FrameLights(color: Extreme.warn, length: 20, blink: motion)
+                FrameLights(color: Extreme.warn, length: 20, pulse: motion)
             case .working:
-                FrameLights(color: Extreme.core.opacity(0.8), comet: motion)
+                FrameLights(color: Extreme.core.opacity(0.8), breathe: motion)
             }
         }
         .allowsHitTesting(false)
@@ -40,47 +40,6 @@ struct TerminalFrameOverlay: View {
         let next: Mode = infos.contains { $0.activity == .needsPermission || $0.activity == .needsInput } ? .waiting
             : infos.contains { $0.activity == .working } ? .working : .idle
         if next != mode { mode = next }
-    }
-
-    private func corners(color: Color, length: CGFloat = 14) -> some View {
-        Canvas { context, size in
-            let w = size.width, h = size.height, t: CGFloat = 2
-            for (x, y, dx, dy) in [(0.0, 0.0, 1.0, 1.0), (w, 0, -1, 1), (0, h, 1, -1), (w, h, -1, -1)] {
-                let ox = dx > 0 ? x : x - t, oy = dy > 0 ? y : y - t
-                context.fill(Path(CGRect(x: dx > 0 ? ox : x - length, y: oy, width: length, height: t)), with: .color(color))
-                context.fill(Path(CGRect(x: ox, y: dy > 0 ? oy : y - length, width: t, height: length)), with: .color(color))
-            }
-        }
-    }
-
-    /// A short run of pixels chasing around the edge, with a fading tail.
-    private func comet(at date: Date) -> some View {
-        Canvas { context, size in
-            let w = size.width, h = size.height
-            let perimeter = 2 * (w + h)
-            guard perimeter > 0 else { return }
-            let segment: CGFloat = 10
-            // One lap every ~3.5s, moving in whole-segment steps.
-            let head = CGFloat((date.timeIntervalSinceReferenceDate * Double(perimeter) / 3.5)
-                .truncatingRemainder(dividingBy: Double(perimeter)))
-            let snapped = (head / segment).rounded(.down) * segment
-            for i in 0..<7 {
-                let distance = (snapped - CGFloat(i) * segment + perimeter).truncatingRemainder(dividingBy: perimeter)
-                let alpha = 1 - Double(i) / 7
-                context.fill(Path(rect(along: distance, length: segment - 2, w: w, h: h)),
-                             with: .color(Extreme.core.opacity(alpha)))
-            }
-        }
-        .shadow(color: Extreme.core.opacity(0.7), radius: 4)
-    }
-
-    /// The small rectangle `distance` along the perimeter, clockwise from the top left.
-    private func rect(along distance: CGFloat, length: CGFloat, w: CGFloat, h: CGFloat) -> CGRect {
-        let t: CGFloat = 2
-        if distance < w { return CGRect(x: distance, y: 0, width: length, height: t) }
-        if distance < w + h { return CGRect(x: w - t, y: distance - w, width: t, height: length) }
-        if distance < 2 * w + h { return CGRect(x: w - (distance - w - h) - length, y: h - t, width: length, height: t) }
-        return CGRect(x: 0, y: h - (distance - 2 * w - h) - length, width: t, height: length)
     }
 }
 
