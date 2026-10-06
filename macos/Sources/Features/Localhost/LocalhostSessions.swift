@@ -629,7 +629,7 @@ final class LocalhostSessions: ObservableObject {
         "hugo", "jekyll", "rails", "puma", "beam.smp", "dotnet", "go", "air", "esbuild", "caddy",
     ]
     /// Parents that aren't part of the server (walking up stops at them).
-    private static let boundaries: Set<String> = [
+    static let boundaries: Set<String> = [
         "zsh", "-zsh", "bash", "-bash", "fish", "sh", "login", "launchd", "tmux", "screen", "claude",
         "codex", "script", "ghostty", "sudo",
     ]
@@ -667,7 +667,7 @@ final class LocalhostSessions: ObservableObject {
     }
 
     /// `node /Users/me/app/node_modules/.bin/vite --port 3000` -> `vite --port 3000`.
-    private static func prettyCommand(_ command: String) -> String {
+    static func prettyCommand(_ command: String) -> String {
         var words = command.split(separator: " ").map(String.init)
         if words.count > 1, ["node", "bun"].contains((words[0] as NSString).lastPathComponent),
            words[1].contains("/node_modules/.bin/") {

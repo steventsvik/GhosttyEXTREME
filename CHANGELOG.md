@@ -14,8 +14,18 @@ What changed in each GhosttyEXTREME release. Work in progress collects under
 - The sidebar shows a warning when agent status needs fixing, and a confirmation when a live test arrives.
 
 **Settings**
-- **GhosttyEXTREME Settings** (⌃⌘,) turns each feature on or off: code editor, Visual Fix, Mission Control, races, localhost sessions, review, undo, command history, activity, Background and the usage meter. A feature that's off has no menu item, shortcut, button or palette entry, and does no background work. Presets: Everything, Agent essentials, Just the sidebar.
+- **GhosttyEXTREME Settings** (⌃⌘,) turns each feature on or off: code editor, Visual Fix, Mission Control, races, localhost sessions, review, undo, command history, activity, Background, the usage meter, Ports and the Git panel. A feature that's off has no menu item, shortcut, button or palette entry, and does no background work. Presets: Everything, Agent essentials, Just the sidebar.
 - Animation (Full or Status only), aurora, compact rows and sidebar width, plus removing the hooks again.
+
+**Ports**
+- A Ports section in the sidebar lists what's listening and which project it belongs to (Next.js, Vite, Django and more get their own badge). Open it in the browser or Visual Fix, click it to go to its tab, or **Stop** it (click twice). Apps and container ports are one click away.
+- When a command fails because its port is taken ("EADDRINUSE", "address already in use"), the sidebar names what holds the port and offers to stop it.
+- The list reads sockets straight from macOS, so it costs a couple of milliseconds every few seconds, and nothing while GhosttyEXTREME is in the background.
+
+**Git panel**
+- Click a tab's branch in the sidebar for a panel with its pull request (title, review state and every check, failing ones first, each linked to its log), branches (switch, filter, create), stashes (stash, apply, pop, drop) and recent commits.
+- Tabs show commits to push and pull (↑2 ↓1) and the branch's pull request with its checks (#123 ✓) beside the branch.
+- Pull requests come from the GitHub CLI (`gh`) when it's installed and signed in, refreshed every minute and when an agent finishes a turn. Switching branches warns when an agent is working in the tab and offers to stash uncommitted changes first.
 
 **Every shortcut at a glance**
 - Hold ⌃⌘ for a moment to see every ⌃⌘ shortcut over the window, along with Ghostty's essentials; let go and it's gone. ⌃⌘/ keeps it open.

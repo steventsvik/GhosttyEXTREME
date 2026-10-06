@@ -122,8 +122,8 @@ struct VerticalTabsLayout<Content: View>: View {
 enum VerticalTabsTestSupport {
     private static var didOpen = false
 
-    /// `GHOSTTY_EXTREME_TEST_OVERLAY=hover|menu`: the selected row opens its hover card
-    /// or ⋮ menu shortly after launch.
+    /// `GHOSTTY_EXTREME_TEST_OVERLAY=hover|menu|git`: the selected row opens its hover card,
+    /// ⋮ menu or Git panel shortly after launch.
     static let overlayMode = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_OVERLAY"]
     static let showOverlay = Notification.Name("com.steventsvik.ghostty-extreme.testShowOverlay")
 
@@ -264,6 +264,26 @@ enum VerticalTabsTestSupport {
                     try? (old + "setup: " + result + "\n").write(toFile: path, atomically: true, encoding: .utf8)
                 }
                 SetupChecks.shared.refresh()
+            }
+        }
+        // `GHOSTTY_EXTREME_TEST_STOP_PORT=<port>`: after 12s, Stop whatever listens there (as the
+        // Ports section's Stop does), logging what was listening before and after.
+        if let value = env["GHOSTTY_EXTREME_TEST_STOP_PORT"], let port = Int(value) {
+            let log: (String) -> Void = { line in
+                guard let path = env["GHOSTTY_EXTREME_TEST_LOG"] else { return }
+                let old = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
+                try? (old + line + "\n").write(toFile: path, atomically: true, encoding: .utf8)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 12) {
+                let monitor = PortsMonitor.shared
+                log("ports: " + monitor.entries.map { ":\($0.port) \($0.kind) \($0.title) [\($0.command)]" }.joined(separator: ", "))
+                log("conflict: \(monitor.conflict.map { String($0.port) } ?? "none")")
+                guard let entry = monitor.entries.first(where: { $0.port == port }) else { log("stop: nothing on \(port)"); return }
+                monitor.stop(entry)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 6) {
+                    log("after stop: \(port) " + (monitor.entries.contains { $0.port == port } ? "still listening" : "free")
+                        + ", pid \(entry.pid) " + (ProcessProbe.isAlive(entry.pid) ? "alive" : "gone"))
+                }
             }
         }
         // `GHOSTTY_EXTREME_TEST_PRESENT=1`: after 8s, present the first tab's pane the way
@@ -456,6 +476,11 @@ struct VerticalTabsSidebar: View {
                 }
                 .padding(.bottom, 10)
                 .animation(.spring(response: 0.45, dampingFraction: 0.85), value: groupLayout)
+            }
+
+            // What's listening on which port (only when something is).
+            if settings.isOn(.ports) {
+                PortsSidebarSection(owner: owner)
             }
 
             // Localhost sessions stay in view, whatever else is open.
@@ -888,6 +913,8 @@ private struct VerticalTabPaneRow: View {
     let palette: VerticalTabsPalette
 
     @ObservedObject private var git = VerticalTabsGit.shared
+    @ObservedObject private var pulls = GitHubPulls.shared
+    @ObservedObject private var settings = ExtremeSettings.shared
     @State private var trackedPwd: String?
     @State private var hovering = false
     @State private var frame: CGRect = .zero
@@ -944,7 +971,10 @@ private struct VerticalTabPaneRow: View {
         .onTapGesture(perform: focus)
         .onReceive(NotificationCenter.default.publisher(for: VerticalTabsTestSupport.showOverlay)) { _ in
             guard isSelected else { return }
-            if VerticalTabsTestSupport.overlayMode == "menu" {
+            if VerticalTabsTestSupport.overlayMode == "git", let pwd = pane.pwd, let root = git.root(for: pwd) {
+                overlay.git = .init(controller: controller, pwd: pwd, root: root,
+                                    anchor: CGRect(x: frame.minX + 30, y: frame.minY + 4, width: 0, height: 18))
+            } else if VerticalTabsTestSupport.overlayMode == "menu" {
                 overlay.menu = .init(
                     controller: controller, pane: pane, tabColor: tabColor,
                     anchor: CGRect(x: frame.maxX - 56, y: frame.minY + 4, width: 26, height: 26))
@@ -1082,16 +1112,44 @@ private struct VerticalTabPaneRow: View {
                 .lineLimit(1)
                 .truncationMode(.head)
             if let gitInfo {
-                PixelIconView(icon: .branch, color: Extreme.bronze, pixel: 1)
-                Text(gitInfo.branch)
-                    .foregroundColor(Extreme.bronze)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .layoutPriority(1)
+                if settings.isOn(.git), let pwd = pane.pwd, let root = git.root(for: pwd) {
+                    // Opens the Git panel.
+                    Button {
+                        overlay.dismissAll()
+                        overlay.git = .init(controller: controller, pwd: pwd, root: root,
+                                            anchor: CGRect(x: frame.minX + 30, y: frame.minY + 4, width: 0, height: 18))
+                    } label: {
+                        HStack(spacing: 5) {
+                            branchLabel(gitInfo)
+                            AheadBehindLabel(info: gitInfo)
+                            if let pull = pulls.pull(root: root, branch: gitInfo.branch) {
+                                PullRequestBadge(pull: pull)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Branches, stashes, commits and pull request")
+                    .onAppear { pulls.fetch(root: root, branch: gitInfo.branch) }
+                    .onChange(of: gitInfo.branch) { pulls.fetch(root: root, branch: $0) }
+                } else {
+                    branchLabel(gitInfo)
+                }
             }
         }
         .font(Extreme.font(11.5))
         .foregroundColor(Extreme.text)
+    }
+
+    private func branchLabel(_ info: VerticalTabsGitInfo) -> some View {
+        HStack(spacing: 5) {
+            PixelIconView(icon: .branch, color: Extreme.bronze, pixel: 1)
+            Text(info.branch)
+                .foregroundColor(Extreme.bronze)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+        .layoutPriority(1)
     }
 
     /// What the pane is doing: the agent's task, or the terminal's title/command.

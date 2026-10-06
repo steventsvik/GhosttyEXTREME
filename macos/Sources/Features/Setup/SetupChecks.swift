@@ -313,6 +313,12 @@ final class SetupChecks: ObservableObject {
         return found
     }
 
+    /// A tool on the login shell's PATH. Off the main thread only (the first call asks the shell).
+    static func locate(_ tool: String) -> String? {
+        loginPath.lazy.map { ($0 as NSString).appendingPathComponent(tool) }
+            .first { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+
     /// The login shell's PATH, found once.
     private static let loginPath: [String] = {
         let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"

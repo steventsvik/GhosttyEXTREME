@@ -17,6 +17,8 @@ enum ExtremeFeature: String, CaseIterable, Identifiable {
     case activity
     case background
     case usage
+    case ports
+    case git
 
     var id: String { rawValue }
 
@@ -33,6 +35,8 @@ enum ExtremeFeature: String, CaseIterable, Identifiable {
         case .activity: return "Agent activity"
         case .background: return "Background processes"
         case .usage: return "Usage meter"
+        case .ports: return "Ports"
+        case .git: return "Git panel"
         }
     }
 
@@ -49,6 +53,8 @@ enum ExtremeFeature: String, CaseIterable, Identifiable {
         case .activity: return "Active time, prompts, files, tests and tokens per agent"
         case .background: return "Finds dev servers, VMs and agents left running"
         case .usage: return "Your Claude and ChatGPT plan limits in the sidebar"
+        case .ports: return "What's listening on which port in the sidebar, with Stop, and who holds a port a command couldn't get"
+        case .git: return "Click a tab's branch: switch branches, stashes, recent commits, and its pull request's checks"
         }
     }
 
@@ -64,7 +70,7 @@ enum ExtremeFeature: String, CaseIterable, Identifiable {
         case .commandHistory: return "B"
         case .activity: return "A"
         case .background: return "K"
-        case .undo, .usage: return nil
+        case .undo, .usage, .ports, .git: return nil
         }
     }
 
@@ -88,7 +94,7 @@ enum ExtremePreset: String, CaseIterable, Identifiable {
     var detail: String {
         switch self {
         case .everything: return "Every feature on"
-        case .essentials: return "Editor, Mission Control, review, undo, localhost and usage"
+        case .essentials: return "Editor, Mission Control, review, undo, localhost, ports, git and usage"
         case .sidebar: return "Vertical tabs with agent status, nothing else"
         }
     }
@@ -96,7 +102,7 @@ enum ExtremePreset: String, CaseIterable, Identifiable {
     var features: Set<ExtremeFeature> {
         switch self {
         case .everything: return Set(ExtremeFeature.allCases)
-        case .essentials: return [.editor, .missionControl, .localhost, .review, .undo, .usage]
+        case .essentials: return [.editor, .missionControl, .localhost, .review, .undo, .usage, .ports, .git]
         case .sidebar: return []
         }
     }
@@ -211,7 +217,9 @@ final class ExtremeSettings: ObservableObject {
             AgentToolWindows.close(id: ReviewInbox.windowID)
         case .activity:
             AgentToolWindows.close(id: ActivityDashboard.windowID)
-        case .races, .undo, .usage:
+        case .ports:
+            PortsMonitor.shared.dismissConflict()
+        case .races, .undo, .usage, .git:
             break
         }
     }

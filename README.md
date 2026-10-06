@@ -267,6 +267,18 @@ browser automation, databases, watchers, log followers and login services.
 - **Cleanup in one click,** always with a confirmation first. Login services are never
   marked ready to close.
 
+### Ports
+
+The sidebar lists what's listening, which project it belongs to and what started it.
+Open it in the browser or Visual Fix, jump to its tab, or stop it. When a command fails
+because its port is taken, the sidebar says what holds the port and offers to stop it.
+
+### Git panel
+
+Click a tab's branch for its pull request and every check (from the GitHub CLI), branch
+switching, stashes and recent commits. Tabs show commits to push and pull and the pull
+request's state beside the branch.
+
 ### Command history
 
 Every command becomes a block with its output, exit code and duration (⌃⌘B). When one

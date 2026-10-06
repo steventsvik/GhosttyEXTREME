@@ -75,10 +75,14 @@ final class CommandBlocks: ObservableObject {
 
     /// Called from Ghostty's `command_finished` action.
     func commandFinished(on surface: Ghostty.SurfaceView, exitCode: Int16, duration: UInt64) {
-        guard ExtremeSettings.isOn(.commandHistory) else { return }
+        let history = ExtremeSettings.isOn(.commandHistory)
+        // The port list also reads failed commands ("port 3000 is in use").
+        guard history || (exitCode > 0 && ExtremeSettings.isOn(.ports)) else { return }
         // Read after the action returns, outside whatever the core is doing right now.
         DispatchQueue.main.async { [weak self, weak surface] in
             guard let self, let surface, let (command, output) = Self.readLastCommand(surface) else { return }
+            if exitCode > 0 { PortsMonitor.shared.commandFailed(command, output: output) }
+            guard history else { return }
             let block = CommandBlock(
                 command: command,
                 output: output,

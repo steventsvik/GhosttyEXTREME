@@ -8,6 +8,9 @@ struct VerticalTabsGitInfo: Equatable {
     let branch: String
     let added: Int
     let removed: Int
+    /// Commits not yet pushed to / pulled from the upstream branch; nil without one.
+    var ahead: Int?
+    var behind: Int?
 }
 
 /// Git info for the folders shown in the sidebar.
@@ -57,6 +60,18 @@ final class VerticalTabsGit: ObservableObject {
     func info(for pwd: String?) -> VerticalTabsGitInfo? {
         guard let pwd, let root = rootForPwd[pwd], !root.isEmpty else { return nil }
         return info[root]
+    }
+
+    /// The repository root containing `pwd`, once known. Never touches the filesystem.
+    func root(for pwd: String?) -> String? {
+        guard let pwd, let root = rootForPwd[pwd], !root.isEmpty else { return nil }
+        return root
+    }
+
+    /// Re-reads one repository now (after a branch switch, a commit, an agent's turn).
+    func refreshNow(root: String) {
+        guard let gitDir = gitDirs[root] else { return }
+        refresh(root: root, gitDir: gitDir)
     }
 
     /// A row started displaying `pwd`. Resolves its repository in the background.
@@ -114,7 +129,10 @@ final class VerticalTabsGit: ObservableObject {
         queue.async { [weak self] in
             let branch = Self.readBranch(gitDir: gitDir) ?? "HEAD"
             let (added, removed) = Self.diffStats(repo: root, gitPath: gitPath)
-            let result = VerticalTabsGitInfo(branch: branch, added: added, removed: removed)
+            // Ahead/behind is for the Git panel's badge; skipped when that's turned off.
+            let counts = ExtremeSettings.isOn(.git) ? Self.aheadBehind(repo: root, gitPath: gitPath) : nil
+            let result = VerticalTabsGitInfo(branch: branch, added: added, removed: removed,
+                                             ahead: counts?.ahead, behind: counts?.behind)
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.inFlight.remove(root)
@@ -184,6 +202,22 @@ final class VerticalTabsGit: ObservableObject {
         guard process.terminationStatus == 0,
               let output = String(data: data, encoding: .utf8) else { return (0, 0) }
         return (number(before: "insertion", in: output), number(before: "deletion", in: output))
+    }
+
+    /// Commits ahead of and behind the upstream branch (`git rev-list --left-right --count`).
+    private static func aheadBehind(repo: String, gitPath: String) -> (ahead: Int, behind: Int)? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: gitPath)
+        process.arguments = ["-C", repo, "--no-optional-locks", "rev-list", "--left-right", "--count", "@{upstream}...HEAD"]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        do { try process.run() } catch { return nil }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        let parts = String(decoding: data, as: UTF8.self).split(whereSeparator: { $0 == "\t" || $0 == " " || $0 == "\n" })
+        guard process.terminationStatus == 0, parts.count == 2, let behind = Int(parts[0]), let ahead = Int(parts[1]) else { return nil }
+        return (ahead, behind)
     }
 
     /// Parses e.g. "3 files changed, 10 insertions(+), 2 deletions(-)".

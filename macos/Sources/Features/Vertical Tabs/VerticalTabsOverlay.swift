@@ -21,8 +21,17 @@ final class VerticalTabsOverlayState: ObservableObject {
         let anchor: CGRect
     }
 
+    /// The Git panel, opened from a row's branch.
+    struct GitPanel {
+        weak var controller: TerminalController?
+        let pwd: String
+        let root: String
+        let anchor: CGRect
+    }
+
     @Published private(set) var hover: Hover?
     @Published var menu: Menu?
+    @Published var git: GitPanel?
 
     private var pendingHover: DispatchWorkItem?
 
@@ -53,6 +62,7 @@ final class VerticalTabsOverlayState: ObservableObject {
         pendingHover?.cancel()
         hover = nil
         menu = nil
+        git = nil
     }
 }
 
@@ -65,7 +75,17 @@ struct VerticalTabsOverlayLayer: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .topLeading) {
-                if let menu = state.menu, let controller = menu.controller {
+                if let panel = state.git, let controller = panel.controller {
+                    Color.black.opacity(0.001)
+                        .onTapGesture { state.git = nil }
+                    GitPanelView(controller: controller, pwd: panel.pwd, root: panel.root) { state.git = nil }
+                        .id(panel.root + panel.pwd)
+                        .fixedSize()
+                        .offset(
+                            x: max(8, min(panel.anchor.minX, geometry.size.width - 370)),
+                            y: max(8, min(panel.anchor.maxY + 4, geometry.size.height - 540)))
+                        .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .topLeading)))
+                } else if let menu = state.menu, let controller = menu.controller {
                     // Clicking anywhere else closes the menu.
                     Color.black.opacity(0.001)
                         .onTapGesture { state.menu = nil }
@@ -94,6 +114,7 @@ struct VerticalTabsOverlayLayer: View {
             .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
             .animation(.easeOut(duration: 0.14), value: state.hover)
             .animation(.easeOut(duration: 0.12), value: state.menu != nil)
+            .animation(.easeOut(duration: 0.12), value: state.git != nil)
         }
     }
 }
