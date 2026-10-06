@@ -27,6 +27,12 @@ What changed in each GhosttyEXTREME release. Work in progress collects under
 - Tabs show commits to push and pull (↑2 ↓1) and the branch's pull request with its checks (#123 ✓) beside the branch.
 - Pull requests come from the GitHub CLI (`gh`) when it's installed and signed in, refreshed every minute and when an agent finishes a turn. Switching branches warns when an agent is working in the tab and offers to stash uncommitted changes first.
 
+**Agents working together**
+- **Hand Off…** (⋮ menu, Mission Control, ⌘P) passes a pane's work to another agent with what it needs: the task, the recent conversation, exactly what the first agent changed (a diff since its first prompt, from the undo snapshots) and failed commands. Review, continue, or ask for a second opinion; to a new Claude Code or Codex beside it, or to one that's already running. You can read and edit the message first.
+- **Review loops**: pair an agent with a reviewer (⋮ → Start a review loop…). When the writer finishes a turn, the reviewer gets its changes and answers APPROVED or CHANGES NEEDED; its findings go back to the writer, round after round, until it approves or the round limit (3 by default). Each message waits for you to press Send on the agent's card, unless you turn on Send automatically.
+- **Send a failed command to the agent already working on the project**: the failed-command chip offers it first, with the output and what's changed.
+- Messages are only ever typed into an agent between turns, into an empty input box: never into a permission prompt, a menu or a dialog, and never over something you've started typing (greyed-out suggestions don't count). Until then they wait on the agent's card, where you can drop them.
+
 **Every shortcut at a glance**
 - Hold ⌃⌘ for a moment to see every ⌃⌘ shortcut over the window, along with Ghostty's essentials; let go and it's gone. ⌃⌘/ keeps it open.
 

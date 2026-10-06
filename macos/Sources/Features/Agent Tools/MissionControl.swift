@@ -245,6 +245,7 @@ private struct MissionCardView: View {
                let prompt = AgentPermissions.prompt(on: surface) {
                 AgentPermissionButtons(surface: surface, prompt: prompt)
             }
+            if let surface = card.surface.value { AgentMessagesLine(surface: surface) }
             actions
         }
         .padding(12)
@@ -273,14 +274,18 @@ private struct MissionCardView: View {
             Button("Open", action: focus)
             if let surface = card.surface.value, let controller = card.controller, surface.pwd != nil {
                 Menu("Hand off") {
-                    ForEach(AgentHandoff.Mode.allCases, id: \.self) { mode in
+                    ForEach(AgentHandoff.Mode.quick, id: \.self) { mode in
                         ForEach(AgentHandoff.targets, id: \.self) { target in
                             Button(AgentHandoff.title(mode, target)) {
                                 AgentHandoff.handOff(from: surface, in: controller, to: target, mode: mode)
                                 focus()
                             }
                         }
-                        if mode == .review { Divider() }
+                        Divider()
+                    }
+                    Button("Hand Off…") { AgentHandoff.showWindow(from: surface, in: controller) }
+                    if card.agent != nil {
+                        Button("Start a Review Loop…") { PipelineSetup.show(writer: surface, in: controller) }
                     }
                 }
                 .fixedSize()

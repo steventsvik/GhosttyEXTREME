@@ -53,13 +53,27 @@ enum PaletteExtras {
                 })
             }
             if surfaceView.pwd != nil && !HermesSessions.shared.isHermes(owner) {
+                options.append(CommandOption(
+                    title: "Hand Off…",
+                    description: "Pass this pane's work to another agent, new or running, with its context",
+                    leadingIcon: "arrow.triangle.branch"
+                ) {
+                    AgentHandoff.showWindow(from: surfaceView, in: owner)
+                })
+                if VerticalTabsAgents.shared.info(for: surfaceView) != nil {
+                    options.append(CommandOption(
+                        title: "Start a Review Loop…",
+                        description: "Another agent reviews this one's work in rounds until it approves",
+                        leadingIcon: "arrow.triangle.2.circlepath"
+                    ) {
+                        PipelineSetup.show(writer: surfaceView, in: owner)
+                    })
+                }
                 for mode in AgentHandoff.Mode.allCases {
                     for target in AgentHandoff.targets {
                         options.append(CommandOption(
                             title: "Hand Off: \(AgentHandoff.title(mode, target))",
-                            description: mode == .review
-                                ? "Open \(target.displayName) beside this pane to review the changes here"
-                                : "Open \(target.displayName) beside this pane to finish the task",
+                            description: "Open \(target.displayName) beside this pane: \(mode.detail.lowercased())",
                             leadingIcon: "arrow.triangle.branch",
                             leadingColor: target.brandColor
                         ) {

@@ -1,20 +1,47 @@
 #if os(macOS)
 import AppKit
+import SwiftUI
 
-/// Passes a pane's work to another agent, with the context written into its first prompt:
-/// the task, the last agent's final message and what's changed in git. The new agent opens
-/// in a split beside the original so both stay visible.
+/// Passes a pane's work to another agent with the context written into its first message:
+/// the task, the recent conversation, exactly what the first agent changed (since its first
+/// turn here, from the undo snapshots) and commands that failed. The other agent can be a
+/// new one in a split beside the original, or one that's already running (the message waits
+/// until it's between turns; see `AgentInbox`).
 enum AgentHandoff {
-    enum Mode: CaseIterable {
+    enum Mode: CaseIterable, Identifiable {
         /// Read the changes and report problems without editing anything.
         case review
         /// Pick up the task where the previous agent stopped.
         case `continue`
+        /// Look at the task and the approach, suggest a plan; no edits.
+        case secondOpinion
+
+        var id: Self { self }
+
+        /// The ones in the ⋮ and Mission Control menus; the rest are in the Hand Off window.
+        static let quick: [Mode] = [.review, .continue]
 
         var verb: String {
             switch self {
             case .review: return "Review with"
             case .continue: return "Continue with"
+            case .secondOpinion: return "Second opinion from"
+            }
+        }
+
+        var title: String {
+            switch self {
+            case .review: return "Review"
+            case .continue: return "Continue"
+            case .secondOpinion: return "Second opinion"
+            }
+        }
+
+        var detail: String {
+            switch self {
+            case .review: return "Check the changes for bugs and gaps; no edits"
+            case .continue: return "Finish the task from where it stopped"
+            case .secondOpinion: return "Weigh in on the approach and suggest a plan; no edits"
             }
         }
     }
@@ -25,71 +52,284 @@ enum AgentHandoff {
         "\(mode.verb) \(target.displayName)"
     }
 
-    static func handOff(from surface: Ghostty.SurfaceView,
-                        in controller: TerminalController,
-                        to target: VerticalTabAgentKind,
-                        mode: Mode) {
-        guard let folder = surface.pwd else { return }
-        let info = VerticalTabsAgents.shared.info(for: surface)
-        let source = info?.kind
-        // Git and the transcript can take a moment on big repos; gather them off the main thread.
-        DispatchQueue.global(qos: .userInitiated).async {
-            let prompt = makePrompt(mode: mode, source: source, task: info?.task,
-                                    lastMessage: AgentTools.lastAssistantMessage(transcript: info?.transcriptPath),
-                                    folder: folder)
-            DispatchQueue.main.async {
-                guard let file = AgentTools.writePrompt(
-                    prompt, folder: "handoffs", name: "\(AgentTools.timestamp())-\(target.rawValue).md") else { return }
-                var config = Ghostty.SurfaceConfiguration()
-                config.workingDirectory = folder
-                config.initialInput = AgentTools.agentCommand(target, promptFile: file)
-                controller.newSplit(at: surface, direction: .right, baseConfig: config)
+    /// Where the work goes.
+    enum Destination: Equatable {
+        /// A new agent in a split beside the pane.
+        case newSplit(VerticalTabAgentKind)
+        /// An agent that's already running in another pane.
+        case existing(Ghostty.SurfaceView)
+    }
+
+    /// One-click handoff from a menu: the conversation and the changes, to a new agent beside it.
+    static func handOff(from surface: Ghostty.SurfaceView, in controller: TerminalController,
+                        to target: VerticalTabAgentKind, mode: Mode) {
+        AgentContext.gather(from: surface, parts: [.conversation, .changes]) { context in
+            send(prompt(mode: mode, context: context), from: surface, in: controller, to: .newSplit(target), mode: mode)
+        }
+    }
+
+    /// Starts the new agent with the message, or queues it for a running one.
+    static func send(_ prompt: String, from surface: Ghostty.SurfaceView, in controller: TerminalController,
+                     to destination: Destination, mode: Mode) {
+        switch destination {
+        case .newSplit(let target):
+            guard let file = AgentTools.writePrompt(
+                prompt, folder: "handoffs", name: "\(AgentTools.timestamp())-\(target.rawValue).md") else { return }
+            var config = Ghostty.SurfaceConfiguration()
+            config.workingDirectory = surface.pwd
+            config.initialInput = AgentTools.agentCommand(target, promptFile: file)
+            controller.newSplit(at: surface, direction: .right, baseConfig: config)
+        case .existing(let target):
+            let from = VerticalTabsAgents.shared.info(for: surface)?.kind.displayName ?? "another pane"
+            AgentInbox.shared.deliver(prompt, to: target, label: "\(mode.title) from \(from)")
+        }
+    }
+
+    /// Other panes running Claude Code or Codex, in any window.
+    static func runningAgents(excluding surface: Ghostty.SurfaceView) -> [(surface: Ghostty.SurfaceView, info: VerticalTabAgentInfo, tab: String)] {
+        TerminalController.all.flatMap { controller in
+            controller.surfaceTree.compactMap { other -> (Ghostty.SurfaceView, VerticalTabAgentInfo, String)? in
+                guard other !== surface, let info = VerticalTabsAgents.shared.info(for: other),
+                      info.kind == .claude || info.kind == .codex else { return nil }
+                return (other, info, controller.titleOverride ?? other.pwd?.abbreviatedPath ?? "Tab")
             }
         }
     }
 
-    private static func makePrompt(mode: Mode, source: VerticalTabAgentKind?, task: String?,
-                                   lastMessage: String?, folder: String) -> String {
-        let who = source.map { "another coding agent (\($0.displayName))" } ?? "someone"
-        var context: [String] = []
-        if let task, !task.isEmpty { context.append("Their task was:\n\(task)") }
-        if let lastMessage, !lastMessage.isEmpty {
-            context.append("Their last message:\n\(AgentTools.clip(lastMessage, 4000))")
+    /// The running agent closest to `surface`: another pane in the same tab, else one in the
+    /// same project (repository).
+    static func nearestAgent(to surface: Ghostty.SurfaceView) -> (surface: Ghostty.SurfaceView, info: VerticalTabAgentInfo, tab: String)? {
+        let agents = runningAgents(excluding: surface)
+        if let controller = surface.window?.windowController as? TerminalController,
+           let sameTab = agents.first(where: { agent in controller.surfaceTree.contains { $0 === agent.surface } }) {
+            return sameTab
         }
-        if AgentTools.repoRoot(of: folder) != nil {
-            let status = AgentTools.git(["status", "--short"], in: folder).output.trimmingCharacters(in: .newlines)
-            let stat = AgentTools.git(["diff", "--stat", "HEAD"], in: folder).output.trimmingCharacters(in: .newlines)
-            if status.isEmpty {
-                context.append("There are no uncommitted changes; look at the most recent commits (`git log -p -3`).")
-            } else {
-                context.append("Uncommitted changes (git status):\n\(AgentTools.clip(status, 3000))")
-                if !stat.isEmpty { context.append("Diff summary:\n\(AgentTools.clip(stat, 2000))") }
-            }
-        }
-        let background = context.joined(separator: "\n\n")
+        guard let root = VerticalTabsGit.shared.root(for: surface.pwd) else { return nil }
+        return agents.first { VerticalTabsGit.shared.root(for: $0.surface.pwd) == root }
+    }
 
+    // MARK: The message
+
+    static func prompt(mode: Mode, context: AgentContext) -> String {
+        let who = context.agent.map { "another coding agent (\($0.displayName))" } ?? "someone"
+        let background = context.isEmpty ? "There's no recorded context; look at the project's current state." : context.render()
         switch mode {
         case .review:
             return """
-            You're reviewing work that \(who) just did in this folder.
+            You're reviewing work that \(who) just did in \(context.folder).
 
             \(background)
 
-            Review those changes: run `git diff` (and read any new files) to see exactly what changed. Look for bugs, \
-            security problems, missed edge cases, and anything that doesn't match the task. List your findings from \
-            most to least important, each with a file:line reference and a suggested fix. If everything looks right, \
-            say so. Do not modify any files; this is a review only.
+            Review those changes (run `git diff` and read new files if you need more than what's above). Look for \
+            bugs, security problems, missed edge cases, and anything that doesn't match the task. List your findings \
+            from most to least important, each with a file:line reference and a suggested fix. If everything looks \
+            right, say so. Do not modify any files; this is a review only.
             """
         case .continue:
             return """
-            You're taking over a task from \(who), who was working in this folder and stopped.
+            You're taking over a task from \(who), who was working in \(context.folder) and stopped.
 
             \(background)
 
-            First check the current state (run `git diff` and read the relevant files), then finish the task. \
-            Keep what's already done unless it's wrong. When you're finished, summarize what you changed.
+            First check the current state (`git diff` and the relevant files), then finish the task. Keep what's \
+            already done unless it's wrong. When you're finished, summarize what you changed.
+            """
+        case .secondOpinion:
+            return """
+            \(who.prefix(1).uppercased() + who.dropFirst()) is working in \(context.folder) and I'd like a second opinion.
+
+            \(background)
+
+            Look at the task and the approach so far. Is it the right way to solve it? What would you do differently, \
+            what risks or simpler options do you see? Answer with a short assessment and a concrete plan. Do not \
+            modify any files.
             """
         }
+    }
+}
+
+// MARK: - Hand Off window
+
+extension AgentHandoff {
+    static func showWindow(from surface: Ghostty.SurfaceView, in controller: TerminalController,
+                           mode: Mode = .review, target: VerticalTabAgentKind? = nil) {
+        AgentToolWindows.show(id: "handoff", title: "Hand Off", size: NSSize(width: 640, height: 720)) {
+            HandoffView(surface: surface, controller: controller, mode: mode,
+                        target: target ?? (VerticalTabsAgents.shared.info(for: surface)?.kind == .codex ? .claude : .codex))
+        }
+    }
+}
+
+private struct HandoffView: View {
+    weak var surface: Ghostty.SurfaceView?
+    weak var controller: TerminalController?
+    @State private var mode: AgentHandoff.Mode
+    @State private var target: VerticalTabAgentKind
+    /// Nil: a new agent in a split. Otherwise the running agent's pane.
+    @State private var existing: ObjectIdentifier?
+    @State private var parts: Set<AgentContext.Part> = [.conversation, .changes]
+    @State private var context: AgentContext?
+    @State private var text = ""
+    @State private var edited = false
+    @State private var loading = false
+
+    init(surface: Ghostty.SurfaceView, controller: TerminalController, mode: AgentHandoff.Mode, target: VerticalTabAgentKind) {
+        self.surface = surface
+        self.controller = controller
+        _mode = State(initialValue: mode)
+        _target = State(initialValue: target)
+    }
+
+    private var running: [(surface: Ghostty.SurfaceView, info: VerticalTabAgentInfo, tab: String)] {
+        surface.map { AgentHandoff.runningAgents(excluding: $0) } ?? []
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                ExtremeWindowTitle(icon: .branch, title: "Hand Off",
+                                   subtitle: "Pass this pane's work to another agent, with the context it needs")
+                Spacer()
+            }
+            .padding(.horizontal, 16).padding(.top, 30).padding(.bottom, 12)
+            Rectangle().fill(Extreme.line).frame(height: 1)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    section("What to do") {
+                        HStack(spacing: 8) {
+                            ForEach(AgentHandoff.Mode.allCases) { option in
+                                choice(option.title, option.detail, selected: mode == option) { mode = option; refreshText() }
+                            }
+                        }
+                    }
+                    section("Who") {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(AgentHandoff.targets, id: \.self) { kind in
+                                radio("New \(kind.displayName) beside this pane", selected: existing == nil && target == kind) {
+                                    existing = nil
+                                    target = kind
+                                }
+                            }
+                            ForEach(running, id: \.surface) { agent in
+                                radio("\(agent.info.kind.displayName) in \(agent.tab) · \(agent.info.activity.label)",
+                                      selected: existing == ObjectIdentifier(agent.surface)) {
+                                    existing = ObjectIdentifier(agent.surface)
+                                }
+                            }
+                            if existing != nil {
+                                Text("It's sent when that agent finishes its turn and its input box is empty.")
+                                    .font(Extreme.font(10.5)).foregroundColor(Extreme.dim)
+                            }
+                        }
+                    }
+                    section("Include") {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(AgentContext.Part.allCases) { part in
+                                Toggle(isOn: Binding(get: { parts.contains(part) }, set: { on in
+                                    if on { parts.insert(part) } else { parts.remove(part) }
+                                    gather()
+                                })) {
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text(part.title).font(Extreme.font(12, weight: .semibold)).foregroundColor(Extreme.text)
+                                        Text(part.detail).font(Extreme.font(10.5)).foregroundColor(Extreme.muted)
+                                    }
+                                }
+                                .toggleStyle(.checkbox)
+                            }
+                        }
+                    }
+                    section(edited ? "Message (edited)" : "Message") {
+                        TextEditor(text: Binding(get: { text }, set: { text = $0; edited = true }))
+                            .font(Extreme.mono(11))
+                            .frame(minHeight: 220)
+                            .scrollContentBackground(.hidden)
+                            .padding(6)
+                            .extremePanel(fill: Extreme.raised)
+                            .overlay { if loading { ProgressView().controlSize(.small) } }
+                        Text("\(text.count) characters" + (edited ? " · your edits are kept until you change what's included" : ""))
+                            .font(Extreme.font(10)).foregroundColor(Extreme.dim)
+                    }
+                }
+                .padding(16)
+            }
+            Rectangle().fill(Extreme.line).frame(height: 1)
+            HStack {
+                Spacer()
+                Button("Cancel") { AgentToolWindows.close(id: "handoff") }
+                Button(existing == nil ? "Hand off to \(target.displayName)" : "Send when ready") { handOff() }
+                    .buttonStyle(ExtremeButtonStyle(prominent: true))
+                    .disabled(text.isEmpty || surface == nil || loading)
+                    .keyboardShortcut(.defaultAction)
+            }
+            .padding(.horizontal, 16).padding(.vertical, 10)
+        }
+        .extremeWindow()
+        .onAppear(perform: gather)
+    }
+
+    private func gather() {
+        guard let surface else { return }
+        loading = true
+        AgentContext.gather(from: surface, parts: parts) { gathered in
+            context = gathered
+            loading = false
+            edited = false
+            refreshText()
+        }
+    }
+
+    private func refreshText() {
+        guard let context, !edited else { return }
+        text = AgentHandoff.prompt(mode: mode, context: context)
+    }
+
+    private func handOff() {
+        guard let surface, let controller else { return }
+        let destination: AgentHandoff.Destination
+        if let existing, let agent = running.first(where: { ObjectIdentifier($0.surface) == existing }) {
+            destination = .existing(agent.surface)
+        } else {
+            destination = .newSplit(target)
+        }
+        AgentHandoff.send(text, from: surface, in: controller, to: destination, mode: mode)
+        AgentToolWindows.close(id: "handoff")
+    }
+
+    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ExtremeSectionLabel(title)
+            content()
+        }
+    }
+
+    private func choice(_ title: String, _ detail: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(Extreme.font(12, weight: .semibold)).foregroundColor(selected ? Extreme.gold : Extreme.text)
+                Text(detail).font(Extreme.font(10.5)).foregroundColor(Extreme.muted)
+                    .fixedSize(horizontal: false, vertical: true).multilineTextAlignment(.leading)
+            }
+            .frame(maxWidth: .infinity, minHeight: 54, alignment: .topLeading)
+            .padding(10)
+            .extremePanel(active: selected)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private func radio(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: selected ? "largecircle.fill.circle" : "circle")
+                    .foregroundColor(selected ? Extreme.gold : Extreme.dim)
+                Text(title).font(Extreme.font(12)).foregroundColor(Extreme.text)
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 #endif

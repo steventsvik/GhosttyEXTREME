@@ -54,6 +54,26 @@ struct CommandFailureChip: View {
                 Text("failed · exit \(block.exitCode ?? 1) · \(block.durationText)")
                     .font(Extreme.font(10.5)).foregroundColor(BlockColors.failure)
             }
+            // An agent already working on this project gets it first: it has the context.
+            if let agent = AgentHandoff.nearestAgent(to: surfaceView) {
+                Button {
+                    store.sendToAgent(block, from: surfaceView, to: agent.surface)
+                } label: {
+                    HStack(spacing: 5) {
+                        VerticalTabAgentLogo(kind: agent.info.kind, tint: .white).frame(width: 11, height: 11)
+                        Text(compact ? "Send" : "Send to \(agent.info.kind.displayName)")
+                    }
+                    .font(Extreme.font(11.5, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, compact ? 8 : 10).padding(.vertical, 5)
+                    .background(Rectangle().fill(BlockColors.agentButton(agent.info.kind)))
+                    .overlay(Rectangle().strokeBorder(Color.white.opacity(0.5), lineWidth: 1))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Send the command, its output and what's changed to \(agent.info.kind.displayName) in \(agent.tab). "
+                      + "It goes in when that agent finishes its turn.")
+            }
             ForEach(AgentHandoff.targets, id: \.self) { kind in
                 Button {
                     store.askAgent(kind, about: block, from: surfaceView)
@@ -81,12 +101,14 @@ struct CommandFailureChip: View {
             .buttonStyle(.plain)
             .foregroundColor(Extreme.muted)
             .help("Show command history (⌃⌘B)")
+            .accessibilityLabel("Show command history")
             Button { store.dismissFailure(on: surfaceView) } label: {
                 Image(systemName: "xmark").font(Extreme.font(10))
             }
             .buttonStyle(.plain)
             .foregroundColor(Extreme.muted)
             .help("Dismiss")
+            .accessibilityLabel("Dismiss")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)

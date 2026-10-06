@@ -199,6 +199,29 @@ final class CommandBlocks: ObservableObject {
     }
 }
 
+extension CommandBlocks {
+    /// Sends a failed command to an agent that's already running (when it's between turns),
+    /// with its output and what's changed in the project.
+    func sendToAgent(_ block: CommandBlock, from surface: Ghostty.SurfaceView, to agent: Ghostty.SurfaceView) {
+        AgentContext.gather(from: surface, parts: [.changes]) { gathered in
+            var context = gathered
+            // The command is the point; the change list is background, not the whole diff.
+            context.diff = nil
+            context.failures = [block]
+            let folder = block.cwd ?? surface.pwd ?? NSHomeDirectory()
+            let message = """
+            A command I ran in \(folder) just failed.
+
+            \(context.render())
+
+            Find out why it failed and fix it. Then run the command again to confirm it works, and tell me what was wrong.
+            """
+            AgentInbox.shared.deliver(message, to: agent, label: "Failed: \(block.program)")
+            self.dismissFailure(on: surface)
+        }
+    }
+}
+
 /// Which tabs show the command history column.
 final class CommandBlocksPanel: ObservableObject {
     static let shared = CommandBlocksPanel()

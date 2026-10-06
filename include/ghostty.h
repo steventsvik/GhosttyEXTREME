@@ -1136,6 +1136,10 @@ bool ghostty_surface_read_last_command(ghostty_surface_t,
                                        ghostty_text_s*,
                                        ghostty_text_s*);
 void ghostty_surface_free_last_command(ghostty_text_s*, ghostty_text_s*);
+// GhosttyEXTREME: finds the lowest viewport row starting with `prompt` (one Unicode
+// scalar, after any blanks) and reports the text after it: 0 = no such row, 1 = empty or
+// all drawn faint (a placeholder or suggestion), 2 = has normal text (typed by the user).
+int ghostty_surface_prompt_text_style(ghostty_surface_t, uint32_t);
 
 #ifdef __APPLE__
 void ghostty_surface_set_display_id(ghostty_surface_t, uint32_t);

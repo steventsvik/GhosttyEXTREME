@@ -1695,6 +1695,37 @@ pub const CAPI = struct {
         return true;
     }
 
+    /// GhosttyEXTREME: finds the lowest viewport row whose first non-blank character is
+    /// `prompt` and reports the text after it: 0 = no such row, 1 = empty or all faint (an
+    /// agent's greyed-out placeholder or suggestion), 2 = some normal text (typed by the
+    /// user). Braille cells (Codex's animated logo) are ignored.
+    export fn ghostty_surface_prompt_text_style(surface: *Surface, prompt: u32) c_int {
+        if (prompt > std.math.maxInt(u21)) return 0;
+        const prompt_cp: u21 = @intCast(prompt);
+        const core_surface = &surface.core_surface;
+        core_surface.renderer_state.mutex.lock();
+        defer core_surface.renderer_state.mutex.unlock();
+
+        const pages = &core_surface.io.terminal.screens.active.pages;
+        var y: usize = pages.rows;
+        while (y > 0) {
+            y -= 1;
+            const pin = pages.pin(.{ .viewport = .{ .x = 0, .y = @intCast(y) } }) orelse continue;
+            const cells = pin.cells(.all);
+            var i: usize = 0;
+            while (i < cells.len and (!cells[i].hasText() or cells[i].codepoint() == ' ')) : (i += 1) {}
+            if (i >= cells.len or cells[i].codepoint() != prompt_cp) continue;
+            for (cells[i + 1 ..]) |*cell| {
+                if (!cell.hasText()) continue;
+                const cp = cell.codepoint();
+                if (cp == ' ' or cp == 0xA0 or (cp >= 0x2800 and cp <= 0x28FF)) continue;
+                if (!pin.style(cell).flags.faint) return 2;
+            }
+            return 1;
+        }
+        return 0;
+    }
+
     /// GhosttyEXTREME: frees text from ghostty_surface_read_last_command.
     export fn ghostty_surface_free_last_command(command_text: *Text, output_text: *Text) void {
         command_text.deinit();

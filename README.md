@@ -231,12 +231,22 @@ their diffs side by side and apply the one you want.
 
 ### Handoff
 
-Pass a pane's work to a fresh Claude Code or Codex session in a split beside it. Its first
-prompt has the task, the last agent's final message and what's changed in git. **Continue
-with** picks up where the last agent stopped; **Review with** checks the work without
-editing anything.
+Pass a pane's work to another Claude Code or Codex session: a new one in a split beside it,
+or one that's already running. The message carries the task, the recent conversation,
+exactly what the first agent changed (since its first prompt) and failed commands, and you
+can edit it first. **Continue** picks up where the last agent stopped, **Review** checks
+the work without editing anything, and **Second opinion** weighs in on the approach. A
+failed command can go straight to the agent already working on the project.
 
 <br>
+
+### Review loops
+
+Pair an agent with a reviewer: each time the writer finishes a turn, the reviewer gets its
+changes and answers APPROVED or CHANGES NEEDED, and its findings go back to the writer,
+until it approves or a round limit. Every message waits for your Send unless you turn on
+Send automatically, and nothing is ever typed into an agent mid-turn or over your own
+typing.
 
 ### Localhost sessions
 

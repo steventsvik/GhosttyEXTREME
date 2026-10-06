@@ -286,6 +286,19 @@ enum VerticalTabsTestSupport {
                 }
             }
         }
+        // `GHOSTTY_EXTREME_TEST_DUMP_SCREEN=<seconds>`: write the focused pane's screen to
+        // `<GHOSTTY_EXTREME_TEST_LOG>.screen` then (to see exactly what an agent's idle screen looks like).
+        if let value = env["GHOSTTY_EXTREME_TEST_DUMP_SCREEN"], let delay = Double(value),
+           let path = env["GHOSTTY_EXTREME_TEST_LOG"] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                guard let surface = controller.focusedSurface else { return }
+                let info = VerticalTabsAgents.shared.info(for: surface)
+                let screen = surface.cachedVisibleContents.get()
+                // Its own file: other test logging rewrites the log as it goes.
+                try? ("agent: \(info.map { "\($0.kind) \($0.activity)" } ?? "none")\n----\n\(screen)\n----\n")
+                    .write(toFile: path + ".screen", atomically: true, encoding: .utf8)
+            }
+        }
         // `GHOSTTY_EXTREME_TEST_PRESENT=1`: after 8s, present the first tab's pane the way
         // Mission Control's Open does (while a later tab is selected).
         if env["GHOSTTY_EXTREME_TEST_PRESENT"] == "1" {
@@ -1067,6 +1080,8 @@ private struct VerticalTabPaneRow: View {
                    let prompt = AgentPermissions.prompt(on: surface) {
                     AgentPermissionButtons(surface: surface, prompt: prompt, compact: true).padding(.top, 3)
                 }
+                // A review loop it's in, and messages waiting to be typed into it.
+                if let surface = pane.surface { AgentMessagesLine(surface: surface, compact: true) }
             }
         }
     }

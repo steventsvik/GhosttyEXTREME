@@ -279,13 +279,21 @@ private struct VerticalTabsMenuPanel: View {
                 }
             }
             separator
-            ForEach(AgentHandoff.Mode.allCases, id: \.self) { mode in
+            ForEach(AgentHandoff.Mode.quick, id: \.self) { mode in
                 ForEach(AgentHandoff.targets, id: \.self) { target in
                     item(AgentHandoff.title(mode, target), enabled: pane.pwd != nil && pane.surface != nil) {
                         guard let surface = pane.surface else { return }
                         AgentHandoff.handOff(from: surface, in: controller, to: target, mode: mode)
                     }
                 }
+            }
+            item("Hand off…", enabled: pane.surface != nil) {
+                guard let surface = pane.surface else { return }
+                AgentHandoff.showWindow(from: surface, in: controller)
+            }
+            item("Start a review loop…", enabled: pane.surface != nil && pane.agent != nil) {
+                guard let surface = pane.surface else { return }
+                PipelineSetup.show(writer: surface, in: controller)
             }
             if ExtremeSettings.isOn(.races) {
                 item("Race agents on this project…", enabled: pane.pwd != nil) {
