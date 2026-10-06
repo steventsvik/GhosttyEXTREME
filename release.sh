@@ -100,12 +100,16 @@ pass "version $VERSION"
 
 HOOKS=$OUT/GhosttyEXTREME-agent-hooks
 mkdir -p $HOOKS
-for f in agent-hook.sh ghostty-extreme.zsh install.sh localhost localhost-run codex-hook.py install-codex.py; do
+for f in agent-hook.sh ghostty-extreme.zsh ghostty-extreme install.sh localhost localhost-run codex-hook.py install-codex.py; do
   git show HEAD:agent-hooks/$f > $HOOKS/$f || fail "agent-hooks/$f missing"
 done
-chmod +x $HOOKS/{agent-hook.sh,install.sh,localhost,localhost-run,codex-hook.py,install-codex.py}
+chmod +x $HOOKS/{agent-hook.sh,ghostty-extreme,install.sh,localhost,localhost-run,codex-hook.py,install-codex.py}
 grep -rqE "/Users/|$USER" $HOOKS && fail "the hooks contain a personal path or name"
-for f in $HOOKS/*.sh $HOOKS/localhost $HOOKS/localhost-run; do bash -n $f || fail "$f has a syntax error"; done
+for f in $HOOKS/*.sh $HOOKS/localhost $HOOKS/localhost-run $HOOKS/ghostty-extreme; do bash -n $f || fail "$f has a syntax error"; done
+# The app installs these itself (welcome window, Check Setup).
+for f in agent-hook.sh ghostty-extreme.zsh ghostty-extreme codex-hook.py localhost localhost-run; do
+  cmp -s $HOOKS/$f $APP/Contents/Resources/agent-hooks/$f || fail "the app's bundled agent-hooks/$f doesn't match the repo"
+done
 for f in $HOOKS/*.py; do python3 -m py_compile $f || fail "$f has a syntax error"; done
 pass "agent hooks (checked, no personal paths)"
 
@@ -146,12 +150,7 @@ Apple silicon Macs only, macOS 13 or newer. Based on **Ghostty $UPSTREAM**.
    \`\`\`sh
    xattr -dr com.apple.quarantine /Applications/GhosttyEXTREME.app
    \`\`\`
-3. For agent status and everything built on it, download \`$HOOKZIP\`, unzip it, and run:
-   \`\`\`sh
-   ./GhosttyEXTREME-agent-hooks/install.sh
-   python3 ./GhosttyEXTREME-agent-hooks/install-codex.py   # if you use Codex
-   \`\`\`
-   Connect Claude Code as described in the [README](https://github.com/$REPO#agent-status-setup).
+3. Open it. The welcome window connects Claude Code and Codex and runs a live test (the hooks are inside the app). \`$HOOKZIP\` has the same hooks for setting up by hand; see the [README](https://github.com/$REPO#agent-status-setup).
 
 Your existing Ghostty configuration (\`~/.config/ghostty/config\`) works as-is.
 

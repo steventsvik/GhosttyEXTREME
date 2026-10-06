@@ -332,13 +332,10 @@ Apple silicon Macs, macOS 13 or newer.
    ```sh
    xattr -dr com.apple.quarantine /Applications/GhosttyEXTREME.app
    ```
-3. For agent status and everything built on it, install the hooks from
-   `GhosttyEXTREME-<version>-agent-hooks.zip`:
-   ```sh
-   ./GhosttyEXTREME-agent-hooks/install.sh
-   python3 ./GhosttyEXTREME-agent-hooks/install-codex.py   # if you use Codex
-   ```
-   Then connect Claude Code as described in [Agent status setup](#agent-status-setup).
+3. Open it. The welcome window finds Claude Code and Codex, connects them in one click
+   (backing up each file it changes) and runs a live test. Come back to it, or to
+   **Check Setup**, from the GhosttyEXTREME menu; `ghostty-extreme doctor` runs the same
+   checks in a terminal.
 
 Your existing Ghostty configuration (`~/.config/ghostty/config`) works as-is.
 
@@ -357,6 +354,8 @@ Your existing Ghostty configuration (`~/.config/ghostty/config`) works as-is.
 | ⌃⌘R | Race agents |
 | ⌃⌘B | Command history |
 | ⌃⌘A | Agent activity |
+| ⌃⌘/ | Every shortcut (or hold ⌃⌘ for a moment) |
+| ⌃⌘, | GhosttyEXTREME Settings: turn features on or off |
 
 <br>
 
@@ -366,6 +365,9 @@ Your existing Ghostty configuration (`~/.config/ghostty/config`) works as-is.
 <summary><b>Connect Claude Code, Codex and your shell</b></summary>
 
 <br>
+
+The welcome window and **Check Setup** do all of this for you. The steps below are what
+they do, for doing it by hand.
 
 GhosttyEXTREME sets `GHOSTTY_EXTREME_AGENT_EVENTS=1` in its terminals. The hook
 scripts in `agent-hooks/` do nothing anywhere else.

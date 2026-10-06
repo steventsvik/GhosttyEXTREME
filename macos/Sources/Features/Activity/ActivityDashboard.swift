@@ -8,6 +8,7 @@ enum ActivityDashboard {
     static let windowID = "activity"
 
     static func toggle() {
+        guard ExtremeSettings.isOn(.activity) || AgentToolWindows.isOpen(windowID) else { return }
         if AgentToolWindows.isOpen(windowID) {
             AgentToolWindows.close(id: windowID)
         } else {

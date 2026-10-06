@@ -16,6 +16,7 @@ enum MissionControl {
     }
 
     static func show() {
+        guard ExtremeSettings.isOn(.missionControl) else { return }
         AgentToolWindows.show(id: windowID, title: "Mission Control", size: NSSize(width: 1120, height: 720)) {
             MissionControlView()
         }
@@ -95,7 +96,7 @@ private struct MissionControlView: View {
             }
             .pickerStyle(.segmented)
             .frame(width: 170)
-            if let owner = TerminalController.all.first(where: { $0.window?.isVisible == true }) {
+            if ExtremeSettings.isOn(.races), let owner = TerminalController.all.first(where: { $0.window?.isVisible == true }) {
                 Button {
                     AgentRaces.showSetup(from: owner)
                 } label: { Label("Race agents…", systemImage: "flag.checkered.2.crossed") }

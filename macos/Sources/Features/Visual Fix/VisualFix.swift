@@ -543,6 +543,7 @@ final class VisualFixPanel: ObservableObject {
 
     /// Opens the panel in `controller`'s tab, on `url` or the best running app.
     func show(from controller: TerminalController?, url: URL? = nil) {
+        guard ExtremeSettings.isOn(.visualFix) else { return }
         guard let controller = controller ?? Self.frontController else { return }
         let session = session(for: controller)
         if let url = url ?? (session.url == nil ? Self.bestURL(for: controller) : nil), url != session.url { session.load(url) }
@@ -566,6 +567,7 @@ final class VisualFixPanel: ObservableObject {
     }
 
     func toggle(_ controller: TerminalController?) {
+        guard ExtremeSettings.isOn(.visualFix) || controller.map(isVisible) == true else { return }
         guard let controller = controller ?? Self.frontController else { return }
         if isVisible(controller) { hide(controller) } else { show(from: controller) }
     }

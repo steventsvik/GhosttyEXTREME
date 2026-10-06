@@ -12,6 +12,7 @@ extension ReviewInbox {
     }
 
     static func show(selecting item: ReviewItem? = nil) {
+        guard ExtremeSettings.isOn(.review) else { return }
         if let item { ReviewSelection.shared.itemID = item.id }
         AgentToolWindows.show(id: windowID, title: "Review Changes", size: NSSize(width: 1240, height: 780)) {
             ReviewInboxView()

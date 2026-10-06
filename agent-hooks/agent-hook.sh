@@ -44,6 +44,8 @@ if [ "$event" = "pre_tool_use" ]; then
   [ "$agent" = "claude" ] && [ "$namespace" = "ghostty-extreme" ] || exit 0
   launcher="$HOME/.ghostty-extreme/bin/localhost"
   [ -x "$launcher" ] || exit 0
+  # Turned off in GhosttyEXTREME's Settings.
+  [ -e "$HOME/.ghostty-extreme/features/localhost-off" ] && exit 0
   [ "$(jq -r '.tool_name // empty' <<<"$input")" = "Bash" ] || exit 0
   command=$(jq -r '.tool_input.command // empty' <<<"$input")
   rewritten=$("$launcher" rewrite "$command" 2>/dev/null) || exit 0

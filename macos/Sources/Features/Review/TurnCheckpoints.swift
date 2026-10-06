@@ -75,7 +75,7 @@ final class TurnCheckpoints: ObservableObject {
         let info = VerticalTabsAgents.shared.info(for: surface)
         let previous = lastActivity[key]
         lastActivity[key] = info?.activity
-        guard let info, info.kind != .hermes, info.activity == .working,
+        guard let info, info.kind != .hermes, info.activity == .working, ExtremeSettings.isOn(.undo),
               previous != .working, previous != .needsPermission, let folder = surface.pwd else { return }
         take(for: surface, folder: folder, title: info.task ?? "Agent turn", agent: info.kind)
     }

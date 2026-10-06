@@ -68,6 +68,7 @@ final class EditorPanel: ObservableObject {
 
     /// Opens this tab's editor, optionally on a specific folder.
     func show(from controller: TerminalController?, folder: String? = nil) {
+        guard ExtremeSettings.isOn(.editor) else { return }
         guard let controller, !HermesSessions.shared.isHermes(controller) else { return }
         let session = session(for: controller)
         session.show(folder: folder)
@@ -101,6 +102,8 @@ final class EditorPanel: ObservableObject {
     }
 
     func toggle(from controller: TerminalController?) {
+        // Off in Settings: it can still close, never open.
+        guard ExtremeSettings.isOn(.editor) || controller.map(isVisible) == true else { return }
         guard let controller else { return }
         if isVisible(controller) { hide(returningFocusTo: controller) } else { show(from: controller) }
     }

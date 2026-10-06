@@ -118,6 +118,12 @@ final class VerticalTabsAgents {
             // Unknown or malformed custom event: swallow it rather than show raw JSON.
             return true
         }
+        // `ghostty-extreme doctor`'s test event: proves the hooks reach the app, changes nothing.
+        if event.event == "check" {
+            SetupChecks.shared.liveCheckArrived()
+            return true
+        }
+        SetupChecks.shared.eventArrived()
         let before = info(for: surface)?.activity
         apply(event, to: surface)
         AgentAlerts.shared.agentChanged(on: surface, from: before, to: info(for: surface))

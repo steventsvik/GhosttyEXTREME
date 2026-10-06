@@ -21,6 +21,7 @@
 		A553F4132E06EB1600257779 /* Ghostty.icon in Resources */ = {isa = PBXBuildFile; fileRef = A553F4122E06EB1600257779 /* Ghostty.icon */; };
 		A553F4142E06EB1600257779 /* Ghostty.icon in Resources */ = {isa = PBXBuildFile; fileRef = A553F4122E06EB1600257779 /* Ghostty.icon */; };
 		C0FFEE00000000000000B0B2 /* EditorWeb in Resources */ = {isa = PBXBuildFile; fileRef = C0FFEE00000000000000B0B1 /* EditorWeb */; };
+		C0FFEE00000000000000B0C2 /* agent-hooks in Resources */ = {isa = PBXBuildFile; fileRef = C0FFEE00000000000000B0C1 /* agent-hooks */; };
 		C0FFEE00000000000000A0A2 /* GhosttyExtreme.icon in Resources */ = {isa = PBXBuildFile; fileRef = C0FFEE00000000000000A0A1 /* GhosttyExtreme.icon */; };
 		A56B880B2A840447007A0E29 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A56B880A2A840447007A0E29 /* Carbon.framework */; };
 		A571AB1D2A206FCF00248498 /* GhosttyKit.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = A5D495A1299BEC7E00DD1313 /* GhosttyKit.xcframework */; };
@@ -84,6 +85,7 @@
 		A54F45F32E1F047A0046BD5C /* GhosttyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GhosttyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A553F4122E06EB1600257779 /* Ghostty.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; name = Ghostty.icon; path = ../images/Ghostty.icon; sourceTree = SOURCE_ROOT; };
 		C0FFEE00000000000000B0B1 /* EditorWeb */ = {isa = PBXFileReference; lastKnownFileType = folder; path = EditorWeb; sourceTree = SOURCE_ROOT; };
+		C0FFEE00000000000000B0C1 /* agent-hooks */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "agent-hooks"; path = "../agent-hooks"; sourceTree = SOURCE_ROOT; };
 		C0FFEE00000000000000A0A1 /* GhosttyExtreme.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; name = GhosttyExtreme.icon; path = ../images/GhosttyExtreme.icon; sourceTree = SOURCE_ROOT; };
 		A56B880A2A840447007A0E29 /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = System/Library/Frameworks/Carbon.framework; sourceTree = SDKROOT; };
 		A571AB1C2A206FC600248498 /* Ghostty-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Ghostty-Info.plist"; sourceTree = "<group>"; };
@@ -345,6 +347,7 @@
 				A553F4122E06EB1600257779 /* Ghostty.icon */,
 				C0FFEE00000000000000A0A1 /* GhosttyExtreme.icon */,
 				C0FFEE00000000000000B0B1 /* EditorWeb */,
+				C0FFEE00000000000000B0C1 /* agent-hooks */,
 				A5B3053D299BEAAB0047F10C /* Ghostty.entitlements */,
 				A51BFC282B30F26D00E92F16 /* GhosttyDebug.entitlements */,
 				3B39CAA42B33949B00DABEB8 /* GhosttyReleaseLocal.entitlements */,
@@ -578,6 +581,7 @@
 				A553F4142E06EB1600257779 /* Ghostty.icon in Resources */,
 				C0FFEE00000000000000A0A2 /* GhosttyExtreme.icon in Resources */,
 				C0FFEE00000000000000B0B2 /* EditorWeb in Resources */,
+				C0FFEE00000000000000B0C2 /* agent-hooks in Resources */,
 				29C15B1D2CDC3B2900520DD4 /* bat in Resources */,
 				A586167C2B7703CC009BDB1D /* fish in Resources */,
 				8F3A9B4C2FA6B88000A18D13 /* Ghostty.sdef in Resources */,

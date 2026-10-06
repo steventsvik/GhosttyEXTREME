@@ -336,6 +336,7 @@ enum AgentToolWindows {
 
 extension AgentRaces {
     static func showSetup(from owner: TerminalController) {
+        guard ExtremeSettings.isOn(.races) else { return }
         AgentToolWindows.show(id: "race-setup", title: "Race Agents", size: NSSize(width: 520, height: 430)) {
             AgentRaceSetupView(owner: owner, folder: owner.focusedSurface?.pwd)
         }

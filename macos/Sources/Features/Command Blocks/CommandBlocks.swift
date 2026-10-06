@@ -75,6 +75,7 @@ final class CommandBlocks: ObservableObject {
 
     /// Called from Ghostty's `command_finished` action.
     func commandFinished(on surface: Ghostty.SurfaceView, exitCode: Int16, duration: UInt64) {
+        guard ExtremeSettings.isOn(.commandHistory) else { return }
         // Read after the action returns, outside whatever the core is doing right now.
         DispatchQueue.main.async { [weak self, weak surface] in
             guard let self, let surface, let (command, output) = Self.readLastCommand(surface) else { return }
@@ -204,11 +205,13 @@ final class CommandBlocksPanel: ObservableObject {
     }
 
     func toggle(_ controller: TerminalController) {
+        guard ExtremeSettings.isOn(.commandHistory) || isVisible(controller) else { return }
         let id = ObjectIdentifier(controller)
         if visibleTabs.contains(id) { visibleTabs.remove(id) } else { visibleTabs.insert(id) }
     }
 
     func show(_ controller: TerminalController) {
+        guard ExtremeSettings.isOn(.commandHistory) else { return }
         visibleTabs.insert(ObjectIdentifier(controller))
     }
 }

@@ -1,0 +1,184 @@
+#!/bin/bash
+# GhosttyEXTREME from the command line.
+#
+#   ghostty-extreme doctor    check the agent status setup and send a live test event
+#
+# Installed to ~/.ghostty-extreme/bin/ by the app (Setup Check, or the welcome window).
+# Paste `ghostty-extreme doctor` output into GitHub issues: it contains no personal data
+# beyond your home folder's name, which it replaces with ~.
+
+
+hooks="$HOME/.ghostty-extreme/agent-hooks"
+legacy="$HOME/.ghostty-custom/agent-hooks"
+problems=0
+warnings=0
+
+if [ -t 1 ]; then
+  green=$'\e[32m'; red=$'\e[31m'; yellow=$'\e[33m'; dim=$'\e[2m'; bold=$'\e[1m'; reset=$'\e[0m'
+else
+  green=""; red=""; yellow=""; dim=""; bold=""; reset=""
+fi
+
+ok() { printf '  %s✓%s %s\n' "$green" "$reset" "$1"; }
+bad() { printf '  %s✗%s %s\n' "$red" "$reset" "$1"; problems=$((problems + 1)); }
+warn() { printf '  %s!%s %s\n' "$yellow" "$reset" "$1"; warnings=$((warnings + 1)); }
+note() { printf '    %s%s%s\n' "$dim" "$1" "$reset"; }
+section() { printf '\n%s%s%s\n' "$bold" "$1" "$reset"; }
+tidy() { sed "s|$HOME|~|g"; }
+
+# Which of our hook entries an agent's config is missing or runs from elsewhere.
+# Usage: check_agent <name> <config file> <agent> <event>...
+check_agent() {
+  local name=$1 file=$2 agent=$3; shift 3
+  local display; display=$(tidy <<<"$file")
+  if [ ! -f "$file" ]; then
+    bad "$name: $display doesn't exist, so it has no GhosttyEXTREME hooks"
+    note "Fix: GhosttyEXTREME > Check Setup… > Connect $name"
+    return
+  fi
+  if ! jq empty "$file" 2>/dev/null; then
+    bad "$name: $display isn't valid JSON"
+    return
+  fi
+  local missing=() elsewhere=() event command
+  for event in "$@"; do
+    command=$(jq -r --arg suffix "agent-hook.sh $agent $event" \
+      '[.hooks // {} | .[] | .[]? | .hooks[]? | .command? // empty | select(endswith($suffix))] | first // empty' "$file")
+    if [ -z "$command" ]; then
+      missing+=("$event")
+    else
+      command=${command/#\~/$HOME}
+      case "$command" in
+        "$hooks/agent-hook.sh "*|"$legacy/agent-hook.sh "*) ;;
+        *) elsewhere+=("$event") ;;
+      esac
+    fi
+  done
+  if [ ${#missing[@]} -eq 0 ] && [ ${#elsewhere[@]} -eq 0 ]; then
+    ok "$name: all $# hooks connected"
+  else
+    [ ${#missing[@]} -gt 0 ] && bad "$name: missing hooks for ${missing[*]}"
+    [ ${#elsewhere[@]} -gt 0 ] && bad "$name: hooks for ${elsewhere[*]} run from outside ~/.ghostty-extreme (macOS can block those)"
+    note "Fix: GhosttyEXTREME > Check Setup… > Connect $name"
+    [ "$agent" = codex ] && note "Codex asks you to approve new hooks once, the next time it starts"
+  fi
+}
+
+doctor() {
+  printf '%sGhosttyEXTREME doctor%s\n' "$bold" "$reset"
+
+  section "Terminal"
+  inside=0
+  if [ "${GHOSTTY_EXTREME_AGENT_EVENTS:-}" = "1" ] && [ -n "${GHOSTTY_EXTREME_EVENT_TOKEN:-}" ]; then
+    ok "Running inside GhosttyEXTREME"
+    inside=1
+  else
+    warn "Not running inside GhosttyEXTREME: agent status only works in its own terminals"
+  fi
+  case "${SHELL:-}" in
+    */zsh) ok "Shell: zsh" ;;
+    *) warn "Shell: ${SHELL:-unknown}. Agent logos appear when an agent starts only with zsh; status still works" ;;
+  esac
+  if [ -f "$HOME/.zshrc" ] && grep -qE 'ghostty-(extreme|custom)\.zsh' "$HOME/.zshrc"; then
+    ok "~/.zshrc loads the agent detection"
+  else
+    warn "~/.zshrc doesn't load the agent detection"
+    note "Fix: GhosttyEXTREME > Check Setup… > Add to ~/.zshrc"
+  fi
+
+  section "Tools"
+  if command -v jq >/dev/null 2>&1; then
+    ok "jq $(jq --version 2>/dev/null | sed 's/^jq-//')"
+  else
+    bad "jq isn't installed; the hooks need it to report anything"
+    note "Fix: brew install jq"
+  fi
+  local tool
+  for tool in claude codex git python3 gh docker; do
+    if command -v "$tool" >/dev/null 2>&1; then
+      ok "$tool: $(command -v "$tool" | tidy)"
+    else
+      printf '  %s-%s %s isn'"'"'t installed\n' "$dim" "$reset" "$tool"
+    fi
+  done
+
+  section "Hooks"
+  if [ -x "$hooks/agent-hook.sh" ]; then
+    ok "Installed in ~/.ghostty-extreme/agent-hooks"
+  else
+    bad "Not installed in ~/.ghostty-extreme/agent-hooks"
+    note "Fix: GhosttyEXTREME > Check Setup… > Install hooks"
+  fi
+  if [ -x "$HOME/.ghostty-extreme/bin/localhost" ]; then
+    ok "localhost command installed"
+  else
+    warn "localhost command isn't installed: dev servers agents start won't get their own tab"
+  fi
+  if [ -e "$HOME/.ghostty-extreme/features/localhost-off" ]; then
+    note "Localhost sessions are turned off in Settings"
+  fi
+  if command -v jq >/dev/null 2>&1; then
+    if command -v claude >/dev/null 2>&1 || [ -d "$HOME/.claude" ]; then
+      check_agent "Claude Code" "$HOME/.claude/settings.json" claude \
+        session_start prompt_submit tool_complete permission_request notification stop stop_failure session_end pre_tool_use
+    fi
+    if command -v codex >/dev/null 2>&1 || [ -d "$HOME/.codex" ]; then
+      check_agent "Codex" "$HOME/.codex/hooks.json" codex \
+        session_start prompt_submit pre_tool_use permission_request tool_complete stop session_end subagent_start subagent_stop interrupt
+    fi
+  fi
+
+  # Claude Code records failed hooks in its transcripts.
+  if [ -d "$HOME/.claude/projects" ]; then
+    local errors latest
+    # The records themselves, not messages that mention them.
+    errors=$(find "$HOME/.claude/projects" -name '*.jsonl' -mtime -1 -print0 2>/dev/null \
+      | xargs -0 grep -h 'hook_non_blocking_error' 2>/dev/null \
+      | jq -c 'select(.attachment.type? == "hook_non_blocking_error"
+                      and ((.attachment.command // "") | contains("agent-hook.sh")))' 2>/dev/null || true)
+    if [ -n "$errors" ]; then
+      latest=$(tail -n 1 <<<"$errors" | jq -r '.attachment.stderr // empty' 2>/dev/null | head -c 200 | tidy)
+      warn "Claude Code reported $(wc -l <<<"$errors" | tr -d ' ') hook error(s) in the last day"
+      [ -n "$latest" ] && note "Latest: $latest"
+    else
+      ok "No hook errors from Claude Code in the last day"
+    fi
+  fi
+
+  section "Live test"
+  if [ "$inside" = 1 ] && [ -x "$hooks/agent-hook.sh" ] && command -v jq >/dev/null 2>&1; then
+    # The same path a real Claude Code event takes: run the hook, then write what it
+    # returns to this terminal, the way Claude Code does.
+    local sequence
+    sequence=$(printf '{}' | "$hooks/agent-hook.sh" claude check 2>/dev/null | jq -r '.terminalSequence // empty' 2>/dev/null)
+    if [ -z "$sequence" ]; then
+      bad "The hook ran but produced no event"
+    elif { printf '%s' "$sequence" > /dev/tty; } 2>/dev/null; then
+      ok "Sent a test event. GhosttyEXTREME confirms it in the sidebar when it arrives"
+    else
+      bad "Couldn't write to this terminal (no /dev/tty)"
+    fi
+  else
+    note "Skipped (needs GhosttyEXTREME, jq and the installed hooks)"
+  fi
+
+  printf '\n'
+  if [ "$problems" -eq 0 ] && [ "$warnings" -eq 0 ]; then
+    printf '%sEverything looks right.%s\n' "$green" "$reset"
+  else
+    printf '%d problem(s), %d warning(s).\n' "$problems" "$warnings"
+  fi
+  [ "$problems" -eq 0 ]
+}
+
+case "${1:-doctor}" in
+  doctor) doctor ;;
+  -h|--help|help)
+    sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
+    ;;
+  *)
+    printf 'Unknown command: %s\n' "$1" >&2
+    sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//' >&2
+    exit 2
+    ;;
+esac

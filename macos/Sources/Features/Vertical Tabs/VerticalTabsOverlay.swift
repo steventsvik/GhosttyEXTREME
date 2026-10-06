@@ -252,7 +252,7 @@ private struct VerticalTabsMenuPanel: View {
                 item("Close code editor") {
                     editorPanel.hide(returningFocusTo: controller)
                 }
-            } else {
+            } else if ExtremeSettings.isOn(.editor) {
                 item("Open folder in code editor", enabled: pane.pwd != nil) {
                     editorPanel.show(from: controller, folder: pane.pwd)
                 }
@@ -266,9 +266,11 @@ private struct VerticalTabsMenuPanel: View {
                     }
                 }
             }
-            item("Race agents on this project…", enabled: pane.pwd != nil) {
-                VerticalTabsActions.select(controller)
-                AgentRaces.showSetup(from: controller)
+            if ExtremeSettings.isOn(.races) {
+                item("Race agents on this project…", enabled: pane.pwd != nil) {
+                    VerticalTabsActions.select(controller)
+                    AgentRaces.showSetup(from: controller)
+                }
             }
             undoItems
             separator
@@ -300,7 +302,7 @@ private struct VerticalTabsMenuPanel: View {
     /// Undo the agent's last turn, an earlier one, or a restore (see TurnCheckpoints).
     @ViewBuilder
     private var undoItems: some View {
-        if let surface = pane.surface {
+        if let surface = pane.surface, ExtremeSettings.isOn(.undo) {
             let list = checkpoints.list(for: surface)
             if !list.isEmpty {
                 separator

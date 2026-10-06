@@ -67,16 +67,16 @@ enum PaletteExtras {
                         })
                     }
                 }
-                options.append(CommandOption(
+                if ExtremeSettings.isOn(.races) { options.append(CommandOption(
                     title: "Race Agents…",
                     description: "Give the same task to several agents in separate copies and keep the best",
                     symbols: ["⌃", "⌘", "R"],
                     leadingIcon: "flag.checkered.2.crossed"
                 ) {
                     AgentRaces.showSetup(from: owner)
-                })
+                }) }
             }
-            if !HermesSessions.shared.isHermes(owner) {
+            if !HermesSessions.shared.isHermes(owner), ExtremeSettings.isOn(.editor) {
                 options.append(CommandOption(
                     title: "Toggle Code Editor",
                     description: "Show or hide this tab's code editor",
@@ -85,6 +85,8 @@ enum PaletteExtras {
                 ) {
                     EditorPanel.shared.toggle(from: owner)
                 })
+            }
+            if !HermesSessions.shared.isHermes(owner), ExtremeSettings.isOn(.visualFix) {
                 options.append(CommandOption(
                     title: "Visual Fix",
                     description: "Point at anything in your running app and have the agent change it",
@@ -103,22 +105,22 @@ enum PaletteExtras {
             let defaults = UserDefaults.standard
             defaults.set(!(defaults.object(forKey: AgentAurora.enabledKey) as? Bool ?? false), forKey: AgentAurora.enabledKey)
         })
-        options.append(CommandOption(
+        if ExtremeSettings.isOn(.background) { options.append(CommandOption(
             title: "Background Processes",
             description: "Dev servers, VMs, agents and more left running; close what's stale",
             symbols: ["⌃", "⌘", "K"],
             leadingIcon: "gauge.with.dots.needle.67percent"
         ) {
             HousekeepingWindow.show()
-        })
-        options.append(CommandOption(
+        }) }
+        if ExtremeSettings.isOn(.missionControl) { options.append(CommandOption(
             title: "Mission Control",
             description: "Every agent at a glance",
             symbols: ["⌃", "⌘", "M"],
             leadingIcon: "square.grid.2x2"
         ) {
             MissionControl.show()
-        })
+        }) }
         options.append(CommandOption(
             title: "Toggle Vertical Tabs",
             description: "Show or hide the sidebar",
@@ -127,14 +129,37 @@ enum PaletteExtras {
         ) {
             VerticalTabsMenu.shared.toggle(nil)
         })
-        let showsPercent = UserDefaults.standard.bool(forKey: UsagePanel.showsPercentKey)
         options.append(CommandOption(
+            title: "GhosttyEXTREME Settings",
+            description: "Features, animation and the sidebar",
+            symbols: ["⌃", "⌘", ","],
+            leadingIcon: "gearshape"
+        ) {
+            ExtremeSettingsWindow.show()
+        })
+        options.append(CommandOption(
+            title: "Check Setup",
+            description: "Whether agent status is set up and working, with fixes",
+            leadingIcon: "stethoscope"
+        ) {
+            SetupCheckWindow.show()
+        })
+        options.append(CommandOption(
+            title: "Keyboard Shortcuts",
+            description: "Every ⌃⌘ shortcut (or hold ⌃⌘ for a moment)",
+            symbols: ["⌃", "⌘", "/"],
+            leadingIcon: "keyboard"
+        ) {
+            ShortcutSheet.shared.show(sticky: true)
+        })
+        let showsPercent = UserDefaults.standard.bool(forKey: UsagePanel.showsPercentKey)
+        if ExtremeSettings.isOn(.usage) { options.append(CommandOption(
             title: showsPercent ? "Usage: Hide Percentages" : "Usage: Show Percentages",
             description: "Switch the sidebar's usage rings between graph and numbers",
             leadingIcon: "chart.pie"
         ) {
             UserDefaults.standard.set(!showsPercent, forKey: UsagePanel.showsPercentKey)
-        })
+        }) }
         return options
     }
 

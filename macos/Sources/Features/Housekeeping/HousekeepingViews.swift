@@ -10,6 +10,7 @@ enum HousekeepingWindow {
     }
 
     static func show() {
+        guard ExtremeSettings.isOn(.background) else { return }
         AgentToolWindows.show(id: Housekeeping.windowID, title: "Background", size: NSSize(width: 1040, height: 720)) {
             HousekeepingView()
         }

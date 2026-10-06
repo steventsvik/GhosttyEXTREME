@@ -5,6 +5,9 @@ import GhosttyKit
 // GhosttyEXTREME: the secret this launch's hooks prove their events with (see EventToken),
 // set before any terminal starts so they all inherit it.
 EventToken.install()
+// Also set by Info.plist's LSEnvironment, which only applies to launches through Launch
+// Services; started any other way, the hooks would think they're in another terminal.
+setenv("GHOSTTY_EXTREME_AGENT_EVENTS", "1", 1)
 
 // Initialize Ghostty global state. We do this once right away because the
 // CLI APIs require it and it lets us ensure it is done immediately for the

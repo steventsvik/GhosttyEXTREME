@@ -15,6 +15,7 @@ struct VerticalTabsLayout<Content: View>: View {
     @ObservedObject private var visualFix = VisualFixPanel.shared
     /// Pauses the chrome's animations while this window (tab) isn't on screen.
     @StateObject private var motion = WindowMotion()
+    @ObservedObject private var settings = ExtremeSettings.shared
     @AppStorage(EditorPanel.widthKey) private var editorWidth: Double = EditorPanel.defaultWidth
     @AppStorage(VisualFixPanel.widthKey) private var visualFixWidth: Double = VisualFixPanel.defaultWidth
     @AppStorage(AgentAurora.enabledKey) private var aurora = false
@@ -40,7 +41,8 @@ struct VerticalTabsLayout<Content: View>: View {
             let limits = panelLimits(in: geometry.size.width)
             layout(maxEditorWidth: limits.editor, maxVisualFixWidth: limits.visualFix)
         }
-        .environment(\.extremeMotion, motion.active)
+        // "Status only" in Settings stops the decorative motion everywhere.
+        .environment(\.extremeMotion, motion.active && settings.motion == .full)
         .onAppear { motion.attach(controller.window) }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in motion.attach(controller.window) }
     }
@@ -107,6 +109,7 @@ struct VerticalTabsLayout<Content: View>: View {
         .onChange(of: visible) { _ in overlay.dismissAll() }
         .onAppear {
             VerticalTabsMenu.shared.installIfNeeded()
+            ExtremeLaunch.start()
             ReviewInbox.start()
             TurnCheckpoints.start()
             VerticalTabsTestSupport.openTestTabsIfRequested(from: controller)
@@ -224,7 +227,7 @@ enum VerticalTabsTestSupport {
                 log("files now: \(inbox.items.first?.files.map(\.path) ?? [])")
             }
         }
-        // `GHOSTTY_EXTREME_TEST_OPEN=localhost,review,activity,blocks`: open those after
+        // `GHOSTTY_EXTREME_TEST_OPEN=localhost,review,activity,blocks,setup,welcome,settings,shortcuts`: open those after
         // `GHOSTTY_EXTREME_TEST_OPEN_DELAY` seconds (default 10).
         if let windows = env["GHOSTTY_EXTREME_TEST_OPEN"] {
             let delay = Double(env["GHOSTTY_EXTREME_TEST_OPEN_DELAY"] ?? "") ?? 10
@@ -235,9 +238,32 @@ enum VerticalTabsTestSupport {
                     case "review": ReviewInbox.show()
                     case "activity": ActivityDashboard.toggle()
                     case "blocks": CommandBlocksPanel.shared.show(controller)
+                    case "setup": SetupCheckWindow.show()
+                    case "welcome": WelcomeWindow.show()
+                    case "settings": ExtremeSettingsWindow.show()
+                    case "shortcuts":
+                        ShortcutSheet.shared.show(sticky: true)
+                        if let path = env["GHOSTTY_EXTREME_TEST_LOG"] {
+                            let lines = ShortcutSheet.collect().map { "\($0.id): " + $0.shortcuts.map { "\($0.keys) \($0.title)" }.joined(separator: ", ") }
+                            let old = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
+                            try? (old + lines.joined(separator: "\n") + "\n").write(toFile: path, atomically: true, encoding: .utf8)
+                        }
                     default: break
                     }
                 }
+            }
+        }
+        // `GHOSTTY_EXTREME_TEST_SETUP=1` (with `GHOSTTY_EXTREME_TEST_HOME=<scratch folder>`): after 4s,
+        // do what the welcome window's "Set up" does, logging the result.
+        if env["GHOSTTY_EXTREME_TEST_SETUP"] == "1", env["GHOSTTY_EXTREME_TEST_HOME"] != nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                let result: String
+                do { result = try HookInstaller.setUp(claude: true, codex: true, shell: true).joined(separator: ", ") } catch { result = "error: \(error)" }
+                if let path = env["GHOSTTY_EXTREME_TEST_LOG"] {
+                    let old = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
+                    try? (old + "setup: " + result + "\n").write(toFile: path, atomically: true, encoding: .utf8)
+                }
+                SetupChecks.shared.refresh()
             }
         }
         // `GHOSTTY_EXTREME_TEST_PRESENT=1`: after 8s, present the first tab's pane the way
@@ -376,12 +402,15 @@ struct VerticalTabsSidebar: View {
     @ObservedObject private var collapse = VerticalTabsCollapse.shared
     @ObservedObject private var localhost = LocalhostSessions.shared
     @ObservedObject private var projects = VerticalTabsProjects.shared
+    @ObservedObject private var settings = ExtremeSettings.shared
 
     var body: some View {
         let palette = VerticalTabsPalette(config: config)
-        // Localhost sessions get their own cards at the end, whatever their tab order.
+        // Localhost sessions get their own cards at the end, whatever their tab order
+        // (unless the feature is off; then they're ordinary tabs).
+        let localhostOn = settings.isOn(.localhost)
         let isLocalhost: (VerticalTabEntry) -> Bool = { entry in
-            entry.controller.map { localhost.session(for: $0) != nil } ?? false
+            localhostOn && (entry.controller.map { localhost.session(for: $0) != nil } ?? false)
         }
         let localhostTabs = model.tabs.filter(isLocalhost)
 
@@ -435,12 +464,19 @@ struct VerticalTabsSidebar: View {
                 LocalhostSidebarSection(entries: localhostTabs, owner: owner)
             }
 
+            // Agent status needs setting up, or a live test just passed (only then).
+            SetupSidebarChip().padding(.horizontal, 8).padding(.bottom, 6)
+
             // Things left running in the background that look finished (only when there are some).
-            HousekeepingChip().padding(.horizontal, 8).padding(.bottom, 6)
+            if settings.isOn(.background) {
+                HousekeepingChip().padding(.horizontal, 8).padding(.bottom, 6)
+            }
 
             // Bottom left: live usage of the user's AI subscriptions.
-            Rectangle().fill(Extreme.line).frame(height: 1)
-            UsagePanel(palette: palette)
+            if settings.isOn(.usage) {
+                Rectangle().fill(Extreme.line).frame(height: 1)
+                UsagePanel(palette: palette)
+            }
         }
         .background(sidebarBackground)
         .onAppear { Extreme.registerFonts() }
@@ -525,13 +561,15 @@ struct VerticalTabsSidebar: View {
             HStack(spacing: 6) {
                 NewSessionMenu(owner: owner, compact: true)
                 Spacer(minLength: 0)
-                EditorHeaderButton(owner: owner)
+                if settings.isOn(.editor) { EditorHeaderButton(owner: owner) }
                 ExtremeIconButton(icon: condensed ? .expand : .condense,
                                   help: condensed ? "Expand view" : "Condense view") { condensed.toggle() }
-                LocalhostHeaderButton()
-                ReviewHeaderButton()
-                ExtremeIconButton(icon: .chart, help: "Agent activity and usage graphs (⌃⌘A)", action: ActivityDashboard.toggle)
-                MissionControlButton()
+                if settings.isOn(.localhost) { LocalhostHeaderButton() }
+                if settings.isOn(.review) { ReviewHeaderButton() }
+                if settings.isOn(.activity) {
+                    ExtremeIconButton(icon: .chart, help: "Agent activity and usage graphs (⌃⌘A)", action: ActivityDashboard.toggle)
+                }
+                if settings.isOn(.missionControl) { MissionControlButton() }
             }
         }
         .padding(.horizontal, 12)

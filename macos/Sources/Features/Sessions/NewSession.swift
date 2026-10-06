@@ -75,10 +75,12 @@ enum NewSessionMenuBuilder {
             menu.addItem(ClosureMenuItem(kind.title, image: icon(for: kind)) { kind.open(from: owner) })
             if kind == .codex { menu.addItem(dockerItem(owner)) }
         }
-        menu.addItem(.separator())
-        menu.addItem(ClosureMenuItem("Localhost Server…", image: NSImage(systemSymbolName: "globe", accessibilityDescription: nil)) {
-            LocalhostManager.showNewServer(folder: owner.focusedSurface?.pwd, from: owner)
-        })
+        if ExtremeSettings.isOn(.localhost) {
+            menu.addItem(.separator())
+            menu.addItem(ClosureMenuItem("Localhost Server…", image: NSImage(systemSymbolName: "globe", accessibilityDescription: nil)) {
+                LocalhostManager.showNewServer(folder: owner.focusedSurface?.pwd, from: owner)
+            })
+        }
         menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
     }
 

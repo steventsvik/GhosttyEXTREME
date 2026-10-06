@@ -192,11 +192,15 @@ extension UserDefaults {
 
 /// Installs "Toggle Vertical Tabs" (⌃⌘S), "Toggle Code Editor" (⌃⌘E), a ⌘P command
 /// palette shortcut, "Mission Control" (⌃⌘M), "Race Agents…" (⌃⌘R), "Localhost Manager"
-/// (⌃⌘L), "Review Changes" (⌃⌘I), "Command History" (⌃⌘B) and "Agent Activity" (⌃⌘A)
-/// in the View menu.
+/// (⌃⌘L), "Review Changes" (⌃⌘I), "Command History" (⌃⌘B), "Agent Activity" (⌃⌘A) and
+/// "Keyboard Shortcuts" (⌃⌘/) in the View menu, and GhosttyEXTREME's Settings, Check Setup
+/// and Welcome in the app menu. Items of features turned off in Settings are hidden, which
+/// also turns off their shortcuts.
 final class VerticalTabsMenu: NSObject {
     static let shared = VerticalTabsMenu()
     private var installed = false
+    /// Menu items that belong to an optional feature.
+    private var featureItems: [(NSMenuItem, ExtremeFeature)] = []
 
     func installIfNeeded() {
         guard !installed, let mainMenu = NSApp.mainMenu else { return }
@@ -222,25 +226,70 @@ final class VerticalTabsMenu: NSObject {
         mission.keyEquivalentModifierMask = [.control, .command]
         mission.target = self
         viewMenu.insertItem(mission, at: 3)
+        featureItems.append((mission, .missionControl))
         let race = NSMenuItem(title: "Race Agents…", action: #selector(raceAgents(_:)), keyEquivalent: "r")
         race.keyEquivalentModifierMask = [.control, .command]
         race.target = self
         viewMenu.insertItem(race, at: 4)
-        let extras: [(String, Selector, String)] = [
-            ("Localhost Manager", #selector(showLocalhost(_:)), "l"),
-            ("Review Changes", #selector(showReview(_:)), "i"),
-            ("Command History", #selector(toggleCommandBlocks(_:)), "b"),
-            ("Agent Activity", #selector(showActivity(_:)), "a"),
-            ("Visual Fix", #selector(toggleVisualFix(_:)), "v"),
-            ("Background Processes", #selector(showHousekeeping(_:)), "k"),
+        featureItems.append((race, .races))
+        struct Extra { let title: String; let action: Selector; let key: String; let feature: ExtremeFeature? }
+        let extras: [Extra] = [
+            Extra(title: "Localhost Manager", action: #selector(showLocalhost(_:)), key: "l", feature: .localhost),
+            Extra(title: "Review Changes", action: #selector(showReview(_:)), key: "i", feature: .review),
+            Extra(title: "Command History", action: #selector(toggleCommandBlocks(_:)), key: "b", feature: .commandHistory),
+            Extra(title: "Agent Activity", action: #selector(showActivity(_:)), key: "a", feature: .activity),
+            Extra(title: "Visual Fix", action: #selector(toggleVisualFix(_:)), key: "v", feature: .visualFix),
+            Extra(title: "Background Processes", action: #selector(showHousekeeping(_:)), key: "k", feature: .background),
+            Extra(title: "Keyboard Shortcuts", action: #selector(showShortcuts(_:)), key: "/", feature: nil),
         ]
         for (offset, extra) in extras.enumerated() {
-            let item = NSMenuItem(title: extra.0, action: extra.1, keyEquivalent: extra.2)
+            let item = NSMenuItem(title: extra.title, action: extra.action, keyEquivalent: extra.key)
             item.keyEquivalentModifierMask = [.control, .command]
             item.target = self
             viewMenu.insertItem(item, at: 5 + offset)
+            if let feature = extra.feature { featureItems.append((item, feature)) }
         }
         viewMenu.insertItem(.separator(), at: 5 + extras.count)
+        if let editor = viewMenu.items.first(where: { $0.keyEquivalent == "e" && $0.keyEquivalentModifierMask == [.control, .command] }) {
+            featureItems.append((editor, .editor))
+        }
+        installAppMenuItems(in: mainMenu)
+        updateFeatureItems()
+        NotificationCenter.default.addObserver(self, selector: #selector(featuresChanged(_:)),
+                                               name: ExtremeSettings.featuresDidChange, object: nil)
+        ShortcutSheet.shared.install()
+    }
+
+    /// "GhosttyEXTREME Settings…", "Check Setup…" and "Welcome…" after Ghostty's own
+    /// Preferences and Reload Configuration.
+    private func installAppMenuItems(in mainMenu: NSMenu) {
+        guard let appMenu = mainMenu.items.first?.submenu else { return }
+        let anchor = appMenu.items.firstIndex { $0.title == "Reload Configuration" }
+            ?? appMenu.items.firstIndex { $0.keyEquivalent == "," }
+            ?? 1
+        let items = [
+            ClosureMenuItem("GhosttyEXTREME Settings…", image: nil) { ExtremeSettingsWindow.show() },
+            ClosureMenuItem("Check Setup…", image: nil) { SetupCheckWindow.show() },
+            ClosureMenuItem("Welcome to GhosttyEXTREME…", image: nil) { WelcomeWindow.show() },
+        ]
+        // ⌃⌘, opens GhosttyEXTREME's settings; ⌘, stays Ghostty's config file.
+        items[0].keyEquivalent = ","
+        items[0].keyEquivalentModifierMask = [.control, .command]
+        appMenu.insertItem(.separator(), at: anchor + 1)
+        for (offset, item) in items.enumerated() { appMenu.insertItem(item, at: anchor + 2 + offset) }
+    }
+
+    @objc private func featuresChanged(_ notification: Notification) {
+        updateFeatureItems()
+    }
+
+    /// Hidden items don't answer their key equivalents, so this turns the shortcuts off too.
+    private func updateFeatureItems() {
+        for (item, feature) in featureItems { item.isHidden = !ExtremeSettings.isOn(feature) }
+    }
+
+    @objc func showShortcuts(_ sender: Any?) {
+        ShortcutSheet.shared.toggleSticky()
     }
 
     @objc func showLocalhost(_ sender: Any?) {
@@ -299,6 +348,10 @@ extension VerticalTabsMenu: NSMenuItemValidation {
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         if menuItem.action == #selector(showMissionControl(_:)) {
             menuItem.state = AgentToolWindows.isOpen(MissionControl.windowID) ? .on : .off
+            return true
+        }
+        if menuItem.action == #selector(showShortcuts(_:)) {
+            menuItem.state = ShortcutSheet.shared.isVisible ? .on : .off
             return true
         }
         if menuItem.action == #selector(raceAgents(_:)) { return !TerminalController.all.isEmpty }
