@@ -91,6 +91,7 @@ struct GitPanelView: View {
     @State private var creating = false
     @State private var confirmSwitch: String?
     @State private var armedDrop: String?
+    @State private var escapeMonitor: Any?
 
     init(controller: TerminalController, pwd: String, root: String, dismiss: @escaping () -> Void) {
         self.controller = controller
@@ -139,8 +140,17 @@ struct GitPanelView: View {
         .onAppear {
             model.load()
             if let branch = info?.branch { pulls.fetch(root: model.root, branch: branch, force: true) }
+            // Escape closes it, wherever focus is (usually still the terminal).
+            escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                guard event.keyCode == 53, event.window === controller.window else { return event }
+                dismiss()
+                return nil
+            }
         }
-        .onExitCommand(perform: dismiss)
+        .onDisappear {
+            if let escapeMonitor { NSEvent.removeMonitor(escapeMonitor) }
+            escapeMonitor = nil
+        }
     }
 
     private var divider: some View { Rectangle().fill(Extreme.line).frame(height: 1) }
@@ -159,6 +169,8 @@ struct GitPanelView: View {
                 Image(systemName: "xmark").font(.system(size: 10, weight: .bold)).foregroundColor(Extreme.dim)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Close")
+            .help("Close (Escape)")
         }
         .padding(12)
     }
@@ -222,8 +234,13 @@ struct GitPanelView: View {
                 HStack {
                     Text("No pull request for \(branch)").font(Extreme.font(11)).foregroundColor(Extreme.muted)
                     Spacer()
-                    Button("Create…") { pulls.createPullRequest(root: model.root) }
-                        .help("Opens GitHub's new pull request page (gh pr create --web)")
+                    // Only once it's pushed: for an unpushed branch, gh would want to push first.
+                    if model.branches.first(where: { $0.isCurrent })?.upstream.isEmpty == false {
+                        Button("Create…") { pulls.createPullRequest(root: model.root) }
+                            .help("Opens GitHub's new pull request page (gh pr create --web)")
+                    } else if model.loaded {
+                        Text("Push it first").font(Extreme.font(10.5)).foregroundColor(Extreme.dim)
+                    }
                 }
             } else {
                 Text("Looking…").font(Extreme.font(11)).foregroundColor(Extreme.dim)

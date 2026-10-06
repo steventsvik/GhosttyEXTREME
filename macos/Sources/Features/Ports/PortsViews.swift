@@ -108,6 +108,12 @@ private struct PortRow: View {
         .onHover { hovering = $0 }
         .onTapGesture(perform: focusOwner)
         .help(help)
+        // The hover buttons, for VoiceOver and keyboard users (who never hover).
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Port \(String(entry.port)), \(entry.title), \(entry.command)")
+        .accessibilityAction(named: "Open in browser") { if let url = entry.url { NSWorkspace.shared.open(url) } }
+        .accessibilityAction(named: "Go to tab", focusOwner)
+        .accessibilityAction(named: "Stop") { if entry.kind != .container { monitor.stop(entry) } }
     }
 
     private var subtitle: String {
@@ -163,6 +169,7 @@ private struct PortRow: View {
         }
         .buttonStyle(.plain)
         .help(help)
+        .accessibilityLabel(help)
     }
 
     /// The tab working in the server's project: its localhost session, or a tab whose
@@ -211,6 +218,7 @@ private struct PortConflictBanner: View {
                 Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).foregroundColor(Extreme.dim)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss")
         }
         .padding(8)
         .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Extreme.warn.opacity(0.1)))

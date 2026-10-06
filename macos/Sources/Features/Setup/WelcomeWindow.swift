@@ -216,7 +216,7 @@ private struct WelcomeView: View {
 
     private func plan(_ on: Binding<Bool>, _ title: String, _ detail: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            Toggle("", isOn: on).toggleStyle(.checkbox).labelsHidden()
+            Toggle("", isOn: on).toggleStyle(.checkbox).labelsHidden().accessibilityLabel(title)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(Extreme.font(12.5, weight: .semibold)).foregroundColor(Extreme.text)
                 Text(detail).font(Extreme.font(11, weight: .regular)).foregroundColor(Extreme.muted)

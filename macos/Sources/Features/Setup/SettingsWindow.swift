@@ -44,15 +44,17 @@ private struct ExtremeSettingsView: View {
                             }
                             .pickerStyle(.segmented)
                             .frame(width: 200)
+                            .accessibilityLabel("Animation")
                         }
                         settingRow("Aurora", "Light behind the terminal that follows the tab's agents") {
-                            Toggle("", isOn: $aurora).toggleStyle(.switch)
+                            Toggle("", isOn: $aurora).toggleStyle(.switch).accessibilityLabel("Aurora")
                         }
                         settingRow("Compact rows", "One line per pane in the sidebar") {
-                            Toggle("", isOn: $condensed).toggleStyle(.switch)
+                            Toggle("", isOn: $condensed).toggleStyle(.switch).accessibilityLabel("Compact rows")
                         }
                         settingRow("Sidebar width", "\(Int(sidebarWidth)) points; you can also drag its edge") {
                             Slider(value: $sidebarWidth, in: VerticalTabs.widthRange, step: 10).frame(width: 200)
+                                .accessibilityLabel("Sidebar width")
                         }
                     }
                     VStack(alignment: .leading, spacing: 10) {
@@ -151,6 +153,7 @@ struct FeatureToggleList: View {
                     Toggle("", isOn: Binding(get: { settings.isOn(feature) }, set: { settings.set(feature, on: $0) }))
                         .toggleStyle(.switch)
                         .labelsHidden()
+                        .accessibilityLabel(feature.title)
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)

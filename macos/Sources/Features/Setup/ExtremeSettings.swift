@@ -136,7 +136,7 @@ final class ExtremeSettings: ObservableObject {
 
     /// Where the hooks look to see a feature is off (they can't read the app's defaults).
     static var flagsFolder: URL {
-        URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".ghostty-extreme/features", isDirectory: true)
+        URL(fileURLWithPath: HookInstaller.home).appendingPathComponent(".ghostty-extreme/features", isDirectory: true)
     }
 
     private init() {}
