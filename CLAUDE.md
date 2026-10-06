@@ -1,0 +1,73 @@
+# Working on GhosttyEXTREME
+
+GhosttyEXTREME is a fork of Ghostty for macOS, built for watching coding agents
+work. Most of what's ours is Swift in `macos/Sources/Features/` plus the editor's web
+code in `macos/EditorWeb/`. `AGENTS.md` and `macos/AGENTS.md` are upstream Ghostty's
+files; where they disagree with this one, follow this one.
+
+## Branches and releases
+
+People watch this repo. Keep `custom` (the default branch) release-quality.
+
+- Commit to `dev`, or to a feature branch off `dev`. Never commit or push to `custom`
+  directly, and never rewrite pushed history (there are forks).
+- Add every user-visible change to the **Unreleased** section of `CHANGELOG.md` in the
+  same commit, written for users.
+- Releases only go through `./release.sh check <version>` and then
+  `./release.sh draft <version>`. Drafts are reviewed and published by the maintainer;
+  never publish a release.
+- No "Co-Authored-By" trailers or mentions of AI in commits, code or docs.
+
+## Build and check
+
+```sh
+# The core library, only when files outside macos/ changed:
+ZIG_GLOBAL_CACHE_DIR=/private/tmp/gx-zig-global ZIG_LOCAL_CACHE_DIR=/private/tmp/gx-zig-local \
+  /opt/homebrew/opt/zig@0.15/bin/zig build -Doptimize=ReleaseFast -Dxcframework-target=native -Demit-macos-app=false
+
+# The app:
+cd macos && xcodebuild -project Ghostty.xcodeproj -scheme Ghostty -configuration ReleaseLocal \
+  SYMROOT="$PWD/build" ARCHS=arm64 ONLY_ACTIVE_ARCH=YES build
+
+cd macos && swiftlint lint --quiet          # must report 0 errors
+node --check macos/EditorWeb/*.js            # editor scripts
+```
+
+New Swift files are picked up automatically (synchronized folders); no project edits needed.
+
+## Testing without disturbing the maintainer
+
+The maintainer runs GhosttyEXTREME all day with live agent sessions.
+
+- Never quit, restart or replace `/Applications/GhosttyEXTREME.app` while it's running.
+  Installing happens only after they say they've quit it.
+- Test with a copy: change its bundle id to `com.steventsvik.ghostty-extreme.test` and
+  ad-hoc sign it. Launch it with a clean environment:
+  `env -i HOME=$HOME USER=$USER PATH=/usr/bin:/bin:/usr/sbin:/sbin /usr/bin/open -na <copy>`.
+- Anything that brings a window to the front, clicks, or records the screen needs the
+  maintainer's go-ahead first; they may be using the Mac. Screenshots and recordings
+  capture a single window (`screencapture -l <window id>`), never the whole screen.
+- Test-only switches: `GHOSTTY_EXTREME_TEST_TABS=N`, `GHOSTTY_EXTREME_DEMO=<script>`
+  (see `DemoDirector.swift`), `GHOSTTY_EXTREME_TEST_LOG=<file>`.
+
+## Performance rules
+
+The sidebar and chrome are in every tab's window, so small costs multiply.
+
+- No SwiftUI `repeatForever` animations and no continuous `TimelineView`s in the
+  chrome: each one re-lays out the whole window every frame. Endless motion uses Core
+  Animation (`ExtremeMotion.swift`, `ExtremeFilm.swift`), capped at `Motion.chromeRate`.
+- Gate any remaining timeline on `@Environment(\.extremeMotion)` (false while the
+  window or tab is off screen).
+- Glows get a `shadowPath`. Hidden pages and windows do no work.
+- Measure before and after: `ps -M -p <pid>` (main thread), `/usr/bin/sample`, `footprint`.
+
+## Security
+
+- Agent and localhost events are terminal escape sequences signed with a per-launch
+  token (`EventToken.swift`). Any new event must be verified the same way.
+- The editor's web view only loads its own `ghostty-editor://` pages.
+- The Backend view runs providers' own CLIs, read-only, and never reads credentials or
+  env values (names only).
+- Never commit paths into the maintainer's home folder, tokens or personal data;
+  `release.sh` checks for these, and GitHub push protection is on.

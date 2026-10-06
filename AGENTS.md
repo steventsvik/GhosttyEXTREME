@@ -2,6 +2,9 @@
 
 A file for [guiding coding agents](https://agents.md/).
 
+> **GhosttyEXTREME:** read [CLAUDE.md](CLAUDE.md) first. It covers this fork's branches,
+> releases, testing and performance rules, and takes precedence over this file.
+
 ## Commands
 
 - **Build:** `zig build`
