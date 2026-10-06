@@ -85,7 +85,7 @@ pass "editor scripts parse"
 # ── Package ─────────────────────────────────────────────────────────────
 step "Package"
 APP=$OUT/GhosttyEXTREME.app
-rm -rf $APP $OUT/*.zip $OUT/GhosttyEXTREME-agent-hooks
+rm -rf $APP $OUT/GhosttyEXTREME-agent-hooks $OUT/*.zip(N)
 ditto macos/build/ReleaseLocal/Ghostty.app $APP
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" -c "Set :CFBundleVersion $VERSION" $APP/Contents/Info.plist
 # Debug info carries the build machine's paths; the release doesn't need it.
@@ -124,7 +124,7 @@ PID=$(pgrep -f "^$TEST/Contents/MacOS/ghostty" | head -1)
 CPU=$(ps -o %cpu= -p $PID | xargs)
 pkill -f "^$TEST/Contents/MacOS/ghostty"; sleep 1; rm -rf $TEST
 [[ $(ls ~/Library/Logs/DiagnosticReports 2>/dev/null | grep -ci ghostty) == $CRASHES_BEFORE ]] || fail "a crash report appeared"
-pass "launched and stayed up (idle CPU ${CPU}%), no crash report"
+pass "launched and stayed up (idle CPU ${CPU}%%), no crash report"
 
 # ── Archives and notes ──────────────────────────────────────────────────
 step "Archives"
