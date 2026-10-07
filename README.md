@@ -14,6 +14,7 @@
   <b><a href="https://github.com/steventsvik/GhosttyEXTREME/releases/latest">Download</a></b> ·
   <a href="#watch-your-agents-work-live">Live agents</a> ·
   <a href="#features">Features</a> ·
+  <a href="#how-it-compares">Compare</a> ·
   <a href="#install">Install</a> ·
   <a href="#keyboard-shortcuts">Shortcuts</a> ·
   <a href="#security-and-privacy">Security</a>
@@ -50,13 +51,13 @@ GhosttyEXTREME follows each one as it works, with nothing to set up beyond its h
 
 | As the agent… | …you see |
 |---|---|
-| **starts a task** | Its card in the sidebar shows the task, a working spinner and a timer. Its sprite starts typing and the terminal's frame lights up cyan. |
+| **starts a task** | Its card in the sidebar shows the task, a working spinner and a timer. Its sprite starts typing and the corners of its terminal glow cyan. A snapshot of your project is saved, so the turn can be undone. |
 | **reads a file** | The editor opens that file at the lines it read; the file lights up cyan on the code map, and a comet flies there. |
 | **edits a file** | The change types itself into the editor with the lines highlighted, the file turns orange on the map, and the turn's diff count goes up. |
 | **thinks or replies** | The agent panel shows its thinking, messages and every tool call as a timeline, sub-agents included. |
 | **touches your backend** | The Worker, database or bucket that code belongs to lights up in the Backend view. |
-| **needs you** | Its card turns amber and jumps to the top of the command palette and Mission Control; you get a notification and a Dock badge. |
-| **finishes** | Its sprite sparkles, the sigil flares gold, and its changes land in Review with the full diff. |
+| **needs you** | Its card turns amber with **Allow** and **Deny** buttons, and jumps to the top of the command palette and Mission Control; you get a notification you can answer from, and a Dock badge. |
+| **finishes** | Its sprite sparkles, the sigil flares gold, and its changes land in Review with the full diff. Not what you wanted? **Undo last turn** puts your files back. |
 
 Several agents at once? Each tab follows its own, tabs in the same repository are grouped,
 and you're warned when two agents edit the same file.
@@ -115,6 +116,8 @@ with more detail.
   live summary ("2 working · 1 waiting") and a warning when two agents edit the same file.
 - **Alerts:** when an agent waits on you in a pane you aren't looking at, you get a
   notification (click it to jump there) and a count on the Dock icon.
+- **Answer without switching:** **Allow** and **Deny** right on the card (and in Mission Control and
+  the notification) when an agent asks for permission. Keys are only sent when its prompt is on screen.
 - **Usage meters** for your Claude and ChatGPT plans (5-hour and weekly windows), with
   graphs.
 
@@ -225,6 +228,14 @@ When an agent finishes working in a git repository, its changes land in an inbox
 - **Read the diff** file by file.
 - **Comment on lines** and send the comments back as the agent's next prompt.
 - **Finish up:** approve or undo files, commit, or open a pull request.
+
+### Undo an agent's turn
+
+Every agent turn starts with a snapshot of your project. **Undo last turn** (or an earlier
+one) from the tab's ⋮ menu, or **Restore to before this** on any of your prompts in the
+agent timeline. It lists every file it will change and asks first, and your current files are
+saved too, so the undo can be undone. Snapshots are git objects only: no commits, branches
+or stash entries, and your staged changes stay as they are.
 
 ### Agent races
 
@@ -343,6 +354,31 @@ agents working at once, GhosttyEXTREME uses about **1–3% CPU**.
   variables, never their values.
 - **The editor stays local.** It can only show its own pages, and Visual Fix only talks
   to your local dev server.
+
+<br>
+
+## How it compares
+
+GhosttyEXTREME is for watching and steering the CLI agents you already use. If you want a
+terminal with its own built-in AI, Warp or Zed may suit you better.
+
+| | GhosttyEXTREME | [Ghostty](https://ghostty.org) | [cmux](https://github.com/manaflow-ai/cmux) | [Warp](https://www.warp.dev) | [Zed](https://zed.dev) |
+|---|---|---|---|---|---|
+| **What it is** | Ghostty fork for watching coding agents | Fast native terminal | Ghostty-based terminal for agents | Terminal with built-in agents | Code editor with an agent panel |
+| **Runs Claude Code, Codex & co. unchanged** | ✓ | ✓ | ✓ | ✓ | ✓ in its terminal; also via ACP |
+| **Status of every agent at a glance** | Sidebar card per agent: task, last action, timer | — | Notification rings and tab text | For its own agents | For agents in its panel |
+| **Answer a permission prompt without switching** | Sidebar, Mission Control or notification | — | — | For its own agents | For agents in its panel |
+| **See the code as the agent writes it** | Editor follows the CLI agent live | — | — | Diff view for its own agents | Follows agents in its panel |
+| **Map of what the agent touched** | Code map with blast radius | — | — | — | — |
+| **Backend view** (Cloudflare, Supabase, Vercel) | ✓ | — | — | — | — |
+| **Point at your running app, send it to the agent** | Visual Fix | — | Browser that agents can drive | — | — |
+| **Undo an agent's turn** | ✓ | — | — | Revert changes in its code review | Checkpoints |
+| **Open source** | AGPL-3.0 | MIT | GPL-3.0 | Client AGPL/MIT; AI and cloud proprietary | GPL-3.0 |
+| **Platforms** | macOS (Apple silicon) | macOS, Linux | macOS | macOS, Linux, Windows | macOS, Linux, Windows |
+
+Where others are ahead: Warp and Zed run on Linux and Windows and come with their own AI;
+cmux has SSH workspaces and a browser your agents can control; Ghostty is the lean original
+everything here is built on. Compared from each project's public docs, October 2026.
 
 <br>
 

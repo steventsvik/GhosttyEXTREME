@@ -99,7 +99,7 @@ git fetch -q origin --tags || fail "couldn't reach GitHub"
 git rev-parse -q --verify "refs/tags/$TAG" >/dev/null && fail "$TAG already exists"
 pass "$TAG is a new version"
 if [[ $MODE == draft ]]; then
-  [[ $BRANCH == custom ]] || fail "drafts are made from custom (you're on $BRANCH); merge your work first"
+  [[ $BRANCH == custom ]] || fail "drafts are made from custom (you're on $BRANCH); merge dev into custom with a pull request first"
   [[ $(git rev-parse HEAD) == $(git rev-parse origin/custom) ]] || fail "custom isn't pushed (or is behind origin)"
   pass "custom is pushed"
 fi
@@ -194,7 +194,8 @@ for f in $HOOKS/*.sh $HOOKS/localhost $HOOKS/localhost-run $HOOKS/ghostty-extrem
 for f in agent-hook.sh ghostty-extreme.zsh ghostty-extreme codex-hook.py memory_context.py localhost localhost-run; do
   cmp -s $HOOKS/$f $APP/Contents/Resources/agent-hooks/$f || fail "the app's bundled agent-hooks/$f doesn't match the repo"
 done
-for f in $HOOKS/*.py; do python3 -m py_compile $f || fail "$f has a syntax error"; done
+# Parse only: py_compile would leave a __pycache__ folder in the release.
+for f in $HOOKS/*.py; do python3 -c 'import ast, sys; ast.parse(open(sys.argv[1]).read())' $f || fail "$f has a syntax error"; done
 pass "agent hooks (checked, no personal paths)"
 
 # ── Launch test ─────────────────────────────────────────────────────────
