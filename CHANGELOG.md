@@ -6,6 +6,8 @@ What changed in each GhosttyEXTREME release. Work in progress collects under
 
 ## Unreleased
 
+## 1.5.0
+
 **Set up in a minute**
 - A welcome window on first launch finds Claude Code, Codex and the tools the hooks need, connects your agents in one click, lets you pick features, and runs a live test. It only appears when something needs setting up; open it any time from the GhosttyEXTREME menu.
 - The agent hooks now come inside the app. Setting up copies them to `~/.ghostty-extreme`, adds GhosttyEXTREME's entries to `~/.claude/settings.json`, `~/.codex/hooks.json` and `~/.zshrc` (each backed up first, your own hooks untouched), and a rebuilt app keeps installed hooks up to date. No more separate hooks download or `install.sh`.
