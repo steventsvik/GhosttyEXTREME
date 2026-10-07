@@ -7,6 +7,7 @@ struct AgentContext {
     enum Part: String, CaseIterable, Identifiable {
         case conversation
         case changes
+        case memory
         case failures
 
         var id: String { rawValue }
@@ -15,6 +16,7 @@ struct AgentContext {
             switch self {
             case .conversation: return "Conversation"
             case .changes: return "Changes"
+            case .memory: return "Project notes"
             case .failures: return "Failed commands"
             }
         }
@@ -23,6 +25,7 @@ struct AgentContext {
             switch self {
             case .conversation: return "The task and the last few messages"
             case .changes: return "What this agent changed, as a diff"
+            case .memory: return "What this agent remembers about the project (see Project Memory)"
             case .failures: return "Commands that failed in this tab, with their output"
             }
         }
@@ -45,6 +48,8 @@ struct AgentContext {
     /// "since Claude Code's first prompt here" or "uncommitted, against HEAD".
     var changeScope: String?
     var failures: [CommandBlock] = []
+    /// What the agent remembers about the project, from `ProjectMemory`.
+    var memory: String?
 
     /// Size limits, so a message stays something an agent can take in at once.
     private static let diffLimit = 24_000
@@ -75,6 +80,9 @@ struct AgentContext {
             if let prompt = turns.last(where: { $0.role == .user })?.text { context.task = prompt }
             if parts.contains(.conversation) { context.conversation = turns }
             if parts.contains(.changes) { context.readChanges(baseline: baseline) }
+            if parts.contains(.memory), let kind = info?.kind {
+                context.memory = ProjectMemory.sharedText(folder: folder, from: kind)
+            }
             context.failures = Array(failures)
             DispatchQueue.main.async { completion(context) }
         }
@@ -127,6 +135,10 @@ struct AgentContext {
         } else if let lastMessage, !lastMessage.isEmpty {
             sections.append("## \(name)'s last message\n\n\(AgentTools.clip(lastMessage, 4000))")
         }
+        if let memory {
+            sections.append("## What \(name) remembers about this project\n\n" +
+                            "Notes it kept from earlier sessions; they can be out of date.\n\n\(memory)")
+        }
         if let changeSummary {
             var block = "## Changes (\(changeScope ?? "uncommitted"))\n\n```\n\(changeSummary)\n```"
             if let diff {
@@ -146,7 +158,7 @@ struct AgentContext {
     }
 
     var isEmpty: Bool {
-        (task ?? "").isEmpty && conversation.isEmpty && (lastMessage ?? "").isEmpty && changeSummary == nil && failures.isEmpty
+        (task ?? "").isEmpty && conversation.isEmpty && (lastMessage ?? "").isEmpty && changeSummary == nil && failures.isEmpty && memory == nil
     }
 
     private static func relative(_ date: Date) -> String {

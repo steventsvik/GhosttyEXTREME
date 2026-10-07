@@ -85,6 +85,16 @@ enum AgentHandoff {
         }
     }
 
+    /// Whether a handoff to `destination` should carry the source's project notes: only a
+    /// running agent of the other kind needs them. A new one gets them when its session
+    /// starts (shared memory, through the hooks) and one of the same kind has its own.
+    static func needsMemory(from surface: Ghostty.SurfaceView, to destination: Destination) -> Bool {
+        guard ExtremeSettings.isOn(.sharedMemory), case .existing(let target) = destination,
+              let source = VerticalTabsAgents.shared.info(for: surface)?.kind,
+              let receiver = VerticalTabsAgents.shared.info(for: target)?.kind else { return false }
+        return source != receiver
+    }
+
     /// Other panes running Claude Code or Codex, in any window.
     static func runningAgents(excluding surface: Ghostty.SurfaceView) -> [(surface: Ghostty.SurfaceView, info: VerticalTabAgentInfo, tab: String)] {
         TerminalController.all.flatMap { controller in
@@ -171,6 +181,8 @@ private struct HandoffView: View {
     /// Nil: a new agent in a split. Otherwise the running agent's pane.
     @State private var existing: ObjectIdentifier?
     @State private var parts: Set<AgentContext.Part> = [.conversation, .changes]
+    /// The user changed "Project notes" themselves; stop choosing it for them.
+    @State private var memoryTouched = false
     @State private var context: AgentContext?
     @State private var text = ""
     @State private var edited = false
@@ -230,6 +242,7 @@ private struct HandoffView: View {
                             ForEach(AgentContext.Part.allCases) { part in
                                 Toggle(isOn: Binding(get: { parts.contains(part) }, set: { on in
                                     if on { parts.insert(part) } else { parts.remove(part) }
+                                    if part == .memory { memoryTouched = true }
                                     gather()
                                 })) {
                                     VStack(alignment: .leading, spacing: 1) {
@@ -268,6 +281,23 @@ private struct HandoffView: View {
         }
         .extremeWindow()
         .onAppear(perform: gather)
+        .onChange(of: existing) { _ in chooseMemory() }
+    }
+
+    private var destination: AgentHandoff.Destination {
+        if let existing, let agent = running.first(where: { ObjectIdentifier($0.surface) == existing }) {
+            return .existing(agent.surface)
+        }
+        return .newSplit(target)
+    }
+
+    /// Project notes go to running agents of the other kind (see `AgentHandoff.needsMemory`).
+    private func chooseMemory() {
+        guard !memoryTouched, let surface else { return }
+        let wanted = AgentHandoff.needsMemory(from: surface, to: destination)
+        guard wanted != parts.contains(.memory) else { return }
+        if wanted { parts.insert(.memory) } else { parts.remove(.memory) }
+        gather()
     }
 
     private func gather() {
@@ -293,12 +323,6 @@ private struct HandoffView: View {
 
     private func handOff() {
         guard let surface, let controller else { return }
-        let destination: AgentHandoff.Destination
-        if let existing, let agent = running.first(where: { ObjectIdentifier($0.surface) == existing }) {
-            destination = .existing(agent.surface)
-        } else {
-            destination = .newSplit(target)
-        }
         AgentHandoff.send(text, from: surface, in: controller, to: destination, mode: mode)
         AgentToolWindows.close(id: "handoff")
     }

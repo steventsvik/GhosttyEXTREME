@@ -41,6 +41,9 @@ final class AgentPipelines: ObservableObject {
         var pending: Pending?
         /// The message last handed to `AgentInbox`, so stopping can take it back.
         var delivery: UUID?
+        /// The first review also carries the writer's project notes (a running reviewer of
+        /// the other kind; see `AgentHandoff.needsMemory`).
+        var shareMemory = false
 
         var isActive: Bool { if case .finished = stage { return false } else { return true } }
     }
@@ -79,6 +82,7 @@ final class AgentPipelines: ObservableObject {
             pipelines.removeValue(forKey: existing.id)
         }
         var pipeline = Pipeline(writer: writer, reviewer: reviewer, autoSend: autoSend, maxRounds: max(1, maxRounds))
+        pipeline.shareMemory = AgentHandoff.needsMemory(from: writer, to: .existing(reviewer))
         lastActivity[ObjectIdentifier(writer)] = VerticalTabsAgents.shared.info(for: writer)?.activity
         lastActivity[ObjectIdentifier(reviewer)] = VerticalTabsAgents.shared.info(for: reviewer)?.activity
         pipelines[pipeline.id] = pipeline
@@ -153,7 +157,8 @@ final class AgentPipelines: ObservableObject {
         guard let pipeline = pipelines[id], let writer = pipeline.writer, pipeline.reviewer != nil else { return }
         let round = pipeline.round + 1
         let writerName = VerticalTabsAgents.shared.info(for: writer)?.kind.displayName ?? "the writer"
-        AgentContext.gather(from: writer, parts: [.conversation, .changes]) { [weak self] context in
+        let parts: Set<AgentContext.Part> = pipeline.shareMemory && round == 1 ? [.conversation, .changes, .memory] : [.conversation, .changes]
+        AgentContext.gather(from: writer, parts: parts) { [weak self] context in
             guard let self, var pipeline = self.pipelines[id], pipeline.isActive else { return }
             pipeline.round = round
             let text = """
