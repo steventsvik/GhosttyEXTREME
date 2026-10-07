@@ -9,8 +9,11 @@ files; where they disagree with this one, follow this one.
 
 People watch this repo. Keep `custom` (the default branch) release-quality.
 
-- Commit to `dev`, or to a feature branch off `dev`. Never commit or push to `custom`
-  directly, and never rewrite pushed history (there are forks).
+- Commit to `dev`, or to a feature branch off `dev`. `custom` only changes through a pull
+  request (`gh pr create --base custom --head dev`, then `gh pr merge --merge`); GitHub
+  rejects direct pushes, force-pushes and deletion there, and force-pushes or deletion of
+  `dev` and of release tags.
+- Never rewrite pushed history (there are forks).
 - Add every user-visible change to the **Unreleased** section of `CHANGELOG.md` in the
   same commit, written for users.
 - Releases only go through `./release.sh check <version>` and then
