@@ -6,6 +6,8 @@ What changed in each GhosttyEXTREME release. Work in progress collects under
 
 ## Unreleased
 
+## 1.5.1
+
 - **Hand Off and Review Loop** always start from the pane you opened them from. A window still open from another pane used to come forward unchanged and hand off that pane's work ([#10](https://github.com/steventsvik/GhosttyEXTREME/issues/10)).
 - **Allow notifications** in Check Setup now says what to do and opens System Settings → Notifications when macOS doesn't show its prompt (Focus modes can hide it), instead of seeming to do nothing ([#11](https://github.com/steventsvik/GhosttyEXTREME/issues/11)).
 - **Ports, with VoiceOver**: pressing a port row now goes to its tab, like a click. It used to run the row's actions, which could open the browser and stop the server; Stop, Open in browser and Open in Visual Fix are separate named actions ([#12](https://github.com/steventsvik/GhosttyEXTREME/issues/12)).
