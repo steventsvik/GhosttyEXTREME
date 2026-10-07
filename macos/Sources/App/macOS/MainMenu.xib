@@ -110,7 +110,7 @@
                                     <action selector="toggleSecureInput:" target="bbz-4X-AYv" id="vWx-z8-5Sy"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Make Ghostty the Default Terminal" id="b1t-oB-7MI" userLabel="Set Ghostty as Default Terminal App">
+                            <menuItem title="Make GhosttyEXTREME the Default Terminal" id="b1t-oB-7MI" userLabel="Set Ghostty as Default Terminal App">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="setAsDefaultTerminal:" target="bbz-4X-AYv" id="QHh-CA-Qho"/>

@@ -126,6 +126,8 @@ private struct MemoryWindowView: View {
             Rectangle().fill(Extreme.line).frame(height: 1)
             footer.padding(.horizontal, 16).padding(.vertical, 9)
         }
+        // A fixed preferred size: otherwise the window grows to fit long notes.
+        .frame(minWidth: 760, idealWidth: 900, maxWidth: .infinity, minHeight: 480, idealHeight: 620, maxHeight: .infinity)
         // Files change while the window is open (agents write notes mid-session).
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { note in
             if (note.object as? NSWindow)?.title == "Project Memory", !model.hasChanges { model.reload() }
@@ -242,13 +244,24 @@ private struct MemoryWindowView: View {
                         .font(Extreme.font(11)).foregroundColor(Extreme.muted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                TextEditor(text: $model.draft)
-                    .font(.system(size: 12, design: .monospaced))
-                    .scrollContentBackground(.hidden)
-                    .padding(6)
-                    .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Extreme.panel))
-                    .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Extreme.line, lineWidth: 1))
-                    .disabled(!note.editable)
+                Group {
+                    if note.editable {
+                        TextEditor(text: $model.draft)
+                            .scrollContentBackground(.hidden)
+                    } else {
+                        ScrollView {
+                            Text(model.draft)
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 5)
+                        }
+                    }
+                }
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundColor(Extreme.text)
+                .padding(6)
+                .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Extreme.panel))
+                .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Extreme.line, lineWidth: 1))
                 if let error = model.error {
                     Text(error).font(Extreme.font(11)).foregroundColor(Extreme.danger)
                         .fixedSize(horizontal: false, vertical: true)

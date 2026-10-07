@@ -267,18 +267,12 @@ final class VerticalTabsMenu: NSObject {
         guard let appMenu = mainMenu.items.first?.submenu else { return }
         let configIndex = appMenu.items.firstIndex { $0.action == #selector(AppDelegate.openConfig(_:)) }
         let anchor = configIndex ?? 1
-        if let configIndex {
-            // Ghostty sets its shortcut from the config (⌘, by default); our item comes first,
-            // so ⌘, opens GhosttyEXTREME's settings either way.
-            appMenu.items[configIndex].title = "Edit Config File…"
-        }
+        if let configIndex { appMenu.items[configIndex].title = "Edit Config File…" }
         let items = [
             ClosureMenuItem("Settings…", image: nil) { ExtremeSettingsWindow.show() },
             ClosureMenuItem("Check Setup…", image: nil) { SetupCheckWindow.show() },
             ClosureMenuItem("Welcome to GhosttyEXTREME…", image: nil) { WelcomeWindow.show() },
         ]
-        items[0].keyEquivalent = ","
-        items[0].keyEquivalentModifierMask = [.command]
         items[0].image = NSImage(systemSymbolName: "gear", accessibilityDescription: nil)
         // The old shortcut keeps working.
         let legacy = ClosureMenuItem("Settings…", image: nil) { ExtremeSettingsWindow.show() }
@@ -287,6 +281,8 @@ final class VerticalTabsMenu: NSObject {
         legacy.isHidden = true
         legacy.allowsKeyEquivalentWhenHidden = true
         for (offset, item) in (items + [legacy]).enumerated() { appMenu.insertItem(item, at: anchor + offset) }
+        // Takes Ghostty's `open_config` shortcut (⌘, unless the config changes it).
+        (NSApp.delegate as? AppDelegate)?.adoptSettingsMenuItem(items[0])
     }
 
     @objc private func featuresChanged(_ notification: Notification) {
