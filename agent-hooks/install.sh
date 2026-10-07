@@ -12,14 +12,14 @@ here="$(cd "$(dirname "$0")" && pwd)"
 hooks="$HOME/.ghostty-extreme/agent-hooks"
 bin="$HOME/.ghostty-extreme/bin"
 mkdir -p "$hooks" "$bin"
-cp "$here/agent-hook.sh" "$here/ghostty-extreme.zsh" "$here/codex-hook.py" "$hooks/"
+cp "$here/agent-hook.sh" "$here/ghostty-extreme.zsh" "$here/codex-hook.py" "$here/memory_context.py" "$hooks/"
 cp "$here/localhost" "$here/localhost-run" "$here/ghostty-extreme" "$bin/"
 chmod +x "$hooks/agent-hook.sh" "$bin/localhost" "$bin/localhost-run" "$bin/ghostty-extreme"
 # Before the rebrand the hooks lived in ~/.ghostty-custom; agents may still point there
 # (Codex ties its hook approvals to the exact command), so keep that copy current too.
 legacy="$HOME/.ghostty-custom/agent-hooks"
 if [ -d "$legacy" ]; then
-  cp "$here/agent-hook.sh" "$here/ghostty-extreme.zsh" "$here/codex-hook.py" "$legacy/"
+  cp "$here/agent-hook.sh" "$here/ghostty-extreme.zsh" "$here/codex-hook.py" "$here/memory_context.py" "$legacy/"
   chmod +x "$legacy/agent-hook.sh"
 fi
 echo "Installed agent hooks to $hooks and localhost scripts to $bin"

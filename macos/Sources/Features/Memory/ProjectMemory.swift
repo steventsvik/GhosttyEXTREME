@@ -190,18 +190,21 @@ enum ProjectMemory {
     /// the hooks) at the start of the other agent's sessions. Nil when there are none.
     static func sharedText(folder: String, from agent: VerticalTabAgentKind, limit: Int = 8_000) -> String? {
         let project = load(folder: folder)
+        func instructions(_ name: String) -> Note? {
+            project.notes(from: .instructions).first { $0.path == project.root + "/" + name }
+        }
         var parts: [String] = []
         switch agent {
         case .codex:
-            for note in project.notes(from: .codex) { parts.append("### \(note.title)\n\n\(note.body)") }
-            if let agents = project.notes(from: .instructions).first(where: { $0.path == project.root + "/AGENTS.md" }) {
+            for note in project.notes(from: .codex) { parts.append("### \(note.title)\n\n\(stripCodexBookkeeping(note.body))") }
+            if let agents = instructions("AGENTS.md"), agents.body != instructions("CLAUDE.md")?.body {
                 parts.append("### AGENTS.md\n\n\(agents.body)")
             }
         case .claude:
             for note in project.notes(from: .claude) {
                 parts.append("### \(note.title) (\(note.kind))\n\n\(note.body.trimmingCharacters(in: .whitespacesAndNewlines))")
             }
-            if let claude = project.notes(from: .instructions).first(where: { $0.path == project.root + "/CLAUDE.md" }) {
+            if let claude = instructions("CLAUDE.md"), claude.body != instructions("AGENTS.md")?.body {
                 parts.append("### CLAUDE.md\n\n\(claude.body)")
             }
         default:
@@ -212,6 +215,13 @@ enum ProjectMemory {
     }
 
     // MARK: Helpers
+
+    /// Codex's own file lists and search keywords mean nothing to another agent.
+    static func stripCodexBookkeeping(_ body: String) -> String {
+        ("\n" + body).replacingOccurrences(of: #"\n### (rollout_summary_files|keywords)\n[\s\S]*?(?=\n#{1,3} |$(?![\s\S]))"#,
+                                           with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 
     /// Splits a `---` header of `key: value` lines (nested ones flattened) from the text.
     static func frontMatter(_ raw: String) -> ([String: String], String) {

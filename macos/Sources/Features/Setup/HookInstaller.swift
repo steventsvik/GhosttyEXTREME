@@ -31,6 +31,7 @@ enum HookInstaller {
             ("agent-hook.sh", hooksFolder),
             ("ghostty-extreme.zsh", hooksFolder),
             ("codex-hook.py", hooksFolder),
+            ("memory_context.py", hooksFolder),
             ("localhost", binFolder),
             ("localhost-run", binFolder),
             ("ghostty-extreme", binFolder),

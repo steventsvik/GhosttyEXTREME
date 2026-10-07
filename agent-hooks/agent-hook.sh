@@ -9,6 +9,8 @@
 #
 # Emits an OSC 777 notification titled "ghostty-extreme://agent" with a compact JSON
 # body. GhosttyEXTREME consumes it silently; it is never shown as a notification.
+# At session start it also adds what Codex remembers about the project (shared memory,
+# memory_context.py) to Claude Code's context.
 #   - Claude Code: printed as the `terminalSequence` hook field, so Claude Code
 #     writes it to its own terminal.
 #   - Others (Codex): written to the agent's terminal; nothing is printed, so the
@@ -116,7 +118,14 @@ agent_tty() {
 }
 
 if [ "$agent" = "claude" ]; then
-  jq -nc --arg seq "$sequence" '{terminalSequence: $seq}'
+  # Shared memory: a new session starts with what Codex remembers about the project.
+  shared=""
+  if [ "$event" = "session_start" ] && [ "$namespace" = "ghostty-extreme" ] && command -v python3 >/dev/null 2>&1; then
+    cwd=$(jq -r '.cwd // empty' <<<"$input" 2>/dev/null)
+    [ -n "$cwd" ] && shared=$(python3 "$(dirname "$0")/memory_context.py" claude "$cwd" 2>/dev/null)
+  fi
+  jq -nc --arg seq "$sequence" --arg ctx "$shared" '{terminalSequence: $seq}
+    + (if $ctx == "" then {} else {hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $ctx}} end)'
 else
   tty_path=$(agent_tty)
   [ -n "$tty_path" ] && printf '%s' "$sequence" > "$tty_path" 2>/dev/null

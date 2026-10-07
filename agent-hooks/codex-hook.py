@@ -125,7 +125,9 @@ def localhost_context(payload, event, home):
     if not isinstance(command, str) or not launcher.is_file():
         return None
     try:
-        rewritten = subprocess.check_output([str(launcher), "rewrite", command],
+        cwd_arg = arguments.get("workdir", payload.get("cwd"))
+        extra = ["--cwd", cwd_arg] if isinstance(cwd_arg, str) and cwd_arg else []
+        rewritten = subprocess.check_output([str(launcher), "rewrite", command, *extra],
                                             text=True, stderr=subprocess.DEVNULL, timeout=1).strip()
     except (OSError, subprocess.SubprocessError):
         return None
@@ -145,6 +147,21 @@ def localhost_context(payload, event, home):
         "The dev server command now opens a GhosttyEXTREME localhost session: a separate "
         "terminal tab that keeps running after you finish. The command prints the URL and "
         "log commands. Do not start another copy. The usual tool approval flow still applies."}}
+
+
+def shared_memory(payload):
+    """What Claude Code remembers about the project, for a new Codex session."""
+    cwd = payload.get("cwd")
+    if not isinstance(cwd, str) or not cwd:
+        return None
+    try:
+        # No __pycache__ in the user's hooks folder.
+        sys.dont_write_bytecode = True
+        from memory_context import context
+        text = context("codex", cwd)
+    except Exception:  # noqa: BLE001 - never fail a session start
+        return None
+    return {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}} if text else None
 
 
 def main():
@@ -170,6 +187,8 @@ def main():
                 except OSError:
                     pass
         context = localhost_context(payload, event, home)
+        if event == "session_start" and os.environ.get("GHOSTTY_EXTREME_AGENT_EVENTS") == "1":
+            context = shared_memory(payload)
         if context:
             print(json.dumps(context))
     except (OSError, ValueError, TypeError):
