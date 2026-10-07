@@ -33,6 +33,12 @@ What changed in each GhosttyEXTREME release. Work in progress collects under
 - **Send a failed command to the agent already working on the project**: the failed-command chip offers it first, with the output and what's changed.
 - Messages are only ever typed into an agent between turns, into an empty input box: never into a permission prompt, a menu or a dialog, and never over something you've started typing (greyed-out suggestions don't count). Until then they wait on the agent's card, where you can drop them.
 
+**Install and update**
+- **One-line install**: `curl -fsSL https://raw.githubusercontent.com/steventsvik/GhosttyEXTREME/custom/install.sh | bash` downloads the latest release, checks its checksum and puts it in /Applications, with no quarantine step.
+- **Updates in the app**: GhosttyEXTREME now checks its own releases (GhosttyEXTREME → Check for Updates…, and automatically) and installs them. Updates are signed with this project's key and nothing else is accepted.
+- **Fixed**: Check for Updates… used official Ghostty's feed, which could offer plain Ghostty and replace GhosttyEXTREME ([#13](https://github.com/steventsvik/GhosttyEXTREME/issues/13)). Coming from 1.4.x, install this version once with the line above; later versions update in the app.
+- Releases are signed with the same certificate every time, so macOS keeps your permissions (notifications, folder access) across updates.
+
 **Every shortcut at a glance**
 - Hold ⌃⌘ for a moment to see every ⌃⌘ shortcut over the window, along with Ghostty's essentials; let go and it's gone. ⌃⌘/ keeps it open.
 

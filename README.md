@@ -345,19 +345,37 @@ agents working at once, GhosttyEXTREME uses about **1–3% CPU**.
 
 ## Install
 
-Apple silicon Macs, macOS 13 or newer.
+Apple silicon Macs, macOS 13 or newer. In Terminal:
 
-1. Download `GhosttyEXTREME-<version>-macos-arm64.zip` from the
-   [latest release](https://github.com/steventsvik/GhosttyEXTREME/releases/latest), unzip
-   it, and move **GhosttyEXTREME.app** to `/Applications`.
-2. The app isn't notarized, so clear the download quarantine once:
-   ```sh
-   xattr -dr com.apple.quarantine /Applications/GhosttyEXTREME.app
-   ```
-3. Open it. The welcome window finds Claude Code and Codex, connects them in one click
-   (backing up each file it changes) and runs a live test. Come back to it, or to
-   **Check Setup**, from the GhosttyEXTREME menu; `ghostty-extreme doctor` runs the same
-   checks in a terminal.
+```sh
+curl -fsSL https://raw.githubusercontent.com/steventsvik/GhosttyEXTREME/custom/install.sh | bash
+```
+
+It downloads the [latest release](https://github.com/steventsvik/GhosttyEXTREME/releases/latest),
+checks it against the release's SHA-256 checksums and puts **GhosttyEXTREME.app** in
+`/Applications`. Then it opens: the welcome window connects Claude Code and Codex in one click
+(backing up each file it changes) and runs a live test. Come back to it, or to **Check Setup**,
+from the GhosttyEXTREME menu; `ghostty-extreme doctor` runs the same checks in a terminal.
+
+**Updates** arrive in the app: GhosttyEXTREME checks for new releases and installs them when
+you say so (GhosttyEXTREME → Check for Updates…). They're signed, and the app only accepts
+updates signed by this project.
+
+<details>
+<summary>Installing by hand instead</summary>
+
+<br>
+
+Download `GhosttyEXTREME-<version>-macos-arm64.zip` from the
+[latest release](https://github.com/steventsvik/GhosttyEXTREME/releases/latest), unzip it and
+move **GhosttyEXTREME.app** to `/Applications`. The app isn't notarized by Apple, so clear the
+download quarantine once:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/GhosttyEXTREME.app
+```
+
+</details>
 
 Your existing Ghostty configuration (`~/.config/ghostty/config`) works as-is.
 

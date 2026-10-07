@@ -3,17 +3,12 @@ import Cocoa
 
 extension UpdateDriver: SPUUpdaterDelegate {
     func feedURLString(for updater: SPUUpdater) -> String? {
-        guard let appDelegate = NSApplication.shared.delegate as? AppDelegate else {
-            return nil
-        }
-
-        // Sparkle supports a native concept of "channels" but it requires that
-        // you share a single appcast file. We don't want to do that so we
-        // do this instead.
-        switch appDelegate.ghostty.config.autoUpdateChannel {
-        case .tip: return "https://tip.files.ghostty.org/appcast.xml"
-        case .stable: return "https://release.files.ghostty.org/appcast.xml"
-        }
+        // GhosttyEXTREME: its own feed, published with every release and signed with its own
+        // key (SUPublicEDKey). Ghostty's feeds would offer official Ghostty, which would replace
+        // this app. There's one channel; the `auto-update-channel` setting doesn't apply.
+        // Test-only: `GHOSTTY_EXTREME_TEST_FEED=<url>` points a test copy at a local feed.
+        ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_FEED"]
+            ?? "https://github.com/steventsvik/GhosttyEXTREME/releases/latest/download/appcast.xml"
     }
 
     /// Called when an update is scheduled to install silently,
