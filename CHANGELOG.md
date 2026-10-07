@@ -6,6 +6,8 @@ What changed in each GhosttyEXTREME release. Work in progress collects under
 
 ## Unreleased
 
+- **Localhost sessions** catch more of the servers Claude Code starts, so they open in their own tab instead of running hidden in the background: SSH tunnels (`ssh -L`, `gcloud compute ssh … -L`), `kubectl port-forward`, `ngrok` and `cloudflared`; project scripts and `make`/`just` targets it runs in the background whose names say what they are (`scripts/run.sh dashboard`, `make dev`); and any command that has run in a localhost session in that folder before.
+
 ## 1.5.1
 
 - **Hand Off and Review Loop** always start from the pane you opened them from. A window still open from another pane used to come forward unchanged and hand off that pane's work ([#10](https://github.com/steventsvik/GhosttyEXTREME/issues/10)).
