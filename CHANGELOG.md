@@ -6,6 +6,9 @@ What changed in each GhosttyEXTREME release. Work in progress collects under
 
 ## Unreleased
 
+- **Project Memory** (⌃⌘Y, the tab's ⋮ menu, or the command palette): see what Claude Code and Codex remember about the tab's project, in one window. Claude Code's notes can be edited and deleted (a deleted note leaves `MEMORY.md` too); Codex's memories for the project are shown read-only, since Codex rewrites them itself; and the `CLAUDE.md`, `CLAUDE.local.md` and `AGENTS.md` files the agents load every session can be edited in place. It never overwrites a file an agent changed while you were editing.
+- **Settings is ⌘,** and the menu bar says GhosttyEXTREME. Ghostty's config file moved to GhosttyEXTREME → Edit Config File…; ⌃⌘, still opens Settings too.
+
 - **Localhost sessions** catch more of the servers Claude Code starts, so they open in their own tab instead of running hidden in the background: SSH tunnels (`ssh -L`, `gcloud compute ssh … -L`), `kubectl port-forward`, `ngrok` and `cloudflared`; project scripts and `make`/`just` targets it runs in the background whose names say what they are (`scripts/run.sh dashboard`, `make dev`); and any command that has run in a localhost session in that folder before.
 
 ## 1.5.1

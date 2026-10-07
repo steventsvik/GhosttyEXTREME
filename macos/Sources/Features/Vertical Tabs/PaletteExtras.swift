@@ -90,6 +90,16 @@ enum PaletteExtras {
                     AgentRaces.showSetup(from: owner)
                 }) }
             }
+            if ExtremeSettings.isOn(.memory), let pwd = surfaceView.pwd {
+                options.append(CommandOption(
+                    title: "Project Memory",
+                    description: "What Claude Code and Codex remember about this project, to read, edit or delete",
+                    symbols: ["⌃", "⌘", "Y"],
+                    leadingIcon: "brain"
+                ) {
+                    MemoryWindow.show(folder: pwd)
+                })
+            }
             if !HermesSessions.shared.isHermes(owner), ExtremeSettings.isOn(.editor) {
                 options.append(CommandOption(
                     title: "Toggle Code Editor",
