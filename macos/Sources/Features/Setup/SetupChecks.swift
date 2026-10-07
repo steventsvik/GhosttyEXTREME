@@ -262,7 +262,8 @@ final class SetupChecks: ObservableObject {
                                 detail: "You won't hear when an agent finishes or needs permission", fix: .notifications))
         default:
             checks.append(.init(id: "notifications", section: .mac, title: "Notifications not set up yet", status: .warning,
-                                detail: "Alerts when an agent finishes or needs you", fix: .notifications))
+                                detail: "Alerts when an agent finishes or needs you. macOS asks with a banner at the top right of the screen",
+                                fix: .notifications))
         }
         return checks
     }
@@ -446,16 +447,37 @@ final class SetupChecks: ObservableObject {
         let center = UNUserNotificationCenter.current()
         center.getNotificationSettings { settings in
             DispatchQueue.main.async {
-                if settings.authorizationStatus == .notDetermined {
-                    center.requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in
-                        DispatchQueue.main.async { self.refresh() }
+                guard settings.authorizationStatus == .notDetermined else {
+                    // Already decided (usually "off"): only System Settings can change it now.
+                    self.openNotificationSettings()
+                    return
+                }
+                // macOS asks with a banner at the top right of the screen. Focus modes can hide
+                // it, and then nothing would seem to happen; so if it doesn't end with
+                // notifications on, say so and open System Settings instead.
+                center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
+                    center.getNotificationSettings { after in
+                        DispatchQueue.main.async {
+                            if !granted || after.authorizationStatus != .authorized {
+                                // System Settings lists apps by their name on disk ("GhosttyEXTREME").
+                                let name = FileManager.default.displayName(atPath: Bundle.main.bundlePath)
+                                    .replacingOccurrences(of: ".app", with: "")
+                                self.fixError = "Notifications aren't on yet. In System Settings → Notifications, choose "
+                                    + "\(name) and turn on Allow Notifications."
+                                self.openNotificationSettings()
+                            }
+                            self.refresh()
+                        }
                     }
-                } else if let id = Bundle.main.bundleIdentifier,
-                          let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=\(id)") {
-                    NSWorkspace.shared.open(url)
                 }
             }
         }
+    }
+
+    private func openNotificationSettings() {
+        guard let id = Bundle.main.bundleIdentifier,
+              let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=\(id)") else { return }
+        NSWorkspace.shared.open(url)
     }
 
     /// Opens a new tab (or window) that runs `command` in the user's shell.

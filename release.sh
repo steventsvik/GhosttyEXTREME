@@ -150,6 +150,9 @@ APP=$OUT/GhosttyEXTREME.app
 rm -rf $APP $OUT/GhosttyEXTREME-agent-hooks $OUT/*.zip(N)
 ditto macos/build/ReleaseLocal/Ghostty.app $APP
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" -c "Set :CFBundleVersion $VERSION" $APP/Contents/Info.plist
+# Only release builds check for updates by themselves (see AppDelegate).
+/usr/libexec/PlistBuddy -c "Delete :GhosttyExtremeRelease" $APP/Contents/Info.plist 2>/dev/null
+/usr/libexec/PlistBuddy -c "Add :GhosttyExtremeRelease bool true" $APP/Contents/Info.plist
 # Debug info carries the build machine's paths; the release doesn't need it.
 find $APP -type f -perm +111 -exec sh -c 'file "$1" | grep -q Mach-O && strip -S -x "$1" 2>/dev/null; true' _ {} \;
 LEAKS=$(LC_ALL=C grep -rl -a "/Users/$USER" $APP | wc -l | xargs)

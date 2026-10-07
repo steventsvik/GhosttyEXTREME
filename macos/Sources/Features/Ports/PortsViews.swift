@@ -108,12 +108,23 @@ private struct PortRow: View {
         .onHover { hovering = $0 }
         .onTapGesture(perform: focusOwner)
         .help(help)
-        // The hover buttons, for VoiceOver and keyboard users (who never hover).
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Port \(String(entry.port)), \(entry.title), \(entry.command)")
-        .accessibilityAction(named: "Open in browser") { if let url = entry.url { NSWorkspace.shared.open(url) } }
-        .accessibilityAction(named: "Go to tab", focusOwner)
-        .accessibilityAction(named: "Stop") { if entry.kind != .container { monitor.stop(entry) } }
+        .modifier(PortRowAccessibility(label: "Port \(String(entry.port)), \(entry.title), \(entry.command)",
+                                       hint: ownerTab != nil ? "Goes to its tab" : "",
+                                       goToTab: focusOwner, openInBrowser: openInBrowser,
+                                       openInVisualFix: openInVisualFix, stop: stop))
+    }
+
+    private func openInBrowser() {
+        if let url = entry.url { NSWorkspace.shared.open(url) }
+    }
+
+    private func openInVisualFix() {
+        guard entry.kind == .dev, settings.isOn(.visualFix) else { return }
+        VisualFixPanel.shared.show(from: ownerTab ?? owner, url: entry.url)
+    }
+
+    private func stop() {
+        if entry.kind != .container { monitor.stop(entry) }
     }
 
     private var subtitle: String {
@@ -191,6 +202,30 @@ private struct PortRow: View {
         guard let controller = ownerTab, let window = controller.window else { return }
         window.tabGroup?.selectedWindow = window
         window.makeKeyAndOrderFront(nil)
+    }
+}
+
+/// For VoiceOver and keyboard users (who never hover): the row is one element whose press
+/// does what a click does (go to its tab), with the hover buttons as named actions. Stop is
+/// only ever a named action, never what a plain press does.
+private struct PortRowAccessibility: ViewModifier {
+    let label: String
+    let hint: String
+    let goToTab: () -> Void
+    let openInBrowser: () -> Void
+    let openInVisualFix: () -> Void
+    let stop: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(label)
+            .accessibilityHint(hint)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction(.default, goToTab)
+            .accessibilityAction(named: "Open in browser", openInBrowser)
+            .accessibilityAction(named: "Open in Visual Fix", openInVisualFix)
+            .accessibilityAction(named: "Stop", stop)
     }
 }
 

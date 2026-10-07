@@ -153,6 +153,9 @@ enum AgentHandoff {
 extension AgentHandoff {
     static func showWindow(from surface: Ghostty.SurfaceView, in controller: TerminalController,
                            mode: Mode = .review, target: VerticalTabAgentKind? = nil) {
+        // A window still open from another pane would come forward unchanged and hand off
+        // that pane's work (#10): start fresh for this one.
+        AgentToolWindows.close(id: "handoff")
         AgentToolWindows.show(id: "handoff", title: "Hand Off", size: NSSize(width: 640, height: 720)) {
             HandoffView(surface: surface, controller: controller, mode: mode,
                         target: target ?? (VerticalTabsAgents.shared.info(for: surface)?.kind == .codex ? .claude : .codex))
@@ -269,6 +272,11 @@ private struct HandoffView: View {
 
     private func gather() {
         guard let surface else { return }
+        // Test-only: which pane the window works from (`GHOSTTY_EXTREME_TEST_LOG`).
+        if let path = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_LOG"] {
+            let old = (try? String(contentsOfFile: path, encoding: .utf8)) ?? ""
+            try? (old + "handoff source: \(surface.pwd ?? "?")\n").write(toFile: path, atomically: true, encoding: .utf8)
+        }
         loading = true
         AgentContext.gather(from: surface, parts: parts) { gathered in
             context = gathered

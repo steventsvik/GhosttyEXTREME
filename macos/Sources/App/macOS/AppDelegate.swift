@@ -780,7 +780,10 @@ class AppDelegate: NSObject,
         // explicitly false (NO), auto-updates are disabled. Otherwise, we use the behavior
         // defined by our "auto-update" configuration (if set) or fall back to Sparkle
         // user-based defaults.
-        if Bundle.main.infoDictionary?["SUEnableAutomaticChecks"] as? Bool == false {
+        // GhosttyEXTREME: only release builds (stamped by release.sh) check by themselves. A
+        // local build is version 0.1, so every release looks like an update to it.
+        let isRelease = Bundle.main.infoDictionary?["GhosttyExtremeRelease"] as? Bool == true
+        if !isRelease || Bundle.main.infoDictionary?["SUEnableAutomaticChecks"] as? Bool == false {
             updateController.updater.automaticallyChecksForUpdates = false
             updateController.updater.automaticallyDownloadsUpdates = false
         } else if let autoUpdate = config.autoUpdate {

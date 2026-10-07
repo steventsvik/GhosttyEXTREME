@@ -119,6 +119,8 @@ struct AgentMessagesLine: View {
 
 enum PipelineSetup {
     static func show(writer: Ghostty.SurfaceView, in controller: TerminalController) {
+        // Fresh for this writer, never one left open for another pane.
+        AgentToolWindows.close(id: "pipeline")
         AgentToolWindows.show(id: "pipeline", title: "Review Loop", size: NSSize(width: 560, height: 560)) {
             PipelineSetupView(writer: writer, controller: controller)
         }
