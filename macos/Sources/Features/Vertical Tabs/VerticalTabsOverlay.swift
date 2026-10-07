@@ -278,6 +278,11 @@ private struct VerticalTabsMenuPanel: View {
                     editorPanel.show(from: controller, folder: pane.pwd)
                 }
             }
+            if ExtremeSettings.isOn(.memory) {
+                item("Project memory…", enabled: pane.pwd != nil) {
+                    MemoryWindow.show(folder: pane.pwd)
+                }
+            }
             separator
             ForEach(AgentHandoff.Mode.quick, id: \.self) { mode in
                 ForEach(AgentHandoff.targets, id: \.self) { target in

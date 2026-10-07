@@ -22,6 +22,8 @@ class AppDelegate: NSObject,
     @IBOutlet private var menuServices: NSMenu?
     @IBOutlet private var menuCheckForUpdates: NSMenuItem?
     @IBOutlet private var menuOpenConfig: NSMenuItem?
+    /// GhosttyEXTREME's Settings item; it takes the `open_config` shortcut (⌘,) when present.
+    private weak var menuExtremeSettings: NSMenuItem?
     @IBOutlet private var menuReloadConfig: NSMenuItem?
     @IBOutlet private var menuSecureInput: NSMenuItem?
     @IBOutlet private var menuQuit: NSMenuItem?
@@ -967,6 +969,12 @@ class AppDelegate: NSObject,
 
     // MARK: - IB Actions
 
+    /// Gives the `open_config` shortcut to GhosttyEXTREME's Settings item.
+    func adoptSettingsMenuItem(_ item: NSMenuItem) {
+        menuExtremeSettings = item
+        syncMenuShortcuts(ghostty.config)
+    }
+
     @IBAction func openConfig(_ sender: Any?) {
         Ghostty.App.openConfig()
     }
@@ -1178,7 +1186,14 @@ extension AppDelegate {
         menuItemsByShortcut.removeAll(keepingCapacity: true)
 
         syncMenuShortcut(config, action: "check_for_updates", menuItem: self.menuCheckForUpdates)
-        syncMenuShortcut(config, action: "open_config", menuItem: self.menuOpenConfig)
+        if let settings = menuExtremeSettings {
+            // ⌘, opens GhosttyEXTREME's settings; "Edit Config File…" keeps no shortcut.
+            syncMenuShortcut(config, action: "open_config", menuItem: settings)
+            menuOpenConfig?.keyEquivalent = ""
+            menuOpenConfig?.keyEquivalentModifierMask = []
+        } else {
+            syncMenuShortcut(config, action: "open_config", menuItem: self.menuOpenConfig)
+        }
         syncMenuShortcut(config, action: "reload_config", menuItem: self.menuReloadConfig)
         syncMenuShortcut(config, action: "quit", menuItem: self.menuQuit)
 

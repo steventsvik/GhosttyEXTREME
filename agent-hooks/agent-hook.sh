@@ -9,13 +9,15 @@
 #
 # Emits an OSC 777 notification titled "ghostty-extreme://agent" with a compact JSON
 # body. GhosttyEXTREME consumes it silently; it is never shown as a notification.
+# At session start it also adds what Codex remembers about the project (shared memory,
+# memory_context.py) to Claude Code's context.
 #   - Claude Code: printed as the `terminalSequence` hook field, so Claude Code
 #     writes it to its own terminal.
 #   - Others (Codex): written to the agent's terminal; nothing is printed, so the
 #     agent sees an empty hook result.
 #
-# The one thing it changes: when Claude Code starts a dev server (`npm run dev`, `vite`,
-# `rails s`, ...), the command is rewritten to open it in a GhosttyEXTREME localhost
+# The one thing it changes: when Claude Code starts a dev server or tunnel (`npm run dev`,
+# `vite`, `ssh -L`, a command that ran in a localhost session here before, ...), the command is rewritten to open it in a GhosttyEXTREME localhost
 # session instead, a separate tab that keeps the server running after the agent is
 # done. Claude Code still asks for permission as usual, showing the rewritten command.
 # It never approves or denies anything.
@@ -48,13 +50,15 @@ if [ "$event" = "pre_tool_use" ]; then
   [ -e "$HOME/.ghostty-extreme/features/localhost-off" ] && exit 0
   [ "$(jq -r '.tool_name // empty' <<<"$input")" = "Bash" ] || exit 0
   command=$(jq -r '.tool_input.command // empty' <<<"$input")
-  rewritten=$("$launcher" rewrite "$command" 2>/dev/null) || exit 0
+  cwd=$(jq -r '.cwd // empty' <<<"$input")
+  background=$(jq -r 'if .tool_input.run_in_background == true then "--background" else empty end' <<<"$input")
+  rewritten=$("$launcher" rewrite "$command" ${cwd:+--cwd "$cwd"} $background 2>/dev/null) || exit 0
   [ -n "$rewritten" ] || exit 0
   jq -c --arg cmd "$rewritten" '{
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
       updatedInput: (.tool_input + {command: $cmd, run_in_background: false}),
-      additionalContext: "The dev server was moved to a GhosttyEXTREME localhost session: a separate terminal tab the user manages, which keeps running after you finish. The command prints its URL and where its logs are. Do not start the server again yourself."
+      additionalContext: "The server was moved to a GhosttyEXTREME localhost session: a separate terminal tab the user manages, which keeps running after you finish. The command prints its URL and where its logs are. Do not start the server again yourself."
     }
   }' <<<"$input"
   exit 0
@@ -114,7 +118,14 @@ agent_tty() {
 }
 
 if [ "$agent" = "claude" ]; then
-  jq -nc --arg seq "$sequence" '{terminalSequence: $seq}'
+  # Shared memory: a new session starts with what Codex remembers about the project.
+  shared=""
+  if [ "$event" = "session_start" ] && [ "$namespace" = "ghostty-extreme" ] && command -v python3 >/dev/null 2>&1; then
+    cwd=$(jq -r '.cwd // empty' <<<"$input" 2>/dev/null)
+    [ -n "$cwd" ] && shared=$(python3 "$(dirname "$0")/memory_context.py" claude "$cwd" 2>/dev/null)
+  fi
+  jq -nc --arg seq "$sequence" --arg ctx "$shared" '{terminalSequence: $seq}
+    + (if $ctx == "" then {} else {hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $ctx}} end)'
 else
   tty_path=$(agent_tty)
   [ -n "$tty_path" ] && printf '%s' "$sequence" > "$tty_path" 2>/dev/null

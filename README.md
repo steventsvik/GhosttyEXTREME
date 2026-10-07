@@ -433,8 +433,9 @@ Your existing Ghostty configuration (`~/.config/ghostty/config`) works as-is.
 | ⌃⌘R | Race agents |
 | ⌃⌘B | Command history |
 | ⌃⌘A | Agent activity |
+| ⌃⌘Y | Project memory |
 | ⌃⌘/ | Every shortcut (or hold ⌃⌘ for a moment) |
-| ⌃⌘, | GhosttyEXTREME Settings: turn features on or off |
+| ⌘, | Settings: turn features on or off (Ghostty's config file is under GhosttyEXTREME → Edit Config File…) |
 
 <br>
 

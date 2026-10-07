@@ -6,6 +6,14 @@ What changed in each GhosttyEXTREME release. Work in progress collects under
 
 ## Unreleased
 
+## 1.5.2
+
+- **Project Memory** (⌃⌘Y, the tab's ⋮ menu, or the command palette): see what Claude Code and Codex remember about the tab's project, in one window. Claude Code's notes can be edited and deleted (a deleted note leaves `MEMORY.md` too); Codex's memories for the project are shown read-only, since Codex rewrites them itself; and the `CLAUDE.md`, `CLAUDE.local.md` and `AGENTS.md` files the agents load every session can be edited in place. It never overwrites a file an agent changed while you were editing.
+- **Shared memory**: Claude Code and Codex now share what they've learned about a project. A new Codex session starts with Claude Code's notes for the project (and its `CLAUDE.md`), and a new Claude Code session with Codex's memories for it (and its `AGENTS.md`), labelled as notes that may be out of date. Nothing leaves your Mac. Turn it off with Shared memory in Settings or the Project Memory window. GhosttyEXTREME updates the installed hooks when it starts, so new sessions get it right away.
+- **Hand Off and Review Loop carry project notes** to an agent that's already running: when Claude Code hands work to a running Codex (or the other way round), the message includes what the first agent remembers about the project, since a running session never gets them at its start. Shown as "Project notes" under Include in Hand Off.
+- **Settings is ⌘,** (or whatever your config binds `open_config` to), from the terminal too, and the menu bar says GhosttyEXTREME. Ghostty's config file moved to GhosttyEXTREME → Edit Config File…; ⌃⌘, still opens Settings.
+- **Localhost sessions** catch more of the servers Claude Code starts, so they open in their own tab instead of running hidden in the background: SSH tunnels (`ssh -L`, `gcloud compute ssh … -L`), `kubectl port-forward`, `ngrok` and `cloudflared`; project scripts and `make`/`just` targets it runs in the background whose names say what they are (`scripts/run.sh dashboard`, `make dev`); and any command that has run in a localhost session in that folder before.
+
 ## 1.5.1
 
 - **Hand Off and Review Loop** always start from the pane you opened them from. A window still open from another pane used to come forward unchanged and hand off that pane's work ([#10](https://github.com/steventsvik/GhosttyEXTREME/issues/10)).

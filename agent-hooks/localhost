@@ -6,8 +6,9 @@
 #   localhost logs <id> [lines]                     recent output, without terminal colors
 #   localhost restart <id> | stop <id>              control a session
 #   localhost list                                  sessions and their URLs
-#   localhost rewrite '<shell command>'             (for agent hooks) the `start` command
-#                                                   for a dev-server command, or exit 1
+#   localhost rewrite '<shell command>' [--cwd DIR] [--background]
+#                                                   (for agent hooks) the `start` command
+#                                                   for a server command, or exit 1
 #
 # The app opens and tracks the sessions; this script only asks it to, through an OSC 777
 # notification written to the terminal it runs in.
@@ -88,16 +89,70 @@ is_dev_server() {
   return 1
 }
 
+# True for commands that forward a port to this Mac and stay open.
+is_tunnel() {
+  local c="$1"
+  [[ "$c" =~ ^(ssh|autossh)[[:space:]].*-[A-Za-z]*L[[:space:]]*[0-9] ]] && return 0
+  [[ "$c" =~ ^gcloud[[:space:]].*compute[[:space:]]+ssh[[:space:]].*-L[[:space:]]*[0-9] ]] && return 0
+  [[ "$c" =~ ^(kubectl|oc)[[:space:]].*port-forward([[:space:]]|$) ]] && return 0
+  [[ "$c" =~ ^ngrok[[:space:]]+(http|tcp|tls)([[:space:]]|$) ]] && return 0
+  [[ "$c" =~ ^cloudflared[[:space:]].*tunnel([[:space:]]|$) ]] && return 0
+  return 1
+}
+
+# True when `command` has run in a localhost session in folder `cwd` before.
+was_session() {
+  local c="$1" cwd f
+  cwd=$(printf '%s' "${2%/}" | tr '[:upper:]' '[:lower:]')
+  [ -n "$cwd" ] && command -v jq >/dev/null || return 1
+  for f in "$dir"/lh-*.json; do
+    [ -f "$f" ] || continue
+    [[ "$f" == *.status.json ]] && continue
+    jq -e --arg c "$c" --arg cwd "$cwd" \
+      '.command == $c and ((.cwd // "") | rtrimstr("/") | ascii_downcase) == $cwd' "$f" >/dev/null 2>&1 && return 0
+  done
+  return 1
+}
+
+# For commands an agent runs in the background: a project script or task-runner target whose
+# name says it serves something (`scripts/gcp.sh bot-dashboard`, `make dev`, `./run-server.sh`).
+sounds_like_server() {
+  local c="$1"
+  [[ "$c" =~ ^(\./|[A-Za-z0-9_.-]+/)[^[:space:]]+ || "$c" =~ ^(bash|sh|zsh)[[:space:]]+[^[:space:]]+\.(sh|bash|zsh)([[:space:]]|$) \
+     || "$c" =~ ^(make|just|task|mise[[:space:]]+run)[[:space:]] ]] || return 1
+  local words
+  words=" $(printf '%s' "$c" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' ' ') "
+  [[ "$words" =~ [[:space:]](dev|serve|server|devserver|dashboard|tunnel|preview|watch|proxy|web|frontend)[[:space:]] ]]
+}
+
 # `cd dir && npm run dev > dev.log 2>&1 &` -> `cd dir && localhost start --log dev.log -- 'npm run dev'`.
-# Anything more involved than one server command is left alone.
+# Anything more involved than one server command is left alone. `--cwd` is the folder the
+# command runs in; `--background` says the agent was going to run it as a background job.
 rewrite() {
-  local c prefix="" log=""
-  c=$(trim "$1")
+  local c prefix="" log="" cwd="" background=0 raw
+  raw=$(trim "$1")
+  shift
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --cwd) cwd="$2"; shift 2 ;;
+      --background) background=1; shift ;;
+      *) shift ;;
+    esac
+  done
+  c="$raw"
   [[ "$c" == *$'\n'* ]] && return 1
   if [[ "$c" =~ ^(cd[[:space:]]+[^\;\&\|\`\$\<\>]+)\&\&[[:space:]]*(.*)$ ]]; then
     prefix="$(trim "${BASH_REMATCH[1]}") && "
     c="${BASH_REMATCH[2]}"
+    # The folder it runs in, for `was_session`.
+    local target
+    target=$(trim "${BASH_REMATCH[1]#cd}")
+    target="${target#[\'\"]}"; target="${target%[\'\"]}"
+    case "$target" in "~"*) target="$HOME${target#\~}" ;; /*) ;; *) target="${cwd:-.}/$target" ;; esac
+    cwd=$(cd "$target" 2>/dev/null && pwd) || cwd=""
   fi
+  # A trailing `&` means the agent meant it to keep running.
+  [[ "$raw" == *"&" && "$raw" != *"&&" ]] && background=1
   [[ "$c" =~ ^nohup[[:space:]]+(.*)$ ]] && c="${BASH_REMATCH[1]}"
   c=$(trim "$c")
   [[ "$c" == *"&" && "$c" != *"&&" ]] && c=$(trim "${c%&}")
@@ -108,7 +163,8 @@ rewrite() {
   fi
   c=$(trim "$c")
   [[ "$c" =~ [\;\|\&\`\<\>] || "$c" == *'$('* ]] && return 1
-  is_dev_server "$c" || return 1
+  is_dev_server "$c" || is_tunnel "$c" || was_session "$c" "$cwd" \
+    || { [ $background = 1 ] && sounds_like_server "$c"; } || return 1
   printf '%s%s start %s-- %s\n' "$prefix" "$self" "${log:+--log $(quote "$log") }" "$(quote "$c")"
 }
 
@@ -217,6 +273,6 @@ case "${1:-}" in
   logs) logs "$2" "${3:-80}" ;;
   stop|restart) control "$1" "$2" ;;
   list) list ;;
-  rewrite) rewrite "$2" ;;
+  rewrite) shift; rewrite "$@" ;;
   *) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac

@@ -192,9 +192,9 @@ extension UserDefaults {
 
 /// Installs "Toggle Vertical Tabs" (⌃⌘S), "Toggle Code Editor" (⌃⌘E), a ⌘P command
 /// palette shortcut, "Mission Control" (⌃⌘M), "Race Agents…" (⌃⌘R), "Localhost Manager"
-/// (⌃⌘L), "Review Changes" (⌃⌘I), "Command History" (⌃⌘B), "Agent Activity" (⌃⌘A) and
-/// "Keyboard Shortcuts" (⌃⌘/) in the View menu, and GhosttyEXTREME's Settings, Check Setup
-/// and Welcome in the app menu. Items of features turned off in Settings are hidden, which
+/// (⌃⌘L), "Review Changes" (⌃⌘I), "Command History" (⌃⌘B), "Agent Activity" (⌃⌘A),
+/// "Project Memory" (⌃⌘Y) and "Keyboard Shortcuts" (⌃⌘/) in the View menu, and
+/// GhosttyEXTREME's Settings (⌘,), Check Setup and Welcome in the app menu. Items of features turned off in Settings are hidden, which
 /// also turns off their shortcuts.
 final class VerticalTabsMenu: NSObject {
     static let shared = VerticalTabsMenu()
@@ -240,6 +240,7 @@ final class VerticalTabsMenu: NSObject {
             Extra(title: "Agent Activity", action: #selector(showActivity(_:)), key: "a", feature: .activity),
             Extra(title: "Visual Fix", action: #selector(toggleVisualFix(_:)), key: "v", feature: .visualFix),
             Extra(title: "Background Processes", action: #selector(showHousekeeping(_:)), key: "k", feature: .background),
+            Extra(title: "Project Memory", action: #selector(showMemory(_:)), key: "y", feature: .memory),
             Extra(title: "Keyboard Shortcuts", action: #selector(showShortcuts(_:)), key: "/", feature: nil),
         ]
         for (offset, extra) in extras.enumerated() {
@@ -260,23 +261,28 @@ final class VerticalTabsMenu: NSObject {
         ShortcutSheet.shared.install()
     }
 
-    /// "GhosttyEXTREME Settings…", "Check Setup…" and "Welcome…" after Ghostty's own
-    /// Preferences and Reload Configuration.
+    /// "Settings…" (⌘,), "Check Setup…" and "Welcome…" where Ghostty's Preferences item was;
+    /// that one (it opens Ghostty's config file) follows as "Edit Config File…".
     private func installAppMenuItems(in mainMenu: NSMenu) {
         guard let appMenu = mainMenu.items.first?.submenu else { return }
-        let anchor = appMenu.items.firstIndex { $0.title == "Reload Configuration" }
-            ?? appMenu.items.firstIndex { $0.keyEquivalent == "," }
-            ?? 1
+        let configIndex = appMenu.items.firstIndex { $0.action == #selector(AppDelegate.openConfig(_:)) }
+        let anchor = configIndex ?? 1
+        if let configIndex { appMenu.items[configIndex].title = "Edit Config File…" }
         let items = [
-            ClosureMenuItem("GhosttyEXTREME Settings…", image: nil) { ExtremeSettingsWindow.show() },
+            ClosureMenuItem("Settings…", image: nil) { ExtremeSettingsWindow.show() },
             ClosureMenuItem("Check Setup…", image: nil) { SetupCheckWindow.show() },
             ClosureMenuItem("Welcome to GhosttyEXTREME…", image: nil) { WelcomeWindow.show() },
         ]
-        // ⌃⌘, opens GhosttyEXTREME's settings; ⌘, stays Ghostty's config file.
-        items[0].keyEquivalent = ","
-        items[0].keyEquivalentModifierMask = [.control, .command]
-        appMenu.insertItem(.separator(), at: anchor + 1)
-        for (offset, item) in items.enumerated() { appMenu.insertItem(item, at: anchor + 2 + offset) }
+        items[0].image = NSImage(systemSymbolName: "gear", accessibilityDescription: nil)
+        // The old shortcut keeps working.
+        let legacy = ClosureMenuItem("Settings…", image: nil) { ExtremeSettingsWindow.show() }
+        legacy.keyEquivalent = ","
+        legacy.keyEquivalentModifierMask = [.control, .command]
+        legacy.isHidden = true
+        legacy.allowsKeyEquivalentWhenHidden = true
+        for (offset, item) in (items + [legacy]).enumerated() { appMenu.insertItem(item, at: anchor + offset) }
+        // Takes Ghostty's `open_config` shortcut (⌘, unless the config changes it).
+        (NSApp.delegate as? AppDelegate)?.adoptSettingsMenuItem(items[0])
     }
 
     @objc private func featuresChanged(_ notification: Notification) {
@@ -290,6 +296,10 @@ final class VerticalTabsMenu: NSObject {
 
     @objc func showShortcuts(_ sender: Any?) {
         ShortcutSheet.shared.toggleSticky()
+    }
+
+    @objc func showMemory(_ sender: Any?) {
+        MemoryWindow.showForFrontTab()
     }
 
     @objc func showLocalhost(_ sender: Any?) {

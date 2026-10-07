@@ -153,6 +153,8 @@ ditto macos/build/ReleaseLocal/Ghostty.app $APP
 # Only release builds check for updates by themselves (see AppDelegate).
 /usr/libexec/PlistBuddy -c "Delete :GhosttyExtremeRelease" $APP/Contents/Info.plist 2>/dev/null
 /usr/libexec/PlistBuddy -c "Add :GhosttyExtremeRelease bool true" $APP/Contents/Info.plist
+# The menu bar shows CFBundleName, which Xcode sets from the target name ("Ghostty").
+/usr/libexec/PlistBuddy -c "Set :CFBundleName GhosttyEXTREME" $APP/Contents/Info.plist
 # Debug info carries the build machine's paths; the release doesn't need it.
 find $APP -type f -perm +111 -exec sh -c 'file "$1" | grep -q Mach-O && strip -S -x "$1" 2>/dev/null; true' _ {} \;
 LEAKS=$(LC_ALL=C grep -rl -a "/Users/$USER" $APP | wc -l | xargs)
@@ -182,14 +184,14 @@ pass "version $VERSION"
 
 HOOKS=$OUT/GhosttyEXTREME-agent-hooks
 mkdir -p $HOOKS
-for f in agent-hook.sh ghostty-extreme.zsh ghostty-extreme install.sh localhost localhost-run codex-hook.py install-codex.py; do
+for f in agent-hook.sh ghostty-extreme.zsh ghostty-extreme install.sh localhost localhost-run codex-hook.py memory_context.py install-codex.py; do
   git show HEAD:agent-hooks/$f > $HOOKS/$f || fail "agent-hooks/$f missing"
 done
 chmod +x $HOOKS/{agent-hook.sh,ghostty-extreme,install.sh,localhost,localhost-run,codex-hook.py,install-codex.py}
 grep -rqE "/Users/|$USER" $HOOKS && fail "the hooks contain a personal path or name"
 for f in $HOOKS/*.sh $HOOKS/localhost $HOOKS/localhost-run $HOOKS/ghostty-extreme; do bash -n $f || fail "$f has a syntax error"; done
 # The app installs these itself (welcome window, Check Setup).
-for f in agent-hook.sh ghostty-extreme.zsh ghostty-extreme codex-hook.py localhost localhost-run; do
+for f in agent-hook.sh ghostty-extreme.zsh ghostty-extreme codex-hook.py memory_context.py localhost localhost-run; do
   cmp -s $HOOKS/$f $APP/Contents/Resources/agent-hooks/$f || fail "the app's bundled agent-hooks/$f doesn't match the repo"
 done
 # Parse only: py_compile would leave a __pycache__ folder in the release.

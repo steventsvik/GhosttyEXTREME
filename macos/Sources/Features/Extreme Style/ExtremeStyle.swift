@@ -249,7 +249,7 @@ struct AgentBadge: View {
 /// 9×9 pixel icons for the chrome.
 enum PixelIcon: String {
     case plus, globe, inbox, grid, condense, expand, close, restart, stop, play, eye, chevronDown, chevronRight, pin, bolt, more, branch, chart, code,
-         target, desktop, tablet, phone
+         target, desktop, tablet, phone, memory
 
     var rows: [String] {
         switch self {
@@ -275,6 +275,7 @@ enum PixelIcon: String {
         case .tablet: return [".ooooooo.", ".o.....o.", ".o.....o.", ".o.....o.", ".o.....o.", ".o.....o.", ".o.....o.", ".o..o..o.", ".ooooooo."]
         case .phone: return ["..ooooo..", "..o...o..", "..o...o..", "..o...o..", "..o...o..", "..o...o..", "..o...o..", "..o.o.o..", "..ooooo.."]
         case .code: return [".....o...", ".....o...", "..o.o.o..", ".o..o..o.", "o...o...o", ".o..o..o.", "..o.o.o..", "...o.....", "...o....."]
+        case .memory: return ["..ooooo..", ".o.o.o.o.", "ooooooooo", "o.......o", "o.ooooo.o", "o.......o", "ooooooooo", ".o.o.o.o.", "..ooooo.."]
         case .bolt: return ["....oo...", "...oo....", "..oo.....", ".ooooo...", "...oo....", "..oo.....", ".oo......", "oo.......", "........."]
         }
     }
@@ -307,6 +308,7 @@ extension PixelIcon {
         case .desktop: return "desktopcomputer"
         case .tablet: return "ipad"
         case .phone: return "iphone"
+        case .memory: return "brain"
         }
     }
 }
