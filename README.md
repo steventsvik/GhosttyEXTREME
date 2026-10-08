@@ -20,10 +20,11 @@ view.
 > Unofficial fork. Not affiliated with or endorsed by the Ghostty project. Everything
 > Ghostty does still works, and your Ghostty config works as-is.
 
-<!-- DEMO GIF: replace images/readme/demo.gif with the 60–90 s demo cut (see the shot list). -->
 <p align="center">
-  <img src="images/readme/demo.gif" alt="Demo: two projects, Claude Code and Codex working in parallel, permission prompts answered from the sidebar, shared project memory, a hand-off, an isolated Docker session and the Backend view" width="100%">
+  <img src="images/readme/demo.gif" alt="Claude Code and Codex working in two projects at once, a permission prompt answered from the sidebar, the editor following Claude's edits, Codex answering from Claude's project notes, and a hand-off from Claude to Codex" width="100%">
 </p>
+
+<p align="center"><sub>Real app, real agents, demo projects. <a href="images/readme/demo.mp4">Watch the full 80-second demo</a>, with Project Memory, a review hand-off, an isolated Docker session and the Backend view.</sub></p>
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/steventsvik/GhosttyEXTREME/custom/install.sh | bash
