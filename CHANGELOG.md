@@ -6,6 +6,11 @@ What changed in each GhosttyEXTREME release. Work in progress collects under
 
 ## Unreleased
 
+## 1.5.4
+
+- **Visual Fix requests read clearly on the agent's card.** The card, Mission Control and the notification showed `[Image #1] <pasted_content id=…>` as the task; they now show "Visual fix: " and the change you asked for. Image placeholders and paste markers are left out of every task.
+- **Undoing a turn updates Review.** After you undo an agent's turn, its changes leave the review inbox (or it shows only what's left), instead of listing a diff that's no longer there.
+
 ## 1.5.3
 
 - **Allow and Deny work with Claude Code 2.1.29x.** Its permission prompt now ends with a numbered "No" and "Esc to cancel" instead of "No, and tell Claude what to do differently", so GhosttyEXTREME didn't recognize it and showed no Allow or Deny on the card, in Mission Control or in the notification. Both forms work now.

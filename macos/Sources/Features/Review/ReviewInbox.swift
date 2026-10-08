@@ -295,6 +295,12 @@ final class ReviewInbox: ObservableObject {
         }
     }
 
+    /// Recomputes every review of a project after its files changed outside the inbox,
+    /// such as an agent's turn being undone.
+    func refresh(root: String) {
+        for item in items where item.repoRoot == root { refreshItem(item) }
+    }
+
     private func refreshItem(_ item: ReviewItem) {
         if let tracker = trackers.values.first(where: { $0.id == item.id }) {
             refresh(tracker)

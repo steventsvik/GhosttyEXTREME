@@ -72,6 +72,12 @@ case "$event" in pre_tool_use|subagent_start|subagent_stop) exit 0 ;; esac
 token="${GHOSTTY_EXTREME_EVENT_TOKEN:-}"
 sequence=$(jq -r --arg agent "$agent" --arg event "$event" --arg ns "$namespace" --arg t "$token" '
   def clip: gsub("[\\s]+"; " ") | ltrimstr(" ") | if length > 48 then .[0:47] + "…" else . end;
+  # What the user asked: without image placeholders and paste wrappers, and for a Visual
+  # Fix request, the change they described.
+  def prompt_text:
+    gsub("\\[Image #[0-9]+\\]"; "") | gsub("</?pasted_content[^>]*>"; "")
+    | if test("(^|\n)Visual fix #[0-9]+:") and test("\nChange: ")
+      then "Visual fix: " + (capture("\nChange: (?<c>[^\n]*)").c) else . end;
   def tool_detail:
     (.tool_name // "") as $tool
     | (.tool_input.command // .tool_input.file_path // .tool_input.url // "" | tostring) as $arg
@@ -85,7 +91,7 @@ sequence=$(jq -r --arg agent "$agent" --arg event "$event" --arg ns "$namespace"
   | {
       event: $e,
       detail: (
-        if $e == "prompt_submit" then (.prompt // "")
+        if $e == "prompt_submit" then (.prompt // "" | prompt_text)
         elif $e == "permission_request" or $e == "tool_complete" then tool_detail
         elif $e == "input_needed" then (.message // "")
         else "" end | clip)
