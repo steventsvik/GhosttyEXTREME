@@ -181,6 +181,9 @@ final class ActivityStats {
 
     static func dayKey(_ date: Date) -> String { dayFormatter.string(from: date) }
 
+    /// The local start of the day a `dayKey` names.
+    static func date(fromDayKey key: String) -> Date? { dayFormatter.date(from: key) }
+
     private static func date(_ value: Any?) -> Date? {
         guard let text = value as? String else { return nil }
         return isoFractional.date(from: text) ?? iso.date(from: text)

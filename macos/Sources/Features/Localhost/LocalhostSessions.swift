@@ -359,6 +359,36 @@ final class LocalhostSessions: ObservableObject {
         return session
     }
 
+    /// Starts a server again in a tab that already exists (a window restored after an
+    /// update), so it's a localhost session there like before.
+    @MainActor
+    @discardableResult
+    func restart(command: String, in folder: String, tab controller: TerminalController) -> Bool {
+        guard FileManager.default.isExecutableFile(atPath: Self.runner),
+              let surface = controller.surfaceTree.first else { return false }
+        let id = "lh-\(Int(Date().timeIntervalSince1970))-\(Int.random(in: 1000...99999))"
+        let log = Self.directory.appendingPathComponent("\(id).log").path
+        let request: [String: Any] = ["id": id, "cwd": folder, "command": command, "log": log, "agent": ""]
+        do {
+            try FileManager.default.createDirectory(at: Self.directory, withIntermediateDirectories: true)
+            let data = try JSONSerialization.data(withJSONObject: request, options: [.prettyPrinted])
+            try data.write(to: Self.directory.appendingPathComponent("\(id).json"))
+        } catch {
+            return false
+        }
+        let session = LocalhostSession(id: id, cwd: folder, command: command, log: log, agent: nil, created: Date())
+        controller.titleOverride = "localhost · \(session.project.name)"
+        sessions.append(session)
+        tabs[id] = Weak(controller)
+        writeStatus(session)
+        if let model = surface.surfaceModel {
+            ResumeAfterUpdate.run(" \(AgentTools.shellQuote(Self.runner)) \(id)", in: model)
+        }
+        ensureTimer()
+        VerticalTabs.setNeedsRefresh()
+        return true
+    }
+
     private func launch(_ session: LocalhostSession, from owner: TerminalController?, focus: Bool) {
         guard FileManager.default.isExecutableFile(atPath: Self.runner) else {
             let alert = NSAlert()
@@ -410,7 +440,9 @@ final class LocalhostSessions: ObservableObject {
             surface.surfaceModel?.sendText("r")
         case .detached:
             // The runner is gone and a shell is left; start it again in the same tab.
-            surface.surfaceModel?.sendText(" \(AgentTools.shellQuote(Self.runner)) \(session.id)\n")
+            if let model = surface.surfaceModel {
+                ResumeAfterUpdate.run(" \(AgentTools.shellQuote(Self.runner)) \(session.id)", in: model)
+            }
         case .starting, .live:
             FileManager.default.createFile(
                 atPath: Self.directory.appendingPathComponent("\(session.id).restart").path, contents: nil)

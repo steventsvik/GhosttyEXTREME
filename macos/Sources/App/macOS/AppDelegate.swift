@@ -222,6 +222,10 @@ class AppDelegate: NSObject,
 
         // Start our update checker.
         updateController.startUpdater()
+        ExtremeUpdates.shared.start(updateController)
+
+        // After an update's restart, reopen the agents and servers that were running.
+        ResumeAfterUpdate.resumeIfNeeded()
 
         // Register our service provider. This must happen after everything is initialized.
         NSApp.servicesProvider = ServiceProvider()
@@ -784,10 +788,18 @@ class AppDelegate: NSObject,
         // user-based defaults.
         // GhosttyEXTREME: only release builds (stamped by release.sh) check by themselves. A
         // local build is version 0.1, so every release looks like an update to it.
+        // Local builds are kept from checking in UpdateDriver (`mayPerform`) rather than here:
+        // the setting below is saved, and local builds share the release's bundle id, so
+        // turning it off here used to turn it off for the installed release too.
         let isRelease = Bundle.main.infoDictionary?["GhosttyExtremeRelease"] as? Bool == true
-        if !isRelease || Bundle.main.infoDictionary?["SUEnableAutomaticChecks"] as? Bool == false {
+        if Bundle.main.infoDictionary?["SUEnableAutomaticChecks"] as? Bool == false {
             updateController.updater.automaticallyChecksForUpdates = false
             updateController.updater.automaticallyDownloadsUpdates = false
+        } else if !isRelease {
+            // Leave the saved setting alone.
+        } else if config.autoUpdate == nil {
+            // Release builds check unless `auto-update = off`.
+            updateController.updater.automaticallyChecksForUpdates = true
         } else if let autoUpdate = config.autoUpdate {
             updateController.updater.automaticallyChecksForUpdates =
                 autoUpdate == .check || autoUpdate == .download
