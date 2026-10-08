@@ -10,395 +10,173 @@
   <a href="https://ghostty.org"><img alt="Based on Ghostty 1.3.1" src="https://img.shields.io/badge/based%20on-Ghostty%201.3.1-78dceb?style=flat-square&labelColor=17140f"></a>
 </p>
 
-<p align="center">
-  <b><a href="https://github.com/steventsvik/GhosttyEXTREME/releases/latest">Download</a></b> ·
-  <a href="#watch-your-agents-work-live">Live agents</a> ·
-  <a href="#features">Features</a> ·
-  <a href="#how-it-compares">Compare</a> ·
-  <a href="#install">Install</a> ·
-  <a href="#keyboard-shortcuts">Shortcuts</a> ·
-  <a href="#security-and-privacy">Security</a>
-</p>
-
-<p align="center">
-  <img src="images/readme/tour.gif" alt="A 30-second tour: Claude Code working live with the editor and code map following it, Allow and Deny on a permission prompt, the code map, the Backend and Database views, Visual Fix, the command palette and the Background window" width="100%">
-</p>
-
-<p align="center"><sub>30 seconds, real app, demo project. <a href="images/readme/tour.mp4">Watch it in full quality</a>.</sub></p>
-
-**GhosttyEXTREME** is [Ghostty](https://ghostty.org), the fast native macOS terminal, rebuilt
-for working with AI coding agents like **Claude Code** and **Codex**. You see every agent
-work, live: what it's doing in each tab, the code it's writing as it writes it, where it is
-in your project and what part of your backend it touches. When it finishes, its changes wait
-for you in a review inbox.
-
-Everything Ghostty does still works. This fork tracks official Ghostty releases and adds
-its features on top.
+**GhosttyEXTREME is a macOS terminal for developers who run several AI coding agents
+(Claude Code, Codex) across several projects at once.** It's a fork of
+[Ghostty](https://ghostty.org) that shows what every agent is doing, lets them share
+what they've learned, and keeps the dev servers, ports and branches they leave behind in
+view.
 
 > [!NOTE]
-> Unofficial fork. Not affiliated with or endorsed by the Ghostty project.
-
-<br>
-
-## Watch your agents work, live
-
-Run Claude Code, Codex, Gemini CLI or another agent in a tab, the way you already do.
-GhosttyEXTREME follows each one as it works, with nothing to set up beyond its hooks.
+> Unofficial fork. Not affiliated with or endorsed by the Ghostty project. Everything
+> Ghostty does still works, and your Ghostty config works as-is.
 
 <p align="center">
-  <img src="images/readme/main-window.png" alt="GhosttyEXTREME with a live Claude Code agent: the agent sidebar, the terminal, the code editor typing in the agent's edit, and the code map tracing its path" width="100%">
+  <img src="images/readme/demo.gif" alt="Claude Code and Codex working in two projects at once, a permission prompt answered from the sidebar, the editor following Claude's edits, Codex answering from Claude's project notes, and a hand-off from Claude to Codex" width="100%">
 </p>
 
-| As the agent… | …you see |
-|---|---|
-| **starts a task** | Its card in the sidebar shows the task, a working spinner and a timer. Its sprite starts typing and the corners of its terminal glow cyan. A snapshot of your project is saved, so the turn can be undone. |
-| **reads a file** | The editor opens that file at the lines it read; the file lights up cyan on the code map, and a comet flies there. |
-| **edits a file** | The change types itself into the editor with the lines highlighted, the file turns orange on the map, and the turn's diff count goes up. |
-| **thinks or replies** | The agent panel shows its thinking, messages and every tool call as a timeline, sub-agents included. |
-| **touches your backend** | The Worker, database or bucket that code belongs to lights up in the Backend view. |
-| **needs you** | Its card turns amber with **Allow** and **Deny** buttons, and jumps to the top of the command palette and Mission Control; you get a notification you can answer from, and a Dock badge. |
-| **finishes** | Its sprite sparkles, the sigil flares gold, and its changes land in Review with the full diff. Not what you wanted? **Undo last turn** puts your files back. |
-
-Several agents at once? Each tab follows its own, tabs in the same repository are grouped,
-and you're warned when two agents edit the same file.
-
-<br>
-
-## Features
-
-<table>
-<tr>
-<td width="33%" valign="top"><b><a href="#every-agent-at-a-glance">Agent sidebar</a></b><br><sub>Live status for every agent in every tab</sub></td>
-<td width="33%" valign="top"><b><a href="#a-code-editor-that-follows-the-agent">Code editor</a></b><br><sub>Opens what the agent reads and animates its edits</sub></td>
-<td width="33%" valign="top"><b><a href="#code-map">Code map</a></b><br><sub>Your project as a star map of what the agent touched</sub></td>
-</tr>
-<tr>
-<td valign="top"><b><a href="#see-your-backend">Backend view</a></b><br><sub>Cloudflare, Supabase, Vercel and more, with live status</sub></td>
-<td valign="top"><b><a href="#database">Database view</a></b><br><sub>Tables, columns and relations from your schema</sub></td>
-<td valign="top"><b><a href="#visual-fix">Visual Fix</a></b><br><sub>Click an element in your app, say what to change</sub></td>
-</tr>
-<tr>
-<td valign="top"><b><a href="#review-changes">Review changes</a></b><br><sub>An inbox for each agent's diff, with line comments</sub></td>
-<td valign="top"><b><a href="#agent-races">Agent races</a></b><br><sub>Several agents, one task, keep the best result</sub></td>
-<td valign="top"><b><a href="#localhost-sessions">Localhost sessions</a></b><br><sub>Dev servers that outlive the agent that started them</sub></td>
-</tr>
-<tr>
-<td valign="top"><b><a href="#background-processes">Background processes</a></b><br><sub>Find and close what's been left running</sub></td>
-<td valign="top"><b><a href="#command-history">Command history</a></b><br><sub>Every command as a block, with one-click fixes</sub></td>
-<td valign="top"><b><a href="#agent-activity">Agent activity</a></b><br><sub>Time, prompts, changes and tokens per day and project</sub></td>
-</tr>
-<tr>
-<td valign="top"><b><a href="#mission-control">Mission Control</a></b><br><sub>Every agent in every window on one screen</sub></td>
-<td valign="top"><b><a href="#sessions">Sessions</a></b><br><sub>Agents, Docker sandboxes, Hermes and cloud sessions</sub></td>
-<td valign="top"><b><a href="#handoff">Handoff</a></b><br><sub>Pass a pane's work to Claude or Codex</sub></td>
-</tr>
-</table>
-
-<br>
-
-### Every agent, at a glance
-
-A Warp-style vertical sidebar (⌃⌘S) lists every tab with its folder, git branch and
-uncommitted changes. Tabs can be pinned, colored and renamed, and hovering one shows a card
-with more detail.
-
-- **It recognizes the agent in each tab:** Claude Code, Codex, Gemini CLI, Copilot, Cursor,
-  Amp, opencode, Goose, Droid and Hermes, each with its own logo.
-- **Live status:** working, waiting for permission, waiting for input, done or failed. Each
-  card shows the task, how long the agent has been at it and its last action.
-- **Agents act out their mood.** Their sprite reads, types, runs commands and thinks, hops
-  when it needs you and sparkles when it's done.
-- **The sigil comes alive.** One cyan pixel orbits the sidebar's sigil per working agent;
-  it glows amber while one waits and flares gold when one finishes.
-- **The terminal's frame lights up too.** A cyan light travels around the edge while the
-  tab's agent works, and the corners blink amber when it needs you.
-- **Project groups:** tabs whose agents share a repository are bracketed together, with a
-  live summary ("2 working · 1 waiting") and a warning when two agents edit the same file.
-- **Alerts:** when an agent waits on you in a pane you aren't looking at, you get a
-  notification (click it to jump there) and a count on the Dock icon.
-- **Answer without switching:** **Allow** and **Deny** right on the card (and in Mission Control and
-  the notification) when an agent asks for permission. Keys are only sent when its prompt is on screen.
-- **Usage meters** for your Claude and ChatGPT plans (5-hour and weekly windows), with
-  graphs.
-
-### Mission Control
-
-⌃⌘M shows every agent (or every pane) in every window as a live card: status, task, last
-action, time in that state and the last lines of its terminal. Agents waiting on you come
-first. Click a card to jump to it.
-
-The **command palette** (⌘P) puts waiting agents at the top too, so you can answer one in
-two keystrokes. It also starts new sessions and opens every tool.
-
-<br>
-
-### A code editor that follows the agent
-
-<p align="center">
-  <img src="images/readme/code-map.png" alt="The code map: the project as a star map, with the agent's path and a file's blast radius" width="100%">
-</p>
-
-Each tab has its own VS Code–style editor (Monaco, ⌃⌘E) on that tab's folder, in your
-terminal theme.
-
-- **Follow mode:** the editor opens each file the agent reads and animates its edits in as
-  they happen. It follows even while closed, so opening it mid-task shows where the agent
-  is right away.
-- **Agent panel:** a timeline of the session: prompts, thinking, messages, tool calls and
-  results, sub-agents included. With several sub-agents, the editor splits into a pane for
-  each.
-- **AI POV:** replay a session as if you were at the agent's keyboard: files opening, code
-  being typed, commands running.
-
-#### Code map
-
-Your project as a star map. Folders are tinted by what they are: frontend, API, database,
-tests, config. Files light up as the agent reads (cyan) and edits (orange) them, and the
-agent flies between them as a comet.
-
-- **Zoom levels:** **Overview** shows the project's areas and how much the agent did in
-  each. **Files** shows every file. **Symbols** shows the functions and classes inside, with
-  the ones changed this turn lit.
-- **Details for anything you click:** what the agent did there, this turn's diff, the
-  file's symbols, what imports it, and the backend pieces it uses.
-- **Blast radius:** what imports the file is drawn on the map, with a warning when no
-  test covers the change.
-
-<br>
-
-### See your backend
-
-<p align="center">
-  <img src="images/readme/backend.png" alt="The Backend tab: frontend, compute, data and services, with live deploy status" width="100%">
-</p>
-
-The **Backend** tab shows what your project runs on, worked out from its own files
-(`package.json`, `wrangler.jsonc`, `supabase/`, `.vercel/`, Prisma, env variable names).
-It works offline and without logins.
-
-- **Architecture:** frontend → compute → data → services, with a line only where your
-  code really connects two pieces.
-  - **Cloudflare Workers** show their environments, domains, cron schedules and every
-    binding: D1, Hyperdrive, KV, R2, Queues, Durable Objects, service bindings, Workers AI
-    and more.
-  - **Supabase, Vercel, Prisma, Firebase,** and services like Stripe, OpenAI and Resend,
-    show up too.
-- **Live status** comes from each provider's own CLI (`wrangler`, `supabase`, `vercel`),
-  using the logins you already have and only read-only commands. It shows deploys per
-  environment, project health, migrations not applied yet, and commits newer than the
-  last deploy.
-- **Code links:** click any piece to see every file that uses it, and open the provider's
-  dashboard or your live site.
-- **Agent awareness:** when the agent edits something that belongs to a piece of your
-  backend, that piece lights up.
-
-#### Database
-
-<p align="center">
-  <img src="images/readme/database.png" alt="The Database view: tables, columns and relations" width="100%">
-</p>
-
-The **Database** view draws your schema: tables, columns and relations for Supabase,
-Cloudflare D1, Postgres behind Hyperdrive (read from your migrations) and Prisma.
-
-- **Click a table** to see its columns, what references it and where your code queries it.
-- **Row-level security** is checked on every Postgres table.
-- **Large schemas** can be searched, and unrelated tables fade back.
-
-<br>
-
-### Visual Fix
-
-<p align="center">
-  <img src="images/readme/visual-fix.png" alt="Visual Fix: your running app beside the terminal, ready to pick an element" width="100%">
-</p>
-
-⌃⌘V previews your running dev server beside the terminal, at desktop, tablet or phone size.
-
-- **Pick an element:** hover any element and click it, then say what should change.
-- **What the agent gets:** the element's HTML and CSS selector, the component and source
-  file that render it (React, Vue and Svelte), its computed styles, and a screenshot.
-- **Where it goes:** the request goes to the agent working in that project, pinned to the
-  element. When the change lands, the preview reloads where you were.
-
-### Review changes
-
-When an agent finishes working in a git repository, its changes land in an inbox (⌃⌘I).
-
-- **Read the diff** file by file.
-- **Comment on lines** and send the comments back as the agent's next prompt.
-- **Finish up:** approve or undo files, commit, or open a pull request.
-
-### Undo an agent's turn
-
-Every agent turn starts with a snapshot of your project. **Undo last turn** (or an earlier
-one) from the tab's ⋮ menu, or **Restore to before this** on any of your prompts in the
-agent timeline. It lists every file it will change and asks first, and your current files are
-saved too, so the undo can be undone. Snapshots are git objects only: no commits, branches
-or stash entries, and your staged changes stay as they are.
-
-### Agent races
-
-⌃⌘R gives the same task to several agents at once (Claude Code and Codex, or several of
-one), each in its own git worktree so they can't touch each other's work or yours. Compare
-their diffs side by side and apply the one you want.
-
-### Handoff
-
-Pass a pane's work to another Claude Code or Codex session: a new one in a split beside it,
-or one that's already running. The message carries the task, the recent conversation,
-exactly what the first agent changed (since its first prompt) and failed commands, and you
-can edit it first. **Continue** picks up where the last agent stopped, **Review** checks
-the work without editing anything, and **Second opinion** weighs in on the approach. A
-failed command can go straight to the agent already working on the project.
-
-<br>
-
-### Review loops
-
-Pair an agent with a reviewer: each time the writer finishes a turn, the reviewer gets its
-changes and answers APPROVED or CHANGES NEEDED, and its findings go back to the writer,
-until it approves or a round limit. Every message waits for your Send unless you turn on
-Send automatically, and nothing is ever typed into an agent mid-turn or over your own
-typing.
-
-### Localhost sessions
-
-When an agent starts a dev server (`npm run dev`, `vite`, `rails s`,
-`python -m http.server`, …), it opens in its own tab instead, so it keeps running after
-the agent is done. The agent is told the URL and how to read the logs.
-
-- **Sidebar cards:** each server gets a card with live status, its `localhost` URL,
-  framework, uptime, restart and stop.
-- **The Localhost manager** (⌃⌘L) groups servers by project and shows their CPU and memory.
-  It previews pages in a built-in browser and finds dev servers running elsewhere on your
-  Mac, with **Keep alive** to move one into its own tab.
-- **Start one yourself** from **New → Localhost Server…**, which offers your
-  `package.json` scripts.
-
-### Background processes
-
-<p align="center">
-  <img src="images/readme/background.png" alt="The Background window: leftover VMs, containers, agent sessions and browsers with staleness ratings" width="85%">
-</p>
-
-⌃⌘K finds everything left running: dev servers, Colima VMs and containers, agent sessions,
-browser automation, databases, watchers, log followers and login services.
-
-- **Last really used:** the last typing or output in its terminal, its agent transcript
-  being written, a live connection to its port, or a busy container.
-- **A staleness rating** (Active, Idle, Stale or Ready to close), with the reasons.
-- **Cleanup in one click,** always with a confirmation first. Login services are never
-  marked ready to close.
-
-### Ports
-
-The sidebar lists what's listening, which project it belongs to and what started it.
-Open it in the browser or Visual Fix, jump to its tab, or stop it. When a command fails
-because its port is taken, the sidebar says what holds the port and offers to stop it.
-
-### Git panel
-
-Click a tab's branch for its pull request and every check (from the GitHub CLI), branch
-switching, stashes and recent commits. Tabs show commits to push and pull and the pull
-request's state beside the branch.
-
-### Command history
-
-Every command becomes a block with its output, exit code and duration (⌃⌘B). When one
-fails, a chip offers **Fix with Claude** or **Fix with Codex**, which opens the agent in a
-split with the command and its output.
-
-### Agent activity
-
-⌃⌘A shows active time, prompts, files and lines changed, commands, test runs and tokens,
-per day, hour, agent and project. It reads the session history Claude Code and Codex
-already keep.
-
-- **Resume** any recent session in a new tab.
-- **API value** shows what your usage would cost at API prices.
-
-### Sessions
-
-**+ New** in the sidebar opens a terminal, Claude Code, Codex, a Claude Code cloud
-session, Hermes, or a localhost server.
-
-- **Isolated sessions** run Ubuntu, Python, Node, or sandboxed Claude Code or Codex in a
-  throwaway Docker container. Only the project folder is shared (never your home
-  folder), and the container is deleted when you exit.
-- **Hermes tabs** open Hermes's own app (chat, sessions, skills, models and cron) right in
-  the tab.
-
-### Everything Ghostty already does
-
-GPU-accelerated rendering, native tabs and splits, the quick terminal, hundreds of themes,
-ligatures, shell integration, AppleScript and Shortcuts. Your Ghostty config works as-is.
-
-<br>
-
-## Light on your Mac
-
-All of the sidebar's animations run in Core Animation, so the app does almost no work per
-frame. Anything you can't see pauses: background tabs, hidden and minimized windows. With six
-agents working at once, GhosttyEXTREME uses about **1–3% CPU**.
-
-## Security and privacy
-
-- **Nothing leaves your Mac.** There's no account, telemetry or server. Agent tracking
-  reads the session files Claude Code and Codex already write.
-- **Only your own hooks can talk to it.** Agent status arrives as terminal escape
-  sequences, which any printed text could imitate. Each launch creates a secret that only
-  its own terminals and hooks know, and events without it are ignored.
-- **The Backend view never stores credentials.** It runs your providers' own CLIs with
-  their existing logins, read-only commands only. It reads only the *names* of your env
-  variables, never their values.
-- **The editor stays local.** It can only show its own pages, and Visual Fix only talks
-  to your local dev server.
-
-<br>
-
-## How it compares
-
-GhosttyEXTREME is for watching and steering the CLI agents you already use. If you want a
-terminal with its own built-in AI, Warp or Zed may suit you better.
-
-| | GhosttyEXTREME | [Ghostty](https://ghostty.org) | [cmux](https://github.com/manaflow-ai/cmux) | [Warp](https://www.warp.dev) | [Zed](https://zed.dev) |
-|---|---|---|---|---|---|
-| **What it is** | Ghostty fork for watching coding agents | Fast native terminal | Ghostty-based terminal for agents | Terminal with built-in agents | Code editor with an agent panel |
-| **Runs Claude Code, Codex & co. unchanged** | ✓ | ✓ | ✓ | ✓ | ✓ in its terminal; also via ACP |
-| **Status of every agent at a glance** | Sidebar card per agent: task, last action, timer | — | Notification rings and tab text | For its own agents | For agents in its panel |
-| **Answer a permission prompt without switching** | Sidebar, Mission Control or notification | — | — | For its own agents | For agents in its panel |
-| **See the code as the agent writes it** | Editor follows the CLI agent live | — | — | Diff view for its own agents | Follows agents in its panel |
-| **Map of what the agent touched** | Code map with blast radius | — | — | — | — |
-| **Backend view** (Cloudflare, Supabase, Vercel) | ✓ | — | — | — | — |
-| **Point at your running app, send it to the agent** | Visual Fix | — | Browser that agents can drive | — | — |
-| **Undo an agent's turn** | ✓ | — | — | Revert changes in its code review | Checkpoints |
-| **Open source** | AGPL-3.0 | MIT | GPL-3.0 | Client AGPL/MIT; AI and cloud proprietary | GPL-3.0 |
-| **Platforms** | macOS (Apple silicon) | macOS, Linux | macOS | macOS, Linux, Windows | macOS, Linux, Windows |
-
-Where others are ahead: Warp and Zed run on Linux and Windows and come with their own AI;
-cmux has SSH workspaces and a browser your agents can control; Ghostty is the lean original
-everything here is built on. Compared from each project's public docs, October 2026.
-
-<br>
-
-## Install
-
-Apple silicon Macs, macOS 13 or newer. In Terminal:
+<p align="center"><sub>Real app, real agents, demo projects. <a href="images/readme/demo.mp4">Watch the full 80-second demo</a>, with Project Memory, a review hand-off, an isolated Docker session and the Backend view.</sub></p>
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/steventsvik/GhosttyEXTREME/custom/install.sh | bash
 ```
 
-It downloads the [latest release](https://github.com/steventsvik/GhosttyEXTREME/releases/latest),
-checks it against the release's SHA-256 checksums and puts **GhosttyEXTREME.app** in
-`/Applications`. Then it opens: the welcome window connects Claude Code and Codex in one click
-(backing up each file it changes) and runs a live test. Come back to it, or to **Check Setup**,
-from the GhosttyEXTREME menu; `ghostty-extreme doctor` runs the same checks in a terminal.
+<sub>Apple silicon, macOS 13 or newer. Free and open source (AGPL-3.0). No account, no telemetry.</sub>
 
-**Updates** arrive in the app: GhosttyEXTREME checks for new releases and installs them when
-you say so (GhosttyEXTREME → Check for Updates…). They're signed, and the app only accepts
-updates signed by this project.
+## The 30-second tour
+
+1. **Open a tab per project and start an agent** the way you already do: `claude` or
+   `codex`. The sidebar groups tabs by repository and gives each agent a live card: its
+   task, what it's doing right now, and how long it's been at it.
+2. **Run several at once.** When one needs permission, its card turns amber with
+   **Allow** and **Deny**. Answer from the sidebar, Mission Control (⌃⌘M) or the
+   notification without leaving what you're doing.
+3. **Watch the code being written.** The editor (⌃⌘E) opens each file the agent reads and
+   types in its edits as they happen.
+4. **Pass work between agents.** Hand Off sends Codex what Claude Code did (the task, the
+   diff, failed commands), and both agents start each session knowing what the other has
+   learned about the project.
+5. **Undo a turn you don't like.** Every turn starts with a snapshot, so one click puts
+   your files back.
+
+## Features
+
+### Manage agents across projects
+
+- **Agent sidebar.** Every tab with its folder, git branch, uncommitted changes and agent.
+  Claude Code and Codex report live status through hooks: working, waiting for
+  permission, waiting for input, done or failed. Gemini CLI, Copilot, Cursor, Amp,
+  opencode, Goose, Droid and Hermes are recognized by their logos.
+- **Project groups.** Tabs in the same repository are grouped with a summary
+  ("2 working · 1 waiting"), and you're warned when two agents edit the same file.
+- **Allow / Deny from anywhere.** Answer permission prompts from the sidebar card, Mission
+  Control or the notification. Keys are sent only when the agent's prompt is actually on
+  screen.
+- **Mission Control** (⌃⌘M). Every agent in every window as a live card, with agents
+  waiting on you first. The command palette (⌘P) puts them first too.
+- **Hand off** (tab's ⋮ menu, Mission Control or ⌘P). Pass a pane's work to a new or running Claude Code or Codex. The message
+  carries the task, the recent conversation, exactly what changed and failed commands, and
+  you can edit it first. You can ask the second agent to continue, review, or give a
+  second opinion.
+- **Review loops.** Pair a writer with a reviewer. The reviewer answers APPROVED or CHANGES
+  NEEDED, and its findings go back to the writer until it approves or hits the round
+  limit. Each message waits for you to press Send unless you turn on automatic sending.
+- **Agent races** (⌃⌘R). Give one task to several agents, each in its own git worktree,
+  compare the diffs and keep the best one.
+- **Undo an agent's turn.** Every turn is snapshotted as git objects (no commits, branches
+  or stash entries). Restore lists every file it will change and asks first.
+- **Review inbox** (⌃⌘I). Each agent's finished diff, with line comments you can send back
+  as its next prompt.
+
+### Shared memory
+
+- **Project Memory** (⌃⌘Y). What Claude Code and Codex remember about the current
+  project, in one window. Edit or delete Claude Code's notes and your `CLAUDE.md` /
+  `AGENTS.md` files. Codex's memories are shown read-only, because Codex rewrites them
+  itself.
+- **Shared between agents.** A new Codex session starts with Claude Code's notes for the
+  project, and a new Claude Code session starts with Codex's, labeled as possibly out of
+  date. Hand Off and Review Loop include them when sending to an agent that's already
+  running.
+- Everything stays on your Mac. You can turn it off in Settings.
+
+### Isolation and Docker
+
+- **Isolated sessions.** **+ New → Isolated Session (Docker)** opens Ubuntu 24.04,
+  Python 3.13, Node 22, or a sandboxed Claude Code or Codex in a throwaway container. Only
+  the tab's folder is mounted, at `/workspace`; your home folder is not. The container is
+  deleted when you exit. Sandboxed agents keep their own login in a Docker volume; your
+  Mac's credentials are never shared. Needs Docker Desktop, OrbStack or Colima; if Docker
+  isn't running and Colima is installed, it starts Colima and stops it again afterwards.
+- **Races run in separate git worktrees**, so racing agents can't touch each other's
+  work or yours.
+
+### Watch agents live
+
+- **Code editor that follows the agent** (⌃⌘E). A Monaco editor per tab that opens what
+  the agent reads and animates its edits in, plus a timeline of prompts, thinking and tool
+  calls, sub-agents included.
+- **Code map.** Your project as a map, with files lit as the agent reads and edits them,
+  and each file's blast radius: what imports it, with a warning when no test covers the
+  change.
+- **Backend view.** What your project runs on (Cloudflare Workers and their bindings,
+  Supabase, Vercel, Prisma, Firebase, Stripe and more), worked out from its own files.
+  Live deploy status comes from the providers' own CLIs, using read-only commands. The
+  piece of backend the agent is editing lights up.
+- **Database view.** Tables, columns and relations from your migrations or Prisma schema,
+  with Postgres tables that lack row-level security flagged.
+- **Agent activity** (⌃⌘A). Time, prompts, changes, tokens, and what your usage would cost
+  at API prices, per day, agent and project.
+
+### Dev tools
+
+- **Localhost sessions** (⌃⌘L). When an agent starts a dev server, SSH tunnel,
+  `kubectl port-forward`, `ngrok` or `make dev`, it opens in its own tab and keeps running
+  after the agent is done. The agent is told the URL.
+- **Ports.** What's listening, which project it belongs to, and a Stop button. When a
+  command fails with "address already in use", the sidebar says what holds the port.
+- **Git panel.** Click a tab's branch to see its pull request with every check (failing
+  ones first), branches, stashes and recent commits. Tabs show ↑↓ commit counts and the
+  PR's check status. PR data needs the GitHub CLI (`gh`).
+- **Visual Fix** (⌃⌘V). Preview your dev server, click an element and say what to change.
+  The agent gets the element, its source file and a screenshot.
+- **Background** (⌃⌘K). Leftover dev servers, containers, VMs and agent sessions, rated by
+  how stale they are, with cleanup that always asks first.
+- **Command history** (⌃⌘B). Every command as a block. A failed one can go straight to an
+  agent.
+
+### Setup and updates
+
+- **One-line install** that checks the release's SHA-256 checksum.
+- **Welcome window and Check Setup.** They connect Claude Code and Codex in one click,
+  backing up each file first, and diagnose problems with a fix button for each.
+  `ghostty-extreme doctor` runs the same checks in a terminal.
+- **Signed updates in the app.** The app accepts only updates signed by this project.
+- **Settings** (⌘,). Turn any feature off; a feature that's off does no background work.
+
+## How it compares
+
+GhosttyEXTREME is for watching and steering the CLI agents you already use. If you want a
+terminal or editor with its own built-in AI, Warp or Zed may suit you better.
+
+| | GhosttyEXTREME | [Ghostty](https://ghostty.org) | [cmux](https://github.com/manaflow-ai/cmux) | [Warp](https://www.warp.dev) | [Zed](https://zed.dev) |
+|---|---|---|---|---|---|
+| **What it is** | Ghostty fork for running coding agents | Fast native terminal | Ghostty-based terminal for agents | Terminal with built-in agents | Code editor with an agent panel |
+| **Runs Claude Code, Codex & co. unchanged** | ✓ | ✓ | ✓ | ✓ | ✓ in its terminal; also via ACP |
+| **Status of every agent at a glance** | Sidebar card per agent | — | Pane rings, tab highlights, sidebar notification text | Tab status and notifications (Claude Code, Codex, OpenCode via plugins) | For agents in its panel |
+| **Answer a permission prompt without switching** | Sidebar, Mission Control or notification | — | — | Notifies you; answering elsewhere not documented | For agents in its panel |
+| **See the code as the agent writes it** | Editor follows the CLI agent live | — | — | Code review panel for the agent's diff | Follows agents in its panel |
+| **Undo an agent's turn** | ✓ | — | — | Not documented for CLI agents | Checkpoints in its agent panel |
+| **Backend view** (Cloudflare, Supabase, Vercel) | ✓ | — | — | — | — |
+| **Open source** | AGPL-3.0 | MIT | Client GPL-3.0; server BSL | Client AGPL/MIT; AI and cloud proprietary | GPL-3.0 |
+| **Platforms** | macOS (Apple silicon) | macOS, Linux | macOS | macOS, Linux, Windows | macOS, Linux, Windows |
+
+**Where others are ahead:** Warp and Zed run on Linux and Windows and come with their own
+AI. cmux has SSH workspaces and a browser your agents can control, and its sidebar also
+shows PR status and listening ports. Ghostty is the lean
+original that all of this is built on. GhosttyEXTREME is macOS-only, Apple silicon only,
+not notarized by Apple, and maintained by one person.
+
+<sub>Compared from each project's public docs on October 7, 2026. Corrections welcome.</sub>
+
+## Install
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/steventsvik/GhosttyEXTREME/custom/install.sh | bash
+```
+
+This downloads the [latest release](https://github.com/steventsvik/GhosttyEXTREME/releases/latest),
+checks its SHA-256 checksum and puts **GhosttyEXTREME.app** in `/Applications`. On first
+launch, the welcome window connects Claude Code and Codex and runs a live test.
 
 <details>
 <summary>Installing by hand instead</summary>
@@ -416,43 +194,52 @@ xattr -dr com.apple.quarantine /Applications/GhosttyEXTREME.app
 
 </details>
 
-Your existing Ghostty configuration (`~/.config/ghostty/config`) works as-is.
-
 ## Keyboard shortcuts
+
+Hold ⌃⌘ for a moment to see them all over the window.
 
 | Shortcut | |
 |---|---|
 | ⌘P | Command palette: agents waiting on you, new sessions, every tool |
+| ⌘, | Settings (Ghostty's config file is under GhosttyEXTREME → Edit Config File…) |
 | ⌃⌘S | Show or hide the sidebar |
-| ⌃⌘E | Code editor |
-| ⌃⌘V | Visual Fix |
 | ⌃⌘M | Mission Control |
-| ⌃⌘K | Background |
+| ⌃⌘E | Code editor |
+| ⌃⌘Y | Project memory |
 | ⌃⌘L | Localhost sessions |
+| ⌃⌘V | Visual Fix |
 | ⌃⌘I | Review changes |
 | ⌃⌘R | Race agents |
+| ⌃⌘K | Background |
 | ⌃⌘B | Command history |
 | ⌃⌘A | Agent activity |
-| ⌃⌘Y | Project memory |
-| ⌃⌘/ | Every shortcut (or hold ⌃⌘ for a moment) |
-| ⌘, | Settings: turn features on or off (Ghostty's config file is under GhosttyEXTREME → Edit Config File…) |
+| ⌃⌘/ | Every shortcut |
 
-<br>
+## Security and privacy
+
+- **Nothing leaves your Mac.** There's no account, telemetry or server. Agent tracking
+  and shared memory read the files Claude Code and Codex already write.
+- **Only your own hooks can talk to it.** Agent status arrives as terminal escape
+  sequences, which any printed text could imitate, so each launch creates a secret that
+  only its own terminals and hooks know. Events without it are ignored.
+- **The Backend view never stores credentials.** It runs the providers' own CLIs with
+  their existing logins, using read-only commands, and reads only the *names* of env
+  variables.
+- **Light on your Mac.** Animations run in Core Animation and pause when they're off
+  screen. With six agents working, the maintainer measured about 1–3% CPU.
 
 ## Agent status setup
 
 <details>
-<summary><b>Connect Claude Code, Codex and your shell</b></summary>
+<summary><b>Connect Claude Code, Codex and your shell by hand</b></summary>
 
 <br>
 
 The welcome window and **Check Setup** do all of this for you. The steps below are what
-they do, for doing it by hand.
+they do.
 
 GhosttyEXTREME sets `GHOSTTY_EXTREME_AGENT_EVENTS=1` in its terminals. The hook
 scripts in `agent-hooks/` do nothing anywhere else.
-
-First install them outside the repo:
 
 ```sh
 ./agent-hooks/install.sh
@@ -461,15 +248,15 @@ First install them outside the repo:
 This copies the hooks to `~/.ghostty-extreme/agent-hooks/` and the `localhost` command
 to `~/.ghostty-extreme/bin/`. Point your agents there rather than at the repo: macOS
 privacy protection can block terminal processes from reading `~/Desktop` or
-`~/Documents`, which silently breaks the hooks. Rerun it after updating.
+`~/Documents`, which silently breaks the hooks.
 
-**Shell detection** (shows the agent's logo as soon as you start it). Add to `~/.zshrc`:
+**Shell detection.** Add this to `~/.zshrc`:
 
 ```sh
 [[ -n "$GHOSTTY_EXTREME_AGENT_EVENTS" ]] && source ~/.ghostty-extreme/agent-hooks/ghostty-extreme.zsh
 ```
 
-**Claude Code status.** In `~/.claude/settings.json`, run
+**Claude Code.** In `~/.claude/settings.json`, run
 `~/.ghostty-extreme/agent-hooks/agent-hook.sh claude <event>` for these hooks:
 
 | Hook | Event |
@@ -488,18 +275,9 @@ privacy protection can block terminal processes from reading `~/Desktop` or
 { "type": "command", "command": "~/.ghostty-extreme/agent-hooks/agent-hook.sh claude stop" }
 ```
 
-**Codex status.** Run `python3 agent-hooks/install-codex.py` to install Codex tracking
-and register its hooks without changing Claude's settings or any saved hook approvals.
-It keeps existing hook handlers, backs up the config when adding registrations, and
-retains the legacy command path when already configured. Restart Codex afterwards and
-approve the new registrations through its normal hook review.
-
-Open a new terminal pane after installation. The GhosttyEXTREME zsh integration
-launches interactive Codex with `--no-daemon` and this pane's TTY, so local hooks reach
-the correct pane. Codex tracking uses session IDs, live tool hooks and native rollout
-records for reads, commands, multi-file patches, failures, messages and reasoning
-summaries; child agents appear in their own editor lanes. Private tracking journals
-live in `~/.ghostty-extreme/codex-tracking/`.
+**Codex.** Run `python3 agent-hooks/install-codex.py`. It registers Codex's hooks without
+touching Claude's settings or saved hook approvals, and backs up the config first.
+Restart Codex and approve the new registrations through its normal hook review.
 
 **Claude usage meter** (optional). Have your Claude Code status line script save
 `rate_limits` to `~/.claude/ghostty-extreme/claude-usage.json` as
@@ -531,14 +309,11 @@ If the repo is in an iCloud-synced folder (like Desktop or Documents), codesign 
 iCloud's extended attributes. Point `macos/build` at a folder outside iCloud first;
 `update-ghostty.sh` does this for you.
 
-**Staying up to date:** `./update-ghostty.sh` rebases this fork onto the newest official
-Ghostty release, rebuilds and installs it. `./update-ghostty.sh --check` only reports
-whether a new release exists. It needs an `upstream` remote pointing at
-`ghostty-org/ghostty`.
+`./update-ghostty.sh` rebases this fork onto the newest official Ghostty release, rebuilds
+and installs it (it needs an `upstream` remote pointing at `ghostty-org/ghostty`).
+`--check` only reports whether a new release exists.
 
 </details>
-
-<br>
 
 ## License
 
