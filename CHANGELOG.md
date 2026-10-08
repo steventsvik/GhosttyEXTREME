@@ -6,6 +6,11 @@ What changed in each GhosttyEXTREME release. Work in progress collects under
 
 ## Unreleased
 
+- **Updates show up on their own.** GhosttyEXTREME checks for a new release shortly after it starts and every hour, and an update card appears at the top of the sidebar with the new version, what's new, and **Update and restart**.
+- **A progress bar while it updates:** downloading with a percentage, preparing, then restarting.
+- **Everything comes back after an update.** Windows, tabs, splits and folders reopen, Claude Code and Codex sessions resume in their panes (`claude --resume`, `codex resume`), and localhost servers start again in their tabs. If an agent is mid-turn, **Update when done** waits for it to finish first.
+- "What's new" for an update opens GhosttyEXTREME's release notes, not official Ghostty's.
+
 - **Agent Activity covers any period.** Next to Today, 7 days and 30 days there are 90 days, This year, All (back to your first session) and Custom, which picks any from-and-to dates. Time, tokens and API value all follow the period, and long periods chart by week or by month.
 
 ## 1.5.4

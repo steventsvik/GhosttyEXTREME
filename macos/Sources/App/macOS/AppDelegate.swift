@@ -222,6 +222,10 @@ class AppDelegate: NSObject,
 
         // Start our update checker.
         updateController.startUpdater()
+        ExtremeUpdates.shared.start(updateController)
+
+        // After an update's restart, reopen the agents and servers that were running.
+        ResumeAfterUpdate.resumeIfNeeded()
 
         // Register our service provider. This must happen after everything is initialized.
         NSApp.servicesProvider = ServiceProvider()

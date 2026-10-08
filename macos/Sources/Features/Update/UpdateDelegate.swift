@@ -33,5 +33,7 @@ extension UpdateDriver: SPUUpdaterDelegate {
         // we relaunch it uses it.
         NSApp.invalidateRestorableState()
         for window in NSApp.windows { window.invalidateRestorableState() }
+        // GhosttyEXTREME: keep the windows for this quit and remember what's running in them.
+        ResumeAfterUpdate.prepare()
     }
 }

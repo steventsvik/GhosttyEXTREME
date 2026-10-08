@@ -292,8 +292,8 @@ enum UpdateState: Equatable {
 
             // Check for semantic version (x.y.z)
             if let semver = Self.extractSemanticVersion(from: version) {
-                let slug = semver.replacingOccurrences(of: ".", with: "-")
-                if let url = URL(string: "https://ghostty.org/docs/install/release-notes/\(slug)") {
+                // GhosttyEXTREME: its own release notes, not official Ghostty's.
+                if let url = URL(string: "https://github.com/steventsvik/GhosttyEXTREME/releases/tag/extreme-\(semver)") {
                     self = .tagged(url)
                     return
                 }

@@ -450,6 +450,9 @@ struct VerticalTabsSidebar: View {
         VStack(spacing: 0) {
             header
             Rectangle().fill(Extreme.line).frame(height: 1)
+            if let updates = (NSApp.delegate as? AppDelegate)?.updateViewModel {
+                UpdateCard(model: updates)
+            }
 
             ScrollView {
                 // Not lazy: a lazy stack estimates the height of rows scrolled out of view, so
