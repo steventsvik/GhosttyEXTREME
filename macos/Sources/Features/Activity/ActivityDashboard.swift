@@ -19,20 +19,38 @@ enum ActivityDashboard {
     }
 }
 
-private enum ActivityRange: String, CaseIterable, Identifiable {
-    case today = "Today", week = "7 days", month = "30 days"
+/// The period the dashboard covers: a preset, or any span of days you pick.
+private enum ActivityPreset: String, CaseIterable, Identifiable {
+    case today = "Today", week = "7 days", month = "30 days", quarter = "90 days", year = "This year", all = "All", custom = "Custom"
     var id: Self { self }
+}
 
-    var days: Int {
-        switch self {
-        case .today: return 1
-        case .week: return 7
-        case .month: return 30
+private struct ActivityRange: Equatable {
+    /// The first and last day included (start of day).
+    var start: Date
+    var end: Date
+
+    static func preset(_ preset: ActivityPreset, earliest: Date? = nil) -> ActivityRange {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        func back(_ days: Int) -> Date { calendar.date(byAdding: .day, value: -(days - 1), to: today)! }
+        switch preset {
+        case .today: return ActivityRange(start: today, end: today)
+        case .week: return ActivityRange(start: back(7), end: today)
+        case .month, .custom: return ActivityRange(start: back(30), end: today)
+        case .quarter: return ActivityRange(start: back(90), end: today)
+        case .year: return ActivityRange(start: calendar.date(from: calendar.dateComponents([.year], from: today))!, end: today)
+        case .all: return ActivityRange(start: calendar.startOfDay(for: earliest ?? back(365)), end: today)
         }
     }
 
-    var start: Date {
-        Calendar.current.date(byAdding: .day, value: -(days - 1), to: Calendar.current.startOfDay(for: Date()))!
+    var days: Int {
+        (Calendar.current.dateComponents([.day], from: start, to: end).day ?? 0) + 1
+    }
+
+    /// How the chart groups days: one bar per day, week or month.
+    var bucket: Calendar.Component {
+        days > 400 ? .month : days > 92 ? .weekOfYear : .day
     }
 }
 
@@ -63,8 +81,24 @@ private struct DayBar: Identifiable {
 private final class ActivityModel: ObservableObject {
     @Published var sessions: [ActivitySession] = []
     @Published var loading = false
-    @Published var range: ActivityRange = .week {
-        didSet { load() }
+    @Published var preset: ActivityPreset = .week {
+        didSet {
+            guard preset != .custom else { return }
+            range = .preset(preset, earliest: earliest)
+        }
+    }
+    @Published var range: ActivityRange = .preset(.week) {
+        didSet { if range != oldValue { load() } }
+    }
+    /// The oldest day with any session, for "All".
+    private var earliest: Date?
+
+    /// Sets a custom span (either end can be picked first; they're put in order).
+    func setCustom(start: Date, end: Date) {
+        let calendar = Calendar.current
+        let a = calendar.startOfDay(for: min(start, end)), b = calendar.startOfDay(for: max(start, end))
+        preset = .custom
+        range = ActivityRange(start: a, end: min(b, calendar.startOfDay(for: Date())))
     }
     @Published var codexRates = APIPricing.codexRates {
         didSet { APIPricing.codexRates = codexRates }
@@ -72,19 +106,37 @@ private final class ActivityModel: ObservableObject {
 
     func load() {
         loading = true
-        let start = range.start
+        let range = self.range
+        let wantsAll = preset == .all
+        let keys = Set(Self.dayKeys(range))
         DispatchQueue.global(qos: .userInitiated).async {
-            let sessions = ActivityStats.shared.sessions(since: start)
-                .filter { ($0.end ?? .distantPast) >= start }
+            let all = ActivityStats.shared.sessions(since: wantsAll ? .distantPast : range.start)
+            // Only sessions with activity or usage on a day in the range.
+            let sessions = all.filter { session in
+                session.activeByDay.keys.contains(where: keys.contains)
+                    || session.claudeCostByDay.keys.contains(where: keys.contains)
+                    || session.codexTokens.keys.contains(where: keys.contains)
+            }
+            let earliest = wantsAll
+                ? all.flatMap { Array($0.activeByDay.keys) + Array($0.claudeCostByDay.keys) + Array($0.codexTokens.keys) }
+                    .min().flatMap(ActivityStats.date(fromDayKey:))
+                : nil
             DispatchQueue.main.async {
+                guard self.range == range else { return }
                 self.sessions = sessions
                 self.loading = false
+                if wantsAll, let earliest, Calendar.current.startOfDay(for: earliest) != range.start {
+                    self.earliest = earliest
+                    self.range = .preset(.all, earliest: earliest)
+                }
             }
         }
     }
 
-    private var dayKeys: [String] {
-        (0..<range.days).map { offset in
+    private var dayKeys: [String] { Self.dayKeys(range) }
+
+    private static func dayKeys(_ range: ActivityRange) -> [String] {
+        (0..<max(range.days, 1)).map { offset in
             ActivityStats.dayKey(Calendar.current.date(byAdding: .day, value: offset, to: range.start)!)
         }
     }
@@ -148,18 +200,24 @@ private final class ActivityModel: ObservableObject {
         codexModels.map(\.model).filter { codexRates[$0] == nil }
     }
 
+    /// One bar per day, week or month (see `ActivityRange.bucket`) and agent.
     func bars(dollars: Bool) -> [DayBar] {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        var result: [DayBar] = []
+        let calendar = Calendar.current
+        let unit = range.bucket
+        var groups: [(start: Date, keys: Set<String>)] = []
         for key in dayKeys {
-            guard let day = formatter.date(from: key) else { continue }
+            guard let day = ActivityStats.date(fromDayKey: key) else { continue }
+            let start = unit == .day ? day : calendar.dateInterval(of: unit, for: day)?.start ?? day
+            if groups.last?.start == start { groups[groups.count - 1].keys.insert(key) } else { groups.append((start, [key])) }
+        }
+        var result: [DayBar] = []
+        for group in groups {
             for agent in ["claude", "codex"] {
                 let list = sessions.filter { $0.agent == agent }
                 let value = dollars
-                    ? list.map { let c = cost($0, days: [key]); return c.input + c.output }.reduce(0, +)
-                    : list.compactMap { $0.activeByDay[key] }.reduce(0, +) / 60
-                result.append(DayBar(day: day, agent: agent, minutes: value))
+                    ? list.map { let c = cost($0, days: group.keys); return c.input + c.output }.reduce(0, +)
+                    : list.map { session in group.keys.compactMap { session.activeByDay[$0] }.reduce(0, +) }.reduce(0, +) / 60
+                result.append(DayBar(day: group.start, agent: agent, minutes: value))
             }
         }
         return result
@@ -249,23 +307,53 @@ private struct ActivityDashboardView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
-            ExtremeWindowTitle(icon: nil, title: "Agent Activity",
-                               subtitle: "From Claude Code and Codex session history on this Mac", sigil: true)
-            Spacer()
-            if model.loading { ProgressView().controlSize(.small) }
-            apiSwitch
-            Picker("", selection: $model.range) {
-                ForEach(ActivityRange.allCases) { Text($0.rawValue).tag($0) }
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                ExtremeWindowTitle(icon: nil, title: "Agent Activity",
+                                   subtitle: "From Claude Code and Codex session history on this Mac", sigil: true)
+                Spacer()
+                if model.loading { ProgressView().controlSize(.small) }
+                apiSwitch
+                Picker("", selection: $model.preset) {
+                    ForEach(ActivityPreset.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 440)
+                .help("The period to show. Custom picks any span of days.")
+                Button { model.load() } label: { Image(systemName: "arrow.clockwise") }
+                    .help("Refresh")
             }
-            .pickerStyle(.segmented)
-            .frame(width: 230)
-            Button { model.load() } label: { Image(systemName: "arrow.clockwise") }
-                .help("Refresh")
+            .padding(.horizontal, 18)
+            .padding(.top, 30)
+            .padding(.bottom, 6)
+            customRange
         }
+    }
+
+    /// From and to dates, shown for Custom; the span shown, for every other period.
+    @ViewBuilder
+    private var customRange: some View {
+        HStack(spacing: 10) {
+            Spacer()
+            if model.preset == .custom {
+                DatePicker("From", selection: Binding(
+                    get: { model.range.start },
+                    set: { model.setCustom(start: $0, end: model.range.end) }),
+                    in: ...Date(), displayedComponents: .date)
+                DatePicker("To", selection: Binding(
+                    get: { model.range.end },
+                    set: { model.setCustom(start: model.range.start, end: $0) }),
+                    in: ...Date(), displayedComponents: .date)
+            } else if model.range.days > 1 {
+                Text(model.range.start.formatted(date: .abbreviated, time: .omitted) + " – "
+                     + model.range.end.formatted(date: .abbreviated, time: .omitted))
+                    .font(Extreme.font(11)).foregroundColor(Extreme.muted)
+            }
+        }
+        .datePickerStyle(.compact)
+        .font(Extreme.font(11.5))
         .padding(.horizontal, 18)
-        .padding(.top, 30)
-        .padding(.bottom, 12)
+        .padding(.bottom, 10)
     }
 
     /// The switch between time and API value, with the Codex prices editor beside it.
@@ -358,7 +446,7 @@ private struct ActivityDashboardView: View {
         card(showDollars ? "API value per day" : "Active time per day", "chart.bar.fill") {
             Chart(model.bars(dollars: showDollars)) { bar in
                 BarMark(
-                    x: .value("Day", bar.day, unit: .day),
+                    x: .value("Day", bar.day, unit: model.range.bucket),
                     y: .value(showDollars ? "Dollars" : "Minutes", bar.minutes))
                 .foregroundStyle(by: .value("Agent", bar.agent == "codex" ? "Codex" : "Claude Code"))
                 .cornerRadius(4)
@@ -375,8 +463,20 @@ private struct ActivityDashboardView: View {
                 }
             }
             .chartXAxis {
-                AxisMarks(values: .stride(by: .day, count: model.range == .month ? 5 : 1)) { _ in
-                    AxisValueLabel(format: .dateTime.weekday(.abbreviated).day())
+                switch model.range.bucket {
+                case .month:
+                    AxisMarks(values: .stride(by: .month, count: max(1, model.range.days / 365))) { _ in
+                        AxisValueLabel(format: .dateTime.month(.abbreviated).year(.twoDigits))
+                    }
+                case .weekOfYear:
+                    AxisMarks(values: .stride(by: .weekOfYear, count: max(1, model.range.days / 120))) { _ in
+                        AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                    }
+                default:
+                    AxisMarks(values: .stride(by: .day, count: max(1, model.range.days / 10))) { _ in
+                        AxisValueLabel(format: model.range.days > 14 ? .dateTime.month(.abbreviated).day()
+                                                                     : .dateTime.weekday(.abbreviated).day())
+                    }
                 }
             }
             .frame(height: 210)

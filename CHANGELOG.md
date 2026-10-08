@@ -6,6 +6,8 @@ What changed in each GhosttyEXTREME release. Work in progress collects under
 
 ## Unreleased
 
+- **Agent Activity covers any period.** Next to Today, 7 days and 30 days there are 90 days, This year, All (back to your first session) and Custom, which picks any from-and-to dates. Time, tokens and API value all follow the period, and long periods chart by week or by month.
+
 ## 1.5.4
 
 - **Visual Fix requests read clearly on the agent's card.** The card, Mission Control and the notification showed `[Image #1] <pasted_content id=…>` as the task; they now show "Visual fix: " and the change you asked for. Image placeholders and paste markers are left out of every task.
