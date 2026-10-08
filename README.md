@@ -262,7 +262,7 @@ When an agent finishes working in a git repository, its changes land in an inbox
 Every agent turn starts with a snapshot of your project. **Undo last turn** (or an earlier
 one) from the tab's ⋮ menu, or **Restore to before this** on any of your prompts in the
 agent timeline. It lists every file it will change and asks first, and your current files
-are saved too, so the undo can be undone. Snapshots are git objects only: no commits,
+are saved too, so the undo can be undone, and the review inbox updates to match. Snapshots are git objects only: no commits,
 branches or stash entries, and your staged changes stay as they are. Folders that aren't
 repositories work too.
 
@@ -321,7 +321,8 @@ Cloudflare D1, Postgres behind Hyperdrive (read from your migrations) and Prisma
 - **What the agent gets:** the element's HTML and CSS selector, the component and source
   file that render it (React, Vue and Svelte), its computed styles, and a screenshot.
 - **Where it goes:** the request goes to the agent working in that project, pinned to the
-  element. When the change lands, the preview reloads where you were.
+  element, and its card shows "Visual fix:" with what you asked for. When the change lands,
+  the preview reloads where you were.
 
 <p align="center">
   <img src="images/readme/visual-fix-done.png" alt="The same page after Claude Code made the change: products as cards in a three-column grid, and the request marked done" width="100%">
