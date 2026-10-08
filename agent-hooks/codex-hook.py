@@ -55,13 +55,23 @@ def tty_path():
     return None
 
 
+def prompt_text(prompt):
+    """What the user asked: without image placeholders and paste wrappers, and for a
+    Visual Fix request, the change they described."""
+    text = re.sub(r"\[Image #\d+\]|</?pasted_content[^>]*>", "", str(prompt or ""))
+    change = re.search(r"\nChange: ([^\n]*)", text)
+    if change and re.search(r"(^|\n)Visual fix #\d+:", text):
+        return "Visual fix: " + change.group(1)
+    return text
+
+
 def compact_detail(payload, event):
     tool = payload.get("tool_name", "")
     arguments = payload.get("tool_input") or {}
     if not isinstance(arguments, dict):
         arguments = {}
     if event == "prompt_submit":
-        detail = payload.get("prompt", "")
+        detail = prompt_text(payload.get("prompt", ""))
     elif event in ("pre_tool_use", "tool_complete", "permission_request"):
         argument = arguments.get("command", arguments.get("cmd", arguments.get("file_path", "")))
         detail = f"{tool}: {argument}" if argument else tool

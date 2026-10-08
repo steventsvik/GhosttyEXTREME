@@ -52,6 +52,12 @@ class CodexHookTests(unittest.TestCase):
             project = {"session_id": "project", "cwd": str(self.home / "project"), "prompt": "Fix the links"}
             self.assertIsNotNone(hook.record_event(project, "prompt_submit", self.home))
 
+    def test_prompt_text_hides_paste_wrappers_and_names_visual_fixes(self):
+        visual = '[Image #1]\n\n<pasted_content id="49c0">\nVisual fix #1: I pointed at an element.\nChange: Make it bigger\n</pasted_content id="49c0">\n'
+        self.assertEqual(hook.prompt_text(visual), "Visual fix: Make it bigger")
+        self.assertEqual(hook.prompt_text("Fix this [Image #2]").strip(), "Fix this")
+        self.assertEqual(hook.prompt_text("Change: nothing special"), "Change: nothing special")
+
     def test_pretool_and_question_status(self):
         payload = {"session_id": "parent", "tool_name": "Bash", "tool_input": {"command": "cat src/app.ts"}}
         self.assertEqual(hook.record_event(payload, "pre_tool_use", self.home)["event"], "tool_start")

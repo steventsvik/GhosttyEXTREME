@@ -157,7 +157,11 @@ final class TurnCheckpoints: ObservableObject {
                 self.append(Checkpoint(id: UUID(), time: Date(), title: "Before restoring “\(Self.short(checkpoint.title))”",
                                        agent: nil, repoRoot: checkpoint.repoRoot, gitDir: checkpoint.gitDir,
                                        tree: current, isRestorePoint: true), to: ObjectIdentifier(surface))
-                self.queue.async { Self.apply(changes, from: checkpoint) }
+                self.queue.async {
+                    Self.apply(changes, from: checkpoint)
+                    // Reviews of this project now show what's left (or go away).
+                    DispatchQueue.main.async { ReviewInbox.shared.refresh(root: checkpoint.repoRoot) }
+                }
             }
         }
     }
