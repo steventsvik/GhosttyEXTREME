@@ -24,7 +24,7 @@ view.
   <img src="images/readme/demo.gif" alt="Claude Code and Codex working in two projects at once, a permission prompt answered from the sidebar, the editor following Claude's edits, Codex answering from Claude's project notes, and a hand-off from Claude to Codex" width="100%">
 </p>
 
-<p align="center"><sub>Real app, real agents, demo projects. <a href="images/readme/demo.mp4">Watch the full 80-second demo</a>, with Project Memory, a review hand-off, an isolated Docker session and the Backend view.</sub></p>
+<p align="center"><sub>Real app, real agents, demo projects. <a href="images/readme/demo.mp4">Watch the full 2½-minute tour</a> of every feature: the code map, Mission Control, localhost sessions, Visual Fix, review, undo, Project Memory, hand-off, isolated Docker sessions, the Backend view and the Git panel.</sub></p>
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/steventsvik/GhosttyEXTREME/custom/install.sh | bash
