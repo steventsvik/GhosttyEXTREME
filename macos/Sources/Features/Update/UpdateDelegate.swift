@@ -27,6 +27,16 @@ extension UpdateDriver: SPUUpdaterDelegate {
         return true
     }
 
+    /// Local builds (version 0.1, not stamped by release.sh) would always see the latest
+    /// release as an update, so they only check when asked to.
+    func updater(_ updater: SPUUpdater, mayPerform updateCheck: SPUUpdateCheck) throws {
+        let isRelease = Bundle.main.infoDictionary?["GhosttyExtremeRelease"] as? Bool == true
+        if !isRelease && updateCheck == .updatesInBackground {
+            throw NSError(domain: "GhosttyEXTREME", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "Local builds don't check for updates by themselves."])
+        }
+    }
+
     func updaterWillRelaunchApplication(_ updater: SPUUpdater) {
         // When the updater is relaunching the application we want to get macOS
         // to invalidate and re-encode all of our restorable state so that when

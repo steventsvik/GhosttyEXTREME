@@ -117,8 +117,10 @@ enum ResumeAfterUpdate {
                                                             tab: controller) { resumed += 1 }
                     case .claude, .codex:
                         // A leading space keeps it out of shell history.
-                        surface.surfaceModel?.sendText(" \(command(for: entry))\n")
-                        resumed += 1
+                        if let model = surface.surfaceModel {
+                            Self.run(" \(command(for: entry))", in: model)
+                            resumed += 1
+                        }
                     }
                 } else {
                     // The window didn't come back: open the session in a new tab.
@@ -127,6 +129,19 @@ enum ResumeAfterUpdate {
             }
             DemoDirector.note("resume after update: \(resumed) of \(entries.count)")
         } }
+    }
+
+    /// Types a command at the shell prompt and presses Enter. Text arrives as a paste, so
+    /// a newline inside it wouldn't run it.
+    @MainActor
+    static func run(_ command: String, in model: Ghostty.Surface) {
+        model.sendText(command)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            MainActor.assumeIsolated {
+                model.sendKeyEvent(.init(key: .enter, action: .press, text: "\r"))
+                model.sendKeyEvent(.init(key: .enter, action: .release))
+            }
+        }
     }
 
     private static func command(for entry: Entry) -> String {

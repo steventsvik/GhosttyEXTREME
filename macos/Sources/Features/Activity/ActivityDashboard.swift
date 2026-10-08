@@ -443,7 +443,8 @@ private struct ActivityDashboardView: View {
     }
 
     private var dailyChart: some View {
-        card(showDollars ? "API value per day" : "Active time per day", "chart.bar.fill") {
+        let per = model.range.bucket == .month ? "month" : model.range.bucket == .weekOfYear ? "week" : "day"
+        return card(showDollars ? "API value per \(per)" : "Active time per \(per)", "chart.bar.fill") {
             Chart(model.bars(dollars: showDollars)) { bar in
                 BarMark(
                     x: .value("Day", bar.day, unit: model.range.bucket),

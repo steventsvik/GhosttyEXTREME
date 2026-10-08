@@ -381,7 +381,9 @@ final class LocalhostSessions: ObservableObject {
         sessions.append(session)
         tabs[id] = Weak(controller)
         writeStatus(session)
-        surface.surfaceModel?.sendText(" \(AgentTools.shellQuote(Self.runner)) \(id)\n")
+        if let model = surface.surfaceModel {
+            ResumeAfterUpdate.run(" \(AgentTools.shellQuote(Self.runner)) \(id)", in: model)
+        }
         ensureTimer()
         VerticalTabs.setNeedsRefresh()
         return true
@@ -438,7 +440,9 @@ final class LocalhostSessions: ObservableObject {
             surface.surfaceModel?.sendText("r")
         case .detached:
             // The runner is gone and a shell is left; start it again in the same tab.
-            surface.surfaceModel?.sendText(" \(AgentTools.shellQuote(Self.runner)) \(session.id)\n")
+            if let model = surface.surfaceModel {
+                ResumeAfterUpdate.run(" \(AgentTools.shellQuote(Self.runner)) \(session.id)", in: model)
+            }
         case .starting, .live:
             FileManager.default.createFile(
                 atPath: Self.directory.appendingPathComponent("\(session.id).restart").path, contents: nil)
