@@ -6,6 +6,7 @@ What changed in each GhosttyEXTREME release. Work in progress collects under
 
 ## Unreleased
 
+- **Allow and Deny work with Claude Code 2.1.29x.** Its permission prompt now ends with a numbered "No" and "Esc to cancel" instead of "No, and tell Claude what to do differently", so GhosttyEXTREME didn't recognize it and showed no Allow or Deny on the card, in Mission Control or in the notification. Both forms work now.
 - **Codex cards show the right task again.** Codex's own background memory agent ("Memory Writing Agent: Phase 2") runs from the same terminal; its prompt used to replace your task on the card, and its work kept the card on Working after Codex had finished. It's now ignored.
 
 ## 1.5.2

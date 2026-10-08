@@ -45,13 +45,15 @@ enum AgentPermissions {
         return parse(surface.cachedVisibleContents.get())
     }
 
-    /// Reads the prompt from the bottom of the screen. Both agents end their prompt with
-    /// "No, and tell Claude/Codex what to do differently" (Escape picks it) and mark the
-    /// selected option ("❯ 1. Yes" in Claude Code, "› Yes, proceed" in Codex).
+    /// Reads the prompt from the bottom of the screen. Codex and older Claude Code end their
+    /// prompt with "No, and tell Claude/Codex what to do differently"; Claude Code 2.1.29x
+    /// ends it with a numbered "No" and "Esc to cancel". Escape picks "No" in all of them.
+    /// Both mark the selected option ("❯ 1. Yes" in Claude Code, "› Yes, proceed" in Codex).
     static func parse(_ screen: String) -> Prompt? {
         let lines = screen.split(separator: "\n", omittingEmptySubsequences: false).suffix(30).map(String.init)
         func has(_ pattern: String) -> Bool { lines.contains { $0.range(of: pattern, options: .regularExpression) != nil } }
-        guard has(#"No, and tell (Claude|Codex) what to do differently"#) else { return nil }
+        guard has(#"No, and tell (Claude|Codex) what to do differently"#)
+            || (has(#"^\s*[│|]?\s*[❯›>▶]?\s*[1-9]\.\s+No\s*$"#) && has(#"Esc to cancel"#)) else { return nil }
         // The options, top to bottom. Enter only allows when the first one ("Yes", not
         // "Yes, and don't ask again") is the selected one.
         let options = lines.filter { $0.range(of: #"^\s*[│|]?\s*[❯›>▶]?\s*(?:[1-9]\.\s+)?(Yes|No)\b"#, options: .regularExpression) != nil }
