@@ -6,6 +6,8 @@ What changed in each GhosttyEXTREME release. Work in progress collects under
 
 ## Unreleased
 
+## 1.5.5
+
 - **Updates show up on their own.** GhosttyEXTREME checks for a new release shortly after it starts and every hour, and an update card appears at the top of the sidebar with the new version, what's new, and **Update and restart**.
 - **A progress bar while it updates:** downloading with a percentage, preparing, then restarting.
 - **Everything comes back after an update.** Windows, tabs, splits and folders reopen, Claude Code and Codex sessions resume in their panes (`claude --resume`, `codex resume`), and localhost servers start again in their tabs. If an agent is mid-turn, **Update when done** waits for it to finish first.
