@@ -41,6 +41,17 @@ class CodexHookTests(unittest.TestCase):
         records = (self.home / ".ghostty-extreme/codex-tracking/child.jsonl").read_text().splitlines()
         self.assertEqual(json.loads(records[0])["parent"], "parent")
 
+    def test_memory_writing_agent_is_ignored(self):
+        memories = str(self.home / ".codex/memories")
+        with patch.dict(os.environ, {"CODEX_HOME": ""}):
+            for event in ("session_start", "prompt_submit", "pre_tool_use", "stop"):
+                payload = {"session_id": "memory-agent", "cwd": memories, "transcript_path": None,
+                           "prompt": "## Memory Writing Agent: Phase 2 (Consolidation)"}
+                self.assertIsNone(hook.record_event(payload, event, self.home))
+            self.assertFalse((self.home / ".ghostty-extreme/codex-tracking/memory-agent.jsonl").exists())
+            project = {"session_id": "project", "cwd": str(self.home / "project"), "prompt": "Fix the links"}
+            self.assertIsNotNone(hook.record_event(project, "prompt_submit", self.home))
+
     def test_pretool_and_question_status(self):
         payload = {"session_id": "parent", "tool_name": "Bash", "tool_input": {"command": "cat src/app.ts"}}
         self.assertEqual(hook.record_event(payload, "pre_tool_use", self.home)["event"], "tool_start")

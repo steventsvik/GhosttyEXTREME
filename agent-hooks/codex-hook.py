@@ -71,9 +71,22 @@ def compact_detail(payload, event):
     return " ".join(str(detail).split())[:48]
 
 
+def codex_background_session(payload, home):
+    """Codex's own memory-writing agent runs as a separate session in its memories folder,
+    from the same terminal. It isn't the pane's agent, so it must not show as its task."""
+    cwd = payload.get("cwd")
+    if not isinstance(cwd, str) or not cwd:
+        return False
+    codex_home = Path(os.environ.get("CODEX_HOME") or home / ".codex")
+    try:
+        return Path(cwd).resolve().is_relative_to((codex_home / "memories").resolve())
+    except (OSError, ValueError):
+        return False
+
+
 def record_event(payload, event, home):
     session = identifier(payload.get("session_id"))
-    if not session:
+    if not session or codex_background_session(payload, home):
         return None
     transcript = payload.get("transcript_path")
     meta = transcript_metadata(transcript) if isinstance(transcript, str) else {}
