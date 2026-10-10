@@ -215,6 +215,7 @@ class TerminalWindow: NSWindow {
         } else {
             tabBarDidDisappear()
         }
+        hideNativeTabBar()
         viewModel.isMainWindow = true
     }
 
@@ -256,8 +257,34 @@ class TerminalWindow: NSWindow {
         // it. This has been verified to work on macOS 12 to 26
         if isTabBar(childViewController) {
             childViewController.identifier = Self.tabBarIdentifier
+            childViewController.isHidden = true
             tabBarDidAppear()
         }
+    }
+
+    /// Tabs live in the vertical sidebar, so the native tab bar is never shown.
+    ///
+    /// macOS refuses `toggleTabBar` while a window has more than one tab, so instead we
+    /// hide the titlebar accessory that hosts the tab bar, which also gives its space back
+    /// to the content. AppKit adds that accessory (sometimes as an empty placeholder that
+    /// gets the tab bar later) whenever tabs change, so new ones are hidden as they're added
+    /// above, and this re-applies it for the cases AppKit rebuilds or re-shows them.
+    func hideNativeTabBar() {
+        for accessory in titlebarAccessoryViewControllers where isTabBar(accessory) {
+            accessory.identifier = Self.tabBarIdentifier
+            if !accessory.isHidden { accessory.isHidden = true }
+        }
+    }
+
+    /// "Show Tab Bar" would only bring back the bar we hide, so it's removed from the menu.
+    override func toggleTabBar(_ sender: Any?) {}
+
+    override func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(toggleTabBar(_:)) {
+            menuItem.isHidden = true
+            return false
+        }
+        return super.validateMenuItem(menuItem)
     }
 
     override func removeTitlebarAccessoryViewController(at index: Int) {

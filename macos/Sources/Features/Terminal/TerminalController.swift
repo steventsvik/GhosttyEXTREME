@@ -21,17 +21,9 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         let nib = switch config.macosTitlebarStyle {
         case .native: "Terminal"
         case .hidden: "TerminalHiddenTitlebar"
-        case .transparent: "TerminalTransparentTitlebar"
-        case .tabs:
-#if compiler(>=6.2)
-            if #available(macOS 26.0, *) {
-                "TerminalTabsTitlebarTahoe"
-            } else {
-                "TerminalTabsTitlebarVentura"
-            }
-#else
-            "TerminalTabsTitlebarVentura"
-#endif
+        // Tabs live in the vertical sidebar, so the "tabs" style (tabs drawn into the
+        // titlebar) falls back to the transparent titlebar.
+        case .transparent, .tabs: "TerminalTransparentTitlebar"
         }
 
         return nib
