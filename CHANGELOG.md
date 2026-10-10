@@ -6,6 +6,8 @@ What changed in each GhosttyEXTREME release. Work in progress collects under
 
 ## Unreleased
 
+- **GhosttyEXTREME has a website**: [steventsvik.github.io/GhosttyEXTREME](https://steventsvik.github.io/GhosttyEXTREME/). Every feature on an interactive select screen with live previews and full details, the agent turn and the rest of the story told as scroll-driven scenes, a comparison table, and a download button that always points at the latest release. It lives in `docs/` and is served by GitHub Pages.
+
 ## 1.5.5.1
 
 - **No more tab bar at the top of the window.** Tabs live in the sidebar, but macOS's own tab bar could still show up in the window's top corner (#23). It's now removed for good, including with `macos-titlebar-style = tabs`, which now gives the normal transparent titlebar. View → Show Tab Bar is gone too; ⌘1–9, ⌘P and the Window menu still switch tabs when the sidebar is hidden.
