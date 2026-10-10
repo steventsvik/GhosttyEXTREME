@@ -6,6 +6,10 @@ What changed in each GhosttyEXTREME release. Work in progress collects under
 
 ## Unreleased
 
+## 1.5.5.1
+
+- **No more tab bar at the top of the window.** Tabs live in the sidebar, but macOS's own tab bar could still show up in the window's top corner (#23). It's now removed for good, including with `macos-titlebar-style = tabs`, which now gives the normal transparent titlebar. View → Show Tab Bar is gone too; ⌘1–9, ⌘P and the Window menu still switch tabs when the sidebar is hidden.
+
 ## 1.5.5
 
 - **Updates show up on their own.** GhosttyEXTREME checks for a new release shortly after it starts and every hour, and an update card appears at the top of the sidebar with the new version, what's new, and **Update and restart**.

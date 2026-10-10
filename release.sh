@@ -84,7 +84,7 @@ CNF
   exit 0
 fi
 
-if [[ ( $MODE != check && $MODE != draft ) || ! $VERSION =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]]; then
+if [[ ( $MODE != check && $MODE != draft ) || ! $VERSION =~ '^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$' ]]; then
   echo "usage: ./release.sh check|draft <version>   e.g. ./release.sh check 1.5.0"
   echo "       ./release.sh keys                    (once, before the first release with updates)"
   exit 2

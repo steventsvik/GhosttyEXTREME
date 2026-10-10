@@ -143,38 +143,18 @@ final class VerticalTabsModel: ObservableObject {
         syncNativeTabBar(window: window)
     }
 
-    /// When the sidebar is showing, the horizontal native tab bar is redundant, so hide it.
-    ///
-    /// macOS refuses `toggleTabBar` while a window has more than one tab, so instead we
-    /// hide the titlebar accessory that hosts the tab bar, which also gives its space
-    /// back to the content. macOS may re-show or rebuild it when tabs change, so this is
-    /// re-applied whenever the tab bar's visibility or the tab list changes.
-    /// The "tabs" titlebar style draws tabs into the titlebar itself, so we leave it alone.
+    /// Keeps the native tab bar hidden (see `TerminalWindow.hideNativeTabBar`). macOS may
+    /// re-show it when the tab group's tab bar visibility changes.
     private func syncNativeTabBar(window: NSWindow) {
         guard let tabGroup = window.tabGroup else { return }
 
         if observedTabGroup !== tabGroup {
             observedTabGroup = tabGroup
             tabBarObservation = tabGroup.observe(\.isTabBarVisible, options: [.new]) { [weak self] _, _ in
-                DispatchQueue.main.async { self?.applyTabBarPreference() }
+                DispatchQueue.main.async { (self?.owner?.window as? TerminalWindow)?.hideNativeTabBar() }
             }
         }
-        applyTabBarPreference()
-    }
-
-    private func applyTabBarPreference() {
-        guard let owner, let window = owner.window else { return }
-        guard owner.ghostty.config.macosTitlebarStyle != .tabs else { return }
-
-        let hide = UserDefaults.standard.verticalTabsVisible
-        for accessory in window.titlebarAccessoryViewControllers where Self.isTabBar(accessory) {
-            if accessory.isHidden != hide { accessory.isHidden = hide }
-        }
-    }
-
-    private static func isTabBar(_ accessory: NSTitlebarAccessoryViewController) -> Bool {
-        let view = accessory.view
-        return view.className.contains("NSTabBar") || view.firstDescendant(withClassName: "NSTabBar") != nil
+        (window as? TerminalWindow)?.hideNativeTabBar()
     }
 }
 
