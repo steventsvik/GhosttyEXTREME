@@ -545,6 +545,12 @@ h3 { font-size: 22px; font-weight: 650; margin: 0 0 10px; color: #EDE3CD; }
 .st-act i.g { background: var(--gold); }
 .live .st-act i { animation: barup .7s cubic-bezier(.2,.7,.2,1) forwards; animation-delay: calc(var(--i) * 90ms); }
 @keyframes barup { to { transform: scaleY(1); } }
+.st-skill { flex-direction: column; }
+.st-skill .chip.upd i { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); }
+.st-skill .chip.upd b { color: var(--gold); font-weight: 600; }
+.live .st-skill .chip.upd { animation: skillupd 4s ease-in-out infinite; }
+@keyframes skillupd { 0%, 35% { border-color: var(--line); } 50%, 85% { border-color: rgba(222,184,110,.55); } 100% { border-color: var(--line); } }
+.st-skill .chip.hot { color: var(--live); }
 .st-upd { flex-direction: column; }
 .st-upd .bar { width: 160px; height: 6px; border-radius: 3px; background: #1b1710; overflow: hidden; }
 .st-upd .bar i { display: block; height: 100%; width: 100%; background: var(--gold); transform: scaleX(0); transform-origin: left; border-radius: 3px; }
@@ -751,7 +757,7 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
         </svg>
         Download for macOS
       </a>
-      <div class="dl-meta"><span class="ver" id="dl-ver">1.5.6</span> · free<br>Apple silicon · macOS 13+</div>
+      <div class="dl-meta"><span class="ver" id="dl-ver">1.5.7</span> · free<br>Apple silicon · macOS 13+</div>
     </div>
 
     <div class="install-line in4">
@@ -769,15 +775,15 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
   <div class="wrap">
     <p class="eyebrow rv">FEATURE SELECT</p>
     <h2 class="rv">Pick a feature.</h2>
-    <p class="section-intro rv" style="--i:1; margin-bottom: 28px">Twenty of them, each built for
+    <p class="section-intro rv" style="--i:1; margin-bottom: 28px">Twenty-one of them, each built for
     running agents. <strong>Hover to preview. Click for the full details.</strong> Every one can
     be switched off in Settings, where it does no background work at all.</p>
     <div class="filters rv" style="--i:2" role="group" aria-label="Filter the features">
-      <button class="fbtn" data-t="all" aria-pressed="true">ALL<span class="n">20</span></button>
+      <button class="fbtn" data-t="all" aria-pressed="true">ALL<span class="n">21</span></button>
       <button class="fbtn" data-t="sight" aria-pressed="false">SEE<span class="n">6</span></button>
       <button class="fbtn" data-t="command" aria-pressed="false">CONTROL<span class="n">4</span></button>
       <button class="fbtn" data-t="alliance" aria-pressed="false">TEAMWORK<span class="n">3</span></button>
-      <button class="fbtn" data-t="keep" aria-pressed="false">OPS<span class="n">7</span></button>
+      <button class="fbtn" data-t="keep" aria-pressed="false">OPS<span class="n">8</span></button>
     </div>
     <div class="selectstage rv" style="--i:3">
       <aside class="pvpanel">
@@ -1032,7 +1038,7 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
         <div class="winbar"><span class="tl" aria-hidden="true"><i></i><i></i><i></i></span><span class="wt">~ — zsh — 80×14</span></div>
         <div class="body">
           <div class="pr"><b>❯</b> <span class="cmdline" id="term-type"></span><span class="tcaret" id="term-caret"></span></div>
-          <div class="out" id="out-1">downloading GhosttyEXTREME 1.5.6 … <b>done</b></div>
+          <div class="out" id="out-1">downloading GhosttyEXTREME 1.5.7 … <b>done</b></div>
           <div class="out" id="out-2">verifying SHA-256 checksums … <b>ok</b></div>
           <div class="out" id="out-3"><b>✓</b> GhosttyEXTREME.app installed — opening the welcome window</div>
         </div>
@@ -1077,8 +1083,9 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
         <div class="rv" style="--i:9"><kbd>⌃⌘K</kbd> Background</div>
         <div class="rv" style="--i:10"><kbd>⌃⌘B</kbd> Command history</div>
         <div class="rv" style="--i:11"><kbd>⌃⌘A</kbd> Agent activity</div>
+        <div class="rv" style="--i:12"><kbd>⌃⌘U</kbd> Skills</div>
       </div>
-      <p class="rv" style="color:var(--muted);font-size:14px;margin-top:16px;--i:12">Hold <kbd>⌃⌘</kbd>
+      <p class="rv" style="color:var(--muted);font-size:14px;margin-top:16px;--i:13">Hold <kbd>⌃⌘</kbd>
       for a moment in the app and every shortcut appears over the window; <kbd>⌃⌘/</kbd> keeps
       the overlay open.</p>
     </div>
@@ -1528,18 +1535,40 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
   </div></div>
 </template>
 
+<template data-f="skills">
+  <p class="power">Every skill your agents have, kept current, and what’s catching on.</p>
+  <ul>
+    <li><strong>One list for every agent:</strong> Claude Code, Codex, Cursor and Hermes, plus
+    Claude Code plugins, Claude.ai skills and the ones in your project — grouped by where they
+    live, with the skills each agent ships with folded away.</li>
+    <li><strong>Updates:</strong> checks each skill against the repo it came from and updates it in
+    one click, or all of them at once. Git clones, plugins and Hermes hub skills too.</li>
+    <li><strong>Discover:</strong> Trending, Hot and All time from skills.sh, with search, each
+    skill’s description, install counts and security reviews. Official company skills can be
+    hidden to see what the community is building.</li>
+    <li><strong>Install where you choose:</strong> pick the agents and whether it goes in all your
+    projects or just this one. Every command runs in a tab, so you see exactly what happens.</li>
+  </ul>
+  <div class="media"><div class="stage st-skill live" aria-hidden="true">
+    <span class="chip">grill-me · Claude Code, Codex</span>
+    <span class="chip upd"><i></i>reverse-engineer-anything · <b>update</b></span>
+    <span class="chip hot">▲ trending on skills.sh</span>
+  </div></div>
+</template>
+
 <template data-f="updates">
   <p class="power">Updates itself, then puts every window back.</p>
   <ul>
-    <li><strong>An update card appears in the sidebar</strong> with the new version, what’s new,
-    and Update and restart — checked shortly after launch and every hour.</li>
+    <li><strong>An update card appears in the sidebar</strong> — checked shortly after launch and
+    every hour. Click it for the update window: the new version, what’s new, and Update and
+    restart.</li>
     <li><strong>Everything comes back:</strong> windows, tabs, splits and folders reopen, Claude
     Code and Codex sessions resume in their panes, localhost servers restart in their tabs.</li>
     <li><strong>Mid-turn safe:</strong> if an agent is working, Update when done waits for it.</li>
     <li><strong>Signed with this project’s key</strong> — nothing else is accepted.</li>
   </ul>
   <div class="media"><div class="stage st-upd live" aria-hidden="true">
-    <span>1.5.5.1 → 1.5.6 · signed · everything restored</span>
+    <span>1.5.6 → 1.5.7 · signed · everything restored</span>
     <span class="bar"><i></i></span>
   </div></div>
 </template>
@@ -1624,6 +1653,7 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
     isolated: ["b.bb.bb.b", ".........", "b...o...b", "b..ooo..b", "b...o...b", ".........", "b.bb.bb.b"],
     background: ["...mmm..", "..m...m.", ".m....m.", ".m...m..", ".m..m...", "..mm...."],
     history: ["gggggg..", "g....g..", "gggggg..", "........", "gggggg..", "g.r..g..", "gggggg.."],
+    skills: ["....g....", "...ggg...", "ggggggggg", ".ggggggg.", "..ggggg..", ".ggg.ggg.", ".gg...gg.", "g.......g"],
     updates: ["...gg...", "..gggg..", ".gggggg.", "ggg..ggg", "..g..g..", "..g..g..", "..gggg.."]
   };
 
@@ -1648,6 +1678,7 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
     { id: "isolated", name: "Isolated Sessions", cls: "A THROWAWAY SANDBOX", type: "keep", kbd: "", line: "Throwaway containers, home stays home." },
     { id: "background", name: "Background", cls: "FINDS WHAT'S LEFT RUNNING", type: "keep", kbd: "⌃⌘K", line: "Finds the stale, reaps it on command." },
     { id: "history", name: "Command History", cls: "EVERY COMMAND, A BLOCK", type: "keep", kbd: "⌃⌘B", line: "Every command a block. Failures fight back." },
+    { id: "skills", name: "Skills", cls: "EVERY SKILL, EVERY AGENT", type: "keep", kbd: "⌃⌘U", line: "Every skill installed, updated, discovered.", isNew: true },
     { id: "updates", name: "Signed Updates", cls: "SIGNED & SELF-RESTORING", type: "keep", kbd: "", line: "Updates itself, restores every window.", isNew: true }
   ];
   var TYPELABEL = { sight: "SEE", command: "CONTROL", alliance: "TEAMWORK", keep: "OPS" };
@@ -1671,7 +1702,8 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
     loops: { stage: '<div class="stage st-loop live"><span class="chip"><svg class="px" viewBox="0 0 12 6" fill="#D97757"><use href="#sp-claude"/></svg>Claude writes</span><span class="arrow a1">⇄</span><span class="chip"><span class="codexmark" style="font-size:10px">◎</span>Codex reviews</span><span class="arrow a2 ok2">APPROVED</span></div>' },
     ports: { stage: '<div class="stage st-ports live"><span class="chip bad">:3000 — address already in use</span><span class="chip fix">held by next dev · <b>Stop it?</b></span></div>' },
     history: { stage: '<div class="stage st-hist live"><span class="chip err"><i></i>pnpm test — exit 1</span><span class="chip fix">Fix with Claude</span></div>' },
-    updates: { stage: '<div class="stage st-upd live"><span>1.5.5.1 → 1.5.6 · signed</span><span class="bar"><i></i></span></div>' }
+    skills: { stage: '<div class="stage st-skill live"><span class="chip">grill-me · Claude Code, Codex</span><span class="chip upd"><i></i>reverse-engineer-anything · <b>update</b></span><span class="chip hot">▲ trending on skills.sh</span></div>' },
+    updates: { stage: '<div class="stage st-upd live"><span>1.5.6 → 1.5.7 · signed</span><span class="bar"><i></i></span></div>' }
   };
   ROSTER.forEach(function (f, i) {
     var b = document.createElement("button");
