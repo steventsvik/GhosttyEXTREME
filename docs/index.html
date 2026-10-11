@@ -719,7 +719,7 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
         </svg>
         Download for macOS
       </a>
-      <div class="dl-meta"><span class="ver" id="dl-ver">1.5.5.1</span> · free<br>Apple silicon · macOS 13+</div>
+      <div class="dl-meta"><span class="ver" id="dl-ver">1.5.6</span> · free<br>Apple silicon · macOS 13+</div>
     </div>
 
     <div class="install-line in4">
@@ -986,7 +986,7 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
     <p class="compare-note rv" style="--i:3">Where others are ahead: Warp and Zed run on Linux and
     Windows and come with their own AI. cmux has SSH workspaces and a browser agents can drive.
     Ghostty is the lean original all of this is built on. GhosttyEXTREME is macOS-only, Apple
-    silicon only, not notarized by Apple, and maintained by one person. Compared from each
+    silicon only, and maintained by one person. Compared from each
     project’s public docs on October 7, 2026 —
     <a href="https://github.com/steventsvik/GhosttyEXTREME#how-it-compares">corrections welcome</a>.</p>
   </div>
@@ -1002,7 +1002,7 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
         <div class="winbar"><span class="tl" aria-hidden="true"><i></i><i></i><i></i></span><span class="wt">~ — zsh — 80×14</span></div>
         <div class="body">
           <div class="pr"><b>❯</b> <span class="cmdline" id="term-type"></span><span class="tcaret" id="term-caret"></span></div>
-          <div class="out" id="out-1">downloading GhosttyEXTREME 1.5.5.1 … <b>done</b></div>
+          <div class="out" id="out-1">downloading GhosttyEXTREME 1.5.6 … <b>done</b></div>
           <div class="out" id="out-2">verifying SHA-256 checksums … <b>ok</b></div>
           <div class="out" id="out-3"><b>✓</b> GhosttyEXTREME.app installed — opening the welcome window</div>
         </div>
@@ -1026,9 +1026,8 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
         <summary>Installing by hand instead</summary>
         <p>Download <code style="font-family:var(--mono);font-size:13px">GhosttyEXTREME-&lt;version&gt;-macos-arm64.zip</code>
         from the <a href="https://github.com/steventsvik/GhosttyEXTREME/releases/latest">latest release</a>,
-        unzip it and move GhosttyEXTREME.app to /Applications. The app isn’t notarized by Apple,
-        so clear the download quarantine once:</p>
-        <div class="step-code">xattr -dr com.apple.quarantine /Applications/GhosttyEXTREME.app</div>
+        unzip it and move GhosttyEXTREME.app to /Applications. It’s signed with a Developer ID
+        and notarized by Apple, so it opens like any other download.</p>
         <p>Requires an Apple silicon Mac on macOS 13 or newer. To build from source, see the
         <a href="https://github.com/steventsvik/GhosttyEXTREME#build-from-source">build instructions</a>.</p>
       </details>
@@ -1510,7 +1509,7 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
     <li><strong>Signed with this project’s key</strong> — nothing else is accepted.</li>
   </ul>
   <div class="media"><div class="stage st-upd live" aria-hidden="true">
-    <span>1.5.5 → 1.5.5.1 · signed · everything restored</span>
+    <span>1.5.5.1 → 1.5.6 · signed · everything restored</span>
     <span class="bar"><i></i></span>
   </div></div>
 </template>
@@ -1642,7 +1641,7 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
     loops: { stage: '<div class="stage st-loop live"><span class="chip"><svg class="px" viewBox="0 0 12 6" fill="#D97757"><use href="#sp-claude"/></svg>Claude writes</span><span class="arrow a1">⇄</span><span class="chip"><span class="codexmark" style="font-size:10px">◎</span>Codex reviews</span><span class="arrow a2 ok2">APPROVED</span></div>' },
     ports: { stage: '<div class="stage st-ports live"><span class="chip bad">:3000 — address already in use</span><span class="chip fix">held by next dev · <b>Stop it?</b></span></div>' },
     history: { stage: '<div class="stage st-hist live"><span class="chip err"><i></i>pnpm test — exit 1</span><span class="chip fix">Fix with Claude</span></div>' },
-    updates: { stage: '<div class="stage st-upd live"><span>1.5.5 → 1.5.5.1 · signed</span><span class="bar"><i></i></span></div>' }
+    updates: { stage: '<div class="stage st-upd live"><span>1.5.5.1 → 1.5.6 · signed</span><span class="bar"><i></i></span></div>' }
   };
   ROSTER.forEach(function (f, i) {
     var b = document.createElement("button");
