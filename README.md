@@ -12,6 +12,7 @@
 
 <p align="center">
   <b><a href="https://github.com/steventsvik/GhosttyEXTREME/releases/latest">Download</a></b> ·
+  <b><a href="https://steventsvik.github.io/GhosttyEXTREME/">Website</a></b> ·
   <a href="#watch-your-agents-work-live">Live agents</a> ·
   <a href="#features">Features</a> ·
   <a href="#how-it-compares">Compare</a> ·
@@ -486,8 +487,7 @@ terminal or editor with its own built-in AI, Warp or Zed may suit you better.
 **Where others are ahead:** Warp and Zed run on Linux and Windows and come with their own
 AI. cmux has SSH workspaces and a browser your agents can control, and its sidebar also
 shows PR status and listening ports. Ghostty is the lean original that all of this is built
-on. GhosttyEXTREME is macOS-only, Apple silicon only, not notarized by Apple, and maintained
-by one person.
+on. GhosttyEXTREME is macOS-only, Apple silicon only, and maintained by one person.
 
 <sub>Compared from each project's public docs on October 7, 2026. Corrections welcome.</sub>
 
@@ -517,12 +517,8 @@ updates signed by this project.
 
 Download `GhosttyEXTREME-<version>-macos-arm64.zip` from the
 [latest release](https://github.com/steventsvik/GhosttyEXTREME/releases/latest), unzip it and
-move **GhosttyEXTREME.app** to `/Applications`. The app isn't notarized by Apple, so clear the
-download quarantine once:
-
-```sh
-xattr -dr com.apple.quarantine /Applications/GhosttyEXTREME.app
-```
+move **GhosttyEXTREME.app** to `/Applications`. It's signed with a Developer ID and notarized by
+Apple, so it opens like any other download.
 
 </details>
 

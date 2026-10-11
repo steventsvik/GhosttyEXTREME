@@ -117,13 +117,28 @@ struct LocalhostSidebarSection: View {
     let entries: [VerticalTabEntry]
     let owner: TerminalController
     @ObservedObject private var store = LocalhostSessions.shared
+    /// Folded down to its header, so the cards don't take the sidebar's space.
+    @AppStorage("LocalhostSectionCollapsed") private var collapsed = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
-                Image(systemName: "globe").font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(LinearGradient(colors: [.cyan, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
-                Text("LOCALHOST").font(.system(size: 10.5, weight: .semibold)).kerning(0.4)
+                Button { withAnimation(.easeOut(duration: 0.18)) { collapsed.toggle() } } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: collapsed ? "chevron.right" : "chevron.down")
+                            .font(.system(size: 8, weight: .bold)).foregroundColor(Extreme.dim).frame(width: 8)
+                        Image(systemName: "globe").font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(LinearGradient(colors: [.cyan, .purple], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        Text("LOCALHOST").font(.system(size: 10.5, weight: .semibold)).kerning(0.4)
+                        if collapsed {
+                            Text("\(entries.count)").font(Extreme.font(10)).foregroundColor(Extreme.dim)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(collapsed ? "Show localhost sessions" : "Hide localhost sessions")
+                .accessibilityLabel(collapsed ? "Show localhost sessions" : "Hide localhost sessions")
                 if store.liveCount > 0 {
                     Text("\(store.liveCount) live")
                         .font(.system(size: 9.5, weight: .bold))
@@ -143,13 +158,15 @@ struct LocalhostSidebarSection: View {
             .padding(.top, 10)
 
             // Two cards show at once; more scroll.
-            if entries.count > 2 {
+            if collapsed {
+                EmptyView()
+            } else if entries.count > 2 {
                 ScrollView { cards.padding(.vertical, 4) }.frame(height: 300)
             } else {
                 cards
             }
         }
-        .padding(.bottom, 10)
+        .padding(.bottom, collapsed ? 8 : 10)
         .animation(.spring(response: 0.4, dampingFraction: 0.75), value: entries.map(\.id))
     }
 

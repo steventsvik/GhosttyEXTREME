@@ -131,7 +131,7 @@ class UpdateViewModel: ObservableObject {
         case .checking:
             return .secondary
         case .updateAvailable:
-            return .accentColor
+            return Extreme.ink
         case .downloading, .extracting, .installing:
             return .secondary
         case .notFound:
@@ -147,7 +147,7 @@ class UpdateViewModel: ObservableObject {
         case .permissionRequest:
             return Color(nsColor: NSColor.systemBlue.blended(withFraction: 0.3, of: .black) ?? .systemBlue)
         case .updateAvailable:
-            return .accentColor
+            return Extreme.gold
         case .notFound:
             return Color(nsColor: NSColor.systemBlue.blended(withFraction: 0.5, of: .black) ?? .systemBlue)
         case .error:
@@ -163,7 +163,7 @@ class UpdateViewModel: ObservableObject {
         case .permissionRequest:
             return .white
         case .updateAvailable:
-            return .white
+            return Extreme.ink
         case .notFound:
             return .white
         case .error:
@@ -315,7 +315,7 @@ enum UpdateState: Equatable {
         }
 
         private static func extractSemanticVersion(from version: String) -> String? {
-            let pattern = #"^\d+\.\d+\.\d+$"#
+            let pattern = #"^\d+\.\d+\.\d+(\.\d+)?$"#
             if version.range(of: pattern, options: .regularExpression) != nil {
                 return version
             }

@@ -41,10 +41,14 @@ struct UpdatePill: View {
     @ViewBuilder
     private var pillButton: some View {
         Button(action: {
-            if case .notFound(let notFound) = model.state {
+            switch model.state {
+            case .notFound(let notFound):
                 model.state = .idle
                 notFound.acknowledgement()
-            } else {
+            case .updateAvailable, .downloading, .extracting, .installing:
+                // GhosttyEXTREME's update window: what's new, then the progress.
+                UpdateWindow.show()
+            default:
                 showPopover.toggle()
             }
         }, label: {

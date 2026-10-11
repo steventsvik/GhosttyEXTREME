@@ -227,7 +227,7 @@ enum VerticalTabsTestSupport {
                 log("files now: \(inbox.items.first?.files.map(\.path) ?? [])")
             }
         }
-        // `GHOSTTY_EXTREME_TEST_OPEN=localhost,review,activity,blocks,setup,welcome,settings,shortcuts`: open those after
+        // `GHOSTTY_EXTREME_TEST_OPEN=localhost,review,activity,blocks,setup,welcome,settings,shortcuts,update,localhost-session`: open those after
         // `GHOSTTY_EXTREME_TEST_OPEN_DELAY` seconds (default 10).
         if let windows = env["GHOSTTY_EXTREME_TEST_OPEN"] {
             let delay = Double(env["GHOSTTY_EXTREME_TEST_OPEN_DELAY"] ?? "") ?? 10
@@ -241,6 +241,11 @@ enum VerticalTabsTestSupport {
                     case "setup": SetupCheckWindow.show()
                     case "welcome": WelcomeWindow.show()
                     case "settings": ExtremeSettingsWindow.show()
+                    case "update": UpdateWindow.show()
+                    case "localhost-session":
+                        // A throwaway server in a temporary folder, for the sidebar's localhost cards.
+                        _ = LocalhostSessions.shared.start(command: "python3 -m http.server 8791 --bind 127.0.0.1",
+                                                           in: NSTemporaryDirectory(), from: controller, focus: false)
                     case "shortcuts":
                         ShortcutSheet.shared.show(sticky: true)
                         if let path = env["GHOSTTY_EXTREME_TEST_LOG"] {

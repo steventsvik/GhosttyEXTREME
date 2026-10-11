@@ -62,6 +62,9 @@ class UpdateDriver: NSObject, SPUUserDriver {
         viewModel.state = .updateAvailable(.init(appcastItem: appcastItem, reply: reply))
         if !hasUnobtrusiveTarget {
             standard.showUpdateFound(with: appcastItem, state: state, reply: reply)
+        } else if state.userInitiated {
+            // Asked for with Check for Updates…: show what's new right away.
+            DispatchQueue.main.async { UpdateWindow.show() }
         }
     }
 
@@ -192,6 +195,8 @@ class UpdateDriver: NSObject, SPUUserDriver {
     func showUpdateInFocus() {
         if !hasUnobtrusiveTarget {
             standard.showUpdateInFocus()
+        } else if !viewModel.state.isIdle {
+            DispatchQueue.main.async { UpdateWindow.show() }
         }
     }
 

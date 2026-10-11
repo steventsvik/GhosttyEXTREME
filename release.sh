@@ -3,11 +3,13 @@
 #
 #   ./release.sh check 1.5.0    build and check everything; nothing leaves this Mac
 #   ./release.sh draft 1.5.0    the same, then a *draft* release (nobody is notified)
-#   ./release.sh keys           one-time: the update-signing key and the code-signing
-#                               certificate, both kept in your login keychain
+#   ./release.sh keys           one-time: the update-signing key, and a check that the
+#                               Developer ID certificate and notarization login are set up
 #
 # Every release publishes appcast.xml, the feed the app's updater reads (signed with the
 # update key, so only your builds are ever offered), and SHA256SUMS, which install.sh checks.
+# The app is signed with a Developer ID certificate and notarized by Apple, so a downloaded
+# zip opens without the "can't be checked for malicious software" warning.
 #
 # Publish the draft from GitHub once you've looked at it. The notes come from the
 # "## 1.5.0" section of CHANGELOG.md. `draft` only runs on `custom`, clean and pushed,
@@ -18,9 +20,12 @@ setopt pipefail
 MODE=${1:-}
 VERSION=${2:-}
 REPO=steventsvik/GhosttyEXTREME
-# The update key's name in the keychain, and the code-signing certificate's.
+# The update key's name in the keychain, the Developer ID certificate, and the notarytool
+# profile (saved with: xcrun notarytool store-credentials GhosttyEXTREME --apple-id … --team-id …).
 KEY_ACCOUNT=GhosttyEXTREME
-SIGN_ID="GhosttyEXTREME Release"
+TEAM_ID=2N6Q8XFTLZ
+SIGN_ID="Developer ID Application: Steven Tsvik ($TEAM_ID)"
+NOTARY_PROFILE=GhosttyEXTREME
 # Ghostty's own update key: an app that still trusts it would accept official Ghostty builds.
 GHOSTTY_ED_KEY="wsNcGf5hirwtdXMVnYoxRIX/SqZQLMOsYlD3q3imeok="
 sparkle_tool() {
@@ -49,38 +54,13 @@ if [[ $MODE == keys ]]; then
   pass "key \"$KEY_ACCOUNT\" in your keychain; its public half is now in Ghostty-Info.plist (commit that)"
   print "  Back the private key up: $GENERATE --account $KEY_ACCOUNT -x ~/ghostty-extreme-update-key.txt"
   print "  (keep that file somewhere safe and offline; without the key, installed copies can't update)"
-  step "Code-signing certificate"
-  if security find-identity -v -p codesigning | grep -q "\"$SIGN_ID\""; then
-    pass "\"$SIGN_ID\" already exists"
-  else
-    TMP=$(mktemp -d)
-    cat > $TMP/cert.cnf <<CNF
-[req]
-distinguished_name = dn
-x509_extensions = ext
-prompt = no
-[dn]
-CN = $SIGN_ID
-[ext]
-basicConstraints = critical,CA:false
-keyUsage = critical,digitalSignature
-extendedKeyUsage = critical,codeSigning
-CNF
-    openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -config $TMP/cert.cnf \
-      -keyout $TMP/key.pem -out $TMP/cert.pem 2>/dev/null || fail "couldn't create the certificate"
-    PASS=$(openssl rand -hex 16)
-    openssl pkcs12 -export -legacy -inkey $TMP/key.pem -in $TMP/cert.pem -name "$SIGN_ID" \
-      -out $TMP/cert.p12 -passout pass:$PASS 2>/dev/null \
-      || openssl pkcs12 -export -inkey $TMP/key.pem -in $TMP/cert.pem -name "$SIGN_ID" -out $TMP/cert.p12 -passout pass:$PASS
-    security import $TMP/cert.p12 -k ~/Library/Keychains/login.keychain-db -P $PASS -T /usr/bin/codesign >/dev/null \
-      || fail "couldn't add the certificate to your keychain"
-    print "  macOS now asks for your password to trust it for code signing:"
-    security add-trusted-cert -r trustRoot -p codeSign -k ~/Library/Keychains/login.keychain-db $TMP/cert.pem \
-      || fail "the certificate wasn't trusted"
-    rm -rf $TMP
-    security find-identity -v -p codesigning | grep -q "\"$SIGN_ID\"" || fail "the certificate isn't usable for signing"
-    pass "\"$SIGN_ID\" created (self-signed, 10 years): releases signed with it keep users' macOS permissions across updates"
-  fi
+  step "Developer ID and notarization"
+  security find-identity -v -p codesigning | grep -q "\"$SIGN_ID\"" \
+    || fail "no \"$SIGN_ID\" certificate; create it in Xcode → Settings → Accounts → Manage Certificates…"
+  pass "\"$SIGN_ID\" is in your keychain"
+  xcrun notarytool history --keychain-profile $NOTARY_PROFILE >/dev/null 2>&1 \
+    || fail "no working notarytool profile \"$NOTARY_PROFILE\"; run xcrun notarytool store-credentials $NOTARY_PROFILE --apple-id <Apple ID> --team-id $TEAM_ID"
+  pass "notarization login \"$NOTARY_PROFILE\" works"
   exit 0
 fi
 
@@ -160,15 +140,32 @@ find $APP -type f -perm +111 -exec sh -c 'file "$1" | grep -q Mach-O && strip -S
 LEAKS=$(LC_ALL=C grep -rl -a "/Users/$USER" $APP | wc -l | xargs)
 [[ $LEAKS == 0 ]] || { LC_ALL=C grep -rl -a "/Users/$USER" $APP | head -5; fail "$LEAKS files in the app contain your home path"; }
 pass "no home-folder paths in the app"
-# The same certificate every release, so macOS keeps users' permissions (notifications,
-# folders) across updates; ad hoc only for a local check without it.
+# Signed inside out with the hardened runtime and a secure timestamp, as notarization requires:
+# Sparkle's helpers, the Dock plugin, then the app with its entitlements. The same certificate
+# every release, so macOS keeps users' permissions (notifications, folders) across updates.
+# Ad hoc only for a local check on a Mac without the certificate.
+sign_app() {  # sign_app <app> <identity> <entitlements>
+  local a=$1 id=$2 sparkle=$1/Contents/Frameworks/Sparkle.framework
+  local opts=(--force --options runtime --sign "$id")
+  [[ $id != - ]] && opts+=(--timestamp)
+  codesign $opts $sparkle/Versions/B/XPCServices/Installer.xpc \
+    && codesign $opts --preserve-metadata=entitlements $sparkle/Versions/B/XPCServices/Downloader.xpc \
+    && codesign $opts $sparkle/Versions/B/Autoupdate \
+    && codesign $opts $sparkle/Versions/B/Updater.app \
+    && codesign $opts $sparkle \
+    && codesign $opts $a/Contents/PlugIns/DockTilePlugin.plugin \
+    && codesign $opts --entitlements $3 $a \
+    && codesign --verify --deep --strict $a
+}
 if security find-identity -v -p codesigning | grep -q "\"$SIGN_ID\""; then
-  codesign --force --deep --sign "$SIGN_ID" $APP 2>/dev/null && codesign --verify --deep --strict $APP || fail "signing failed"
-  pass "signed with \"$SIGN_ID\" and verified"
+  sign_app $APP "$SIGN_ID" macos/Ghostty.entitlements 2>$OUT/codesign.log || { tail -5 $OUT/codesign.log; fail "signing failed"; }
+  pass "signed with \"$SIGN_ID\" (hardened runtime) and verified"
+  SIGNED=1
 else
-  [[ $MODE == draft ]] && fail "no \"$SIGN_ID\" certificate; run ./release.sh keys first"
-  codesign --force --deep --sign - $APP 2>/dev/null && codesign --verify --deep --strict $APP || fail "signing failed"
-  pass "signed ad hoc and verified (run ./release.sh keys to sign releases with your certificate)"
+  [[ $MODE == draft ]] && fail "no \"$SIGN_ID\" certificate; run ./release.sh keys"
+  sign_app $APP - macos/Ghostty.entitlements 2>$OUT/codesign.log || { tail -5 $OUT/codesign.log; fail "signing failed"; }
+  pass "signed ad hoc and verified (not notarized: no \"$SIGN_ID\" certificate on this Mac)"
+  SIGNED=0
 fi
 # The updater must trust this project's key, never Ghostty's.
 APP_ED_KEY=$(/usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" $APP/Contents/Info.plist)
@@ -203,7 +200,13 @@ step "Launch test"
 TEST=$OUT/LaunchTest.app
 rm -rf $TEST && ditto $APP $TEST
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.steventsvik.ghostty-extreme.releasetest" $TEST/Contents/Info.plist
-codesign --force --deep --sign - $TEST 2>/dev/null
+# Signed like the release (hardened runtime, library validation), so the test catches what
+# that would break. Ad hoc can't pass library validation, so without the certificate it's off.
+if [[ $SIGNED == 1 ]]; then
+  sign_app $TEST "$SIGN_ID" macos/Ghostty.entitlements 2>/dev/null || fail "couldn't sign the test copy"
+else
+  sign_app $TEST - macos/GhosttyReleaseLocal.entitlements 2>/dev/null || fail "couldn't sign the test copy"
+fi
 CRASHES_BEFORE=$(ls ~/Library/Logs/DiagnosticReports 2>/dev/null | grep -ci ghostty)
 # In the background: it starts without taking focus or opening a window in front of you.
 env -i HOME=$HOME USER=$USER PATH=/usr/bin:/bin:/usr/sbin:/sbin /usr/bin/open -gna $TEST --args --window-save-state=never
@@ -214,6 +217,33 @@ CPU=$(ps -o %cpu= -p $PID | xargs)
 pkill -f "^$TEST/Contents/MacOS/ghostty"; sleep 1; rm -rf $TEST
 [[ $(ls ~/Library/Logs/DiagnosticReports 2>/dev/null | grep -ci ghostty) == $CRASHES_BEFORE ]] || fail "a crash report appeared"
 pass "launched and stayed up (idle CPU ${CPU}%%), no crash report"
+
+# ── Notarize ────────────────────────────────────────────────────────────
+if [[ $SIGNED == 1 ]]; then
+  step "Notarize (Apple scans the app; usually a few minutes)"
+  ditto -c -k --keepParent $APP $OUT/notarize.zip
+  xcrun notarytool submit $OUT/notarize.zip --keychain-profile $NOTARY_PROFILE --wait --timeout 30m > $OUT/notarize.log 2>&1
+  SUBMISSION=$(awk '/^  id:/ {print $2; exit}' $OUT/notarize.log)
+  rm -f $OUT/notarize.zip
+  if ! grep -q 'status: Accepted' $OUT/notarize.log; then
+    tail -5 $OUT/notarize.log
+    [[ -n $SUBMISSION ]] && xcrun notarytool log $SUBMISSION --keychain-profile $NOTARY_PROFILE $OUT/notarize-issues.json >/dev/null 2>&1 \
+      && print "  Apple's report: $OUT/notarize-issues.json"
+    fail "Apple didn't accept the app"
+  fi
+  pass "accepted by Apple"
+  xcrun stapler staple $APP > $OUT/staple.log 2>&1 || { cat $OUT/staple.log; fail "couldn't attach the notarization ticket"; }
+  pass "ticket attached, so it opens even offline"
+  # What a downloaded copy goes through: quarantined, then judged by Gatekeeper.
+  GK=$OUT/gatekeeper && rm -rf $GK && mkdir -p $GK && ditto $APP $GK/GhosttyEXTREME.app
+  xattr -w com.apple.quarantine "0081;$(printf %x $(date +%s));Safari;" $GK/GhosttyEXTREME.app
+  spctl --assess --type execute -vv $GK/GhosttyEXTREME.app 2>&1 | grep -q 'source=Notarized Developer ID' \
+    || { spctl --assess --type execute -vv $GK/GhosttyEXTREME.app; fail "Gatekeeper wouldn't open a downloaded copy"; }
+  rm -rf $GK
+  pass "Gatekeeper opens a downloaded copy (Notarized Developer ID)"
+else
+  [[ $MODE == draft ]] && fail "drafts must be notarized"
+fi
 
 # ── Archives and notes ──────────────────────────────────────────────────
 step "Archives"
@@ -240,11 +270,14 @@ cat > $OUT/appcast.xml <<APPCAST
       <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
       <sparkle:releaseNotesLink>https://github.com/$REPO/releases/tag/$TAG</sparkle:releaseNotesLink>
+      <description><![CDATA[$NOTES_BODY]]></description>
       <enclosure url="https://github.com/$REPO/releases/download/$TAG/$APPZIP" $SIGNATURE type="application/octet-stream"/>
     </item>
   </channel>
 </rss>
 APPCAST
+# The update window shows the changelog section from the feed (UpdateWindow.swift).
+[[ $NOTES_BODY != *']]>'* ]] || fail "the release notes contain ]]>, which would break the feed"
 xmllint --noout $OUT/appcast.xml || fail "appcast.xml isn't valid XML"
 pass "appcast.xml (the updater's feed, signed)"
 UPSTREAM=$(git tag --merged HEAD --sort=-v:refname | grep -E '^v[0-9]' | head -1 | sed 's/^v//')
@@ -263,7 +296,7 @@ Apple silicon Macs only, macOS 13 or newer. Based on **Ghostty $UPSTREAM**.
 curl -fsSL https://raw.githubusercontent.com/$REPO/custom/install.sh | bash
 \`\`\`
 
-It downloads \`$APPZIP\`, checks it against \`SHA256SUMS\`, and puts it in \`/Applications\`. Or by hand: download the zip, move \`GhosttyEXTREME.app\` to \`/Applications\`, and since the app isn't notarized, clear the download quarantine once with \`xattr -dr com.apple.quarantine /Applications/GhosttyEXTREME.app\`.
+It downloads \`$APPZIP\`, checks it against \`SHA256SUMS\`, and puts it in \`/Applications\`. Or by hand: download the zip, open it, and move \`GhosttyEXTREME.app\` to \`/Applications\`. The app is notarized by Apple, so it opens like any other download.
 
 Then open it. The welcome window connects Claude Code and Codex and runs a live test (the hooks are inside the app). \`$HOOKZIP\` has the same hooks for setting up by hand; see the [README](https://github.com/$REPO#agent-status-setup).
 
