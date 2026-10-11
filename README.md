@@ -12,6 +12,7 @@
 
 <p align="center">
   <b><a href="https://github.com/steventsvik/GhosttyEXTREME/releases/latest">Download</a></b> ·
+  <b><a href="https://steventsvik.github.io/GhosttyEXTREME/">Website</a></b> ·
   <a href="#watch-your-agents-work-live">Live agents</a> ·
   <a href="#features">Features</a> ·
   <a href="#how-it-compares">Compare</a> ·
