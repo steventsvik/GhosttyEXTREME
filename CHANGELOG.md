@@ -6,6 +6,8 @@ What changed in each GhosttyEXTREME release. Work in progress collects under
 
 ## Unreleased
 
+- **Notarized by Apple.** The app is now signed with a Developer ID certificate and notarized, so a downloaded zip opens with a double-click instead of macOS saying it can't check it for malicious software. No more clearing the quarantine by hand. Because the certificate changed, macOS may ask once more for permissions you'd already given (notifications, folders); updating from the app works as before.
+
 - **GhosttyEXTREME has a website**: [steventsvik.github.io/GhosttyEXTREME](https://steventsvik.github.io/GhosttyEXTREME/). Every feature on an interactive select screen with live previews and full details, the agent turn and the rest of the story told as scroll-driven scenes, a comparison table, and a download button that always points at the latest release. It lives in `docs/` and is served by GitHub Pages.
 
 ## 1.5.5.1
