@@ -270,11 +270,14 @@ cat > $OUT/appcast.xml <<APPCAST
       <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
       <sparkle:releaseNotesLink>https://github.com/$REPO/releases/tag/$TAG</sparkle:releaseNotesLink>
+      <description><![CDATA[$NOTES_BODY]]></description>
       <enclosure url="https://github.com/$REPO/releases/download/$TAG/$APPZIP" $SIGNATURE type="application/octet-stream"/>
     </item>
   </channel>
 </rss>
 APPCAST
+# The update window shows the changelog section from the feed (UpdateWindow.swift).
+[[ $NOTES_BODY != *']]>'* ]] || fail "the release notes contain ]]>, which would break the feed"
 xmllint --noout $OUT/appcast.xml || fail "appcast.xml isn't valid XML"
 pass "appcast.xml (the updater's feed, signed)"
 UPSTREAM=$(git tag --merged HEAD --sort=-v:refname | grep -E '^v[0-9]' | head -1 | sed 's/^v//')

@@ -113,11 +113,7 @@ struct UpdateCard: View {
                     Text("GhosttyEXTREME \(version)").font(Extreme.font(10.5)).foregroundColor(Extreme.muted)
                 }
                 Spacer(minLength: 0)
-                Button("What's new") {
-                    if let url = URL(string: "https://github.com/steventsvik/GhosttyEXTREME/releases/tag/extreme-\(version)") {
-                        NSWorkspace.shared.open(url)
-                    }
-                }
+                Button("What's new") { UpdateWindow.show() }
                 .buttonStyle(.plain)
                 .font(Extreme.font(10.5))
                 .foregroundColor(Extreme.gold)
@@ -176,8 +172,9 @@ struct UpdateCard: View {
 }
 
 /// A slim gold bar: filled to `fraction`, or a sweeping segment while the length is unknown.
-private struct UpdateProgressBar: View {
+struct UpdateProgressBar: View {
     let fraction: Double?
+    var height: CGFloat = 6
     @State private var sweep = false
 
     var body: some View {
@@ -198,7 +195,7 @@ private struct UpdateProgressBar: View {
                 }
             }
         }
-        .frame(height: 6)
+        .frame(height: height)
     }
 }
 #endif
