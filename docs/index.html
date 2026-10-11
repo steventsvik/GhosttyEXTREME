@@ -83,6 +83,13 @@ header.site .bar { display: flex; align-items: center; gap: 24px; padding-block:
 header.site nav { margin-left: auto; display: flex; gap: 20px; flex-wrap: wrap; }
 header.site nav a { color: var(--muted); font-size: 14.5px; font-weight: 500; }
 header.site nav a:hover { color: var(--text); text-decoration: none; }
+@media (max-width: 640px) {
+  header.site .bar { gap: 14px; }
+  .lockup .words { display: none; }
+  header.site nav { flex-wrap: nowrap; gap: 16px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  header.site nav::-webkit-scrollbar { display: none; }
+  header.site nav a { font-size: 14px; white-space: nowrap; padding-block: 6px; }
+}
 
 /* ---------- hero: the title screen ---------- */
 .hero { position: relative; isolation: isolate; padding-block: clamp(44px, 7vh, 76px) clamp(30px, 4vh, 48px); overflow: clip; text-align: center; }
@@ -189,6 +196,8 @@ h3 { font-size: 22px; font-weight: 650; margin: 0 0 10px; color: #EDE3CD; }
 .tiles[data-f="alliance"] .tile:not(.t-alliance), .tiles[data-f="keep"] .tile:not(.t-keep) { display: none; }
 .hintbar { margin-top: 14px; font: 500 10.5px var(--mono); letter-spacing: .12em; color: var(--dim); display: flex; gap: 18px; flex-wrap: wrap; }
 .hintbar kbd { font-size: 10px; padding: 1px 6px; }
+/* Keyboard hints mean nothing on a touch screen. */
+@media (hover: none) and (pointer: coarse) { .hintbar { display: none; } }
 @media (max-width: 920px) { .selectstage { grid-template-columns: 1fr; } .pvmedia img { height: 140px; } }
 @media (max-width: 620px) { .tiles { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); } .pvhead { gap: 12px; } .pvicon { width: 58px; height: 58px; } }
 
@@ -570,7 +579,11 @@ h3 { font-size: 22px; font-weight: 650; margin: 0 0 10px; color: #EDE3CD; }
 
 /* ---------- story mode: one pinned stage, chapters crossfade ---------- */
 .scrolly.story { height: 1020vh; }
-.storyband { padding-block: clamp(44px, 7vw, 80px) clamp(10px, 2vw, 20px); }
+.storyband { padding-block: clamp(40px, 6vw, 72px) clamp(4px, 1vw, 12px); }
+.scrollcue { display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--gold); }
+.scrollcue span { font: 600 11px var(--mono); letter-spacing: .3em; text-transform: uppercase; padding-left: .3em; }
+.anim .scrollcue svg { animation: cuebob 1.8s ease-in-out infinite; }
+@keyframes cuebob { 0%, 100% { transform: translateY(0); opacity: .55; } 50% { transform: translateY(6px); opacity: 1; } }
 .chh-stack { display: grid; margin-bottom: 18px; }
 .chh { grid-area: 1 / 1; opacity: 0; transform: translateY(14px); transition: opacity .4s ease, transform .5s cubic-bezier(.2,.7,.2,1); pointer-events: none; }
 .chh h2 { margin-bottom: 0; }
@@ -608,6 +621,25 @@ h3 { font-size: 22px; font-weight: 650; margin: 0 0 10px; color: #EDE3CD; }
 .vowseal { margin: 22px 0 0; font: 600 12px var(--mono); letter-spacing: .22em; color: var(--gold); opacity: 0; transform: translateY(8px); transition: all .5s ease; }
 .vowseal.on { opacity: 1; transform: none; }
 @media (max-width: 720px) { .vowgrid { grid-template-columns: 1fr; } }
+/* Phones: the pinned tour has one screen of height, so its chapters get compact. */
+@media (max-width: 560px) {
+  .scrolly.story .scene-pin { padding-top: 68px; padding-bottom: 14px; }
+  .chh h2 { font-size: 26px; }
+  .chap .editor { min-height: 0; }
+  .chap.c1, .chap.c2 { align-self: start; }
+  .chap .crumb { flex-wrap: nowrap; white-space: nowrap; overflow: hidden; padding-block: 6px; }
+  .chap .crumb .editchip { padding: 1px 6px; }
+  .chap .statschips, .chap .statusbar { display: none; }
+  .chap .beatcap { margin-top: 14px; min-height: 92px; }
+  .chap .beatcap p { font-size: 14px; }
+  .vowgrid { gap: 10px; }
+  .vow { padding: 12px 14px; gap: 12px; align-items: center; }
+  .vow .vicon { width: 36px; height: 36px; }
+  .vow h3 { font-size: 15.5px; margin: 0; }
+  .vow p { display: none; margin-top: 5px; font-size: 13.5px; }
+  .vowgrid:not(.all) .vow.lit p { display: block; }
+  .vowgrid:not(.all) .vow.lit { align-items: flex-start; }
+}
 /* VS rows ride in as you scroll */
 .anim .vsrow { opacity: 0; transform: translateX(-16px); }
 .anim .vsrow.in { opacity: 1; transform: none; transition: opacity .5s ease, transform .5s cubic-bezier(.2,.7,.2,1); }
@@ -642,14 +674,14 @@ details.alt p { color: var(--muted); font-size: 15px; }
 .shortcuts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 24px; }
 .shortcuts div { display: flex; align-items: baseline; gap: 12px; font-size: 14.5px; color: var(--muted); padding-block: 5px; border-bottom: 1px dashed var(--line); }
 .shortcuts kbd { flex: none; min-width: 52px; text-align: center; }
-@media (max-width: 960px) { .install-grid { grid-template-columns: 1fr; } }
+@media (max-width: 960px) { .install-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 620px) { .shortcuts { grid-template-columns: 1fr; } }
 footer.site { border-top: 1px solid var(--line); background: var(--panel); padding-block: 40px 56px; }
 footer.site .cols { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 32px; }
 footer.site p { color: var(--muted); font-size: 14px; margin: 0 0 10px; max-width: 64ch; }
 footer.site nav { display: flex; flex-wrap: wrap; gap: 8px 22px; align-content: start; }
 footer.site nav a { color: var(--text); font-size: 14.5px; }
-@media (max-width: 960px) { footer.site .cols { grid-template-columns: 1fr; } }
+@media (max-width: 960px) { footer.site .cols { grid-template-columns: minmax(0, 1fr); } }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
@@ -691,7 +723,7 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
     </a>
     <nav aria-label="Site">
       <a href="#roster">Features</a>
-      <a href="#story">Story mode</a>
+      <a href="#story">Tour</a>
       <a href="#compare">VS mode</a>
       <a href="#install">Start</a>
       <a href="https://github.com/steventsvik/GhosttyEXTREME">GitHub</a>
@@ -779,13 +811,11 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
   </div>
 </section>
 
-<!-- ======================= story mode ======================= -->
-<section class="storyband" id="story">
-  <div class="wrap">
-    <p class="eyebrow rv">STORY MODE</p>
-    <h2 class="rv">Scroll to play the rest.</h2>
-    <p class="section-intro rv" style="--i:1; margin-bottom:0">Five chapters: the turn, the
-    footprint, the rules, the matchup, the start. The scroll wheel is the controller.</p>
+<!-- ======================= the tour (scroll-driven) ======================= -->
+<section class="storyband" id="story" aria-label="Tour">
+  <div class="scrollcue rv">
+    <span>Scroll</span>
+    <svg viewBox="0 0 16 22" width="16" height="22" aria-hidden="true"><path d="M8 1v18M1.5 13 8 19.5 14.5 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
   </div>
 </section>
 
@@ -2116,6 +2146,7 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
       var beat = Math.min(4, Math.floor(p * 5.2));
       vows.forEach(function (v, i) { v.classList.toggle("lit", beat === 4 || i === beat); });
       seal.classList.toggle("on", beat === 4);
+      vows[0].parentElement.classList.toggle("all", beat === 4);
     };
   })();
 
@@ -2126,6 +2157,33 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
     if (!holder || !stage) return;
     var railDots = [].slice.call(document.querySelectorAll("#rail span"));
     function c01(x) { return Math.max(0, Math.min(1, x)); }
+    // Short screens: shrink the chapters just enough to fit the pinned stage. A chapter
+    // grows as it plays (code gets typed in), so this keeps the tallest it has been.
+    var pin = holder.querySelector(".scene-pin");
+    var stack = stage.querySelector(".chapterstack");
+    var chaps = [].slice.call(stack ? stack.children : []);
+    var tallest = chaps.map(function () { return 0; });
+    function fit(reset) {
+      if (!pin || !stack) return;
+      if (reset === true) tallest = tallest.map(function () { return 0; });
+      var ps = getComputedStyle(pin);
+      var room = pin.clientHeight - parseFloat(ps.paddingTop) - parseFloat(ps.paddingBottom)
+        - stage.querySelector(".chh-stack").offsetHeight - 18;
+      chaps.forEach(function (c, i) {
+        // offsetHeight ignores the transform, so this is the chapter's real height.
+        tallest[i] = Math.max(tallest[i], c.offsetHeight);
+        var scale = innerWidth <= 860 && tallest[i] > room && room > 0 ? Math.max(.72, room / tallest[i]) : 1;
+        c.style.transformOrigin = "50% 0";
+        c.style.scale = scale < 1 ? scale.toFixed(3) : "";
+      });
+    }
+    fit();
+    addEventListener("resize", function () { fit(true); });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { fit(true); });
+    if ("ResizeObserver" in window) {
+      var ro = new ResizeObserver(function () { fit(); });
+      chaps.forEach(function (c) { ro.observe(c); });
+    }
     scrub(holder, function (p) {
       var ch = p < .5 ? 0 : p < .75 ? 1 : 2;
       if (stage.dataset.ch !== String(ch)) {
