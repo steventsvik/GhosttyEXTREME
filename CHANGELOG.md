@@ -6,6 +6,8 @@ What changed in each GhosttyEXTREME release. Work in progress collects under
 
 ## Unreleased
 
+## 1.5.6
+
 - **A proper update screen.** Clicking the gold update button in the corner (or "What's new" on the sidebar card) opens GhosttyEXTREME's own update window: the new version, its size and date, what's new in it, and **Update and restart** (or **Update when done** while agents are mid-turn), **Later** and **Skip this version**. After you click Update, the same window shows the progress: downloading with a percentage and size, preparing, then restarting. Check for Updates… opens it straight away when there's a new version.
 - **Localhost folds away.** Click the LOCALHOST heading in the sidebar to collapse its cards to one line, and again to bring them back. It remembers which way you left it.
 - **Notarized by Apple.** The app is now signed with a Developer ID certificate and notarized, so a downloaded zip opens with a double-click instead of macOS saying it can't check it for malicious software. No more clearing the quarantine by hand. Because the certificate changed, macOS may ask once more for permissions you'd already given (notifications, folders); updating from the app works as before.
