@@ -6,6 +6,9 @@ What changed in each GhosttyEXTREME release. Work in progress collects under
 
 ## Unreleased
 
+- **Skills.** A new Skills window (the puzzle-piece button at the top of the sidebar, ⌃⌘U, or Skills in the command palette) shows every skill your agents have, in one place: Claude Code, Codex, Cursor, Hermes, the shared `~/.agents/skills` folder, Claude Code plugins, Claude.ai's synced skills, and the current project's own. Skills installed with `npx skills` or cloned with git are checked against their source, with **Update** on each and **Update All**. **Discover** shows what's trending, hot and most installed on skills.sh, with search, install counts and security reviews; official company skills are hidden unless you want them. **Install** lets you pick which agents get it and whether it's for every project or just this one, shows the exact command, and runs it in a new tab.
+- **The sidebar's tool buttons fit any width.** When the row of buttons at the top of the sidebar doesn't fit, Condense and Agent Activity (and in a very narrow sidebar, Skills) move into a … menu at the end instead of being cut off.
+
 ## 1.5.6
 
 - **A proper update screen.** Clicking the gold update button in the corner (or "What's new" on the sidebar card) opens GhosttyEXTREME's own update window: the new version, its size and date, what's new in it, and **Update and restart** (or **Update when done** while agents are mid-turn), **Later** and **Skip this version**. After you click Update, the same window shows the progress: downloading with a percentage and size, preparing, then restarting. Check for Updates… opens it straight away when there's a new version.

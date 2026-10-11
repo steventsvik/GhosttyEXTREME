@@ -227,7 +227,7 @@ enum VerticalTabsTestSupport {
                 log("files now: \(inbox.items.first?.files.map(\.path) ?? [])")
             }
         }
-        // `GHOSTTY_EXTREME_TEST_OPEN=localhost,review,activity,blocks,setup,welcome,settings,shortcuts,update,localhost-session`: open those after
+        // `GHOSTTY_EXTREME_TEST_OPEN=localhost,review,activity,blocks,setup,welcome,settings,shortcuts,update,localhost-session,skills`: open those after
         // `GHOSTTY_EXTREME_TEST_OPEN_DELAY` seconds (default 10).
         if let windows = env["GHOSTTY_EXTREME_TEST_OPEN"] {
             let delay = Double(env["GHOSTTY_EXTREME_TEST_OPEN_DELAY"] ?? "") ?? 10
@@ -242,6 +242,7 @@ enum VerticalTabsTestSupport {
                     case "welcome": WelcomeWindow.show()
                     case "settings": ExtremeSettingsWindow.show()
                     case "update": UpdateWindow.show()
+                    case "skills": SkillsWindow.show(folder: env["GHOSTTY_EXTREME_TEST_SKILLS_PROJECT"])
                     case "localhost-session":
                         // A throwaway server in a temporary folder, for the sidebar's localhost cards.
                         _ = LocalhostSessions.shared.start(command: "python3 -m http.server 8791 --bind 127.0.0.1",
@@ -604,23 +605,59 @@ struct VerticalTabsSidebar: View {
                 }
                 Spacer(minLength: 0)
             }
-            HStack(spacing: 6) {
-                NewSessionMenu(owner: owner, compact: true)
-                Spacer(minLength: 0)
-                if settings.isOn(.editor) { EditorHeaderButton(owner: owner) }
-                ExtremeIconButton(icon: condensed ? .expand : .condense,
-                                  help: condensed ? "Expand view" : "Condense view") { condensed.toggle() }
-                if settings.isOn(.localhost) { LocalhostHeaderButton() }
-                if settings.isOn(.review) { ReviewHeaderButton() }
-                if settings.isOn(.activity) {
-                    ExtremeIconButton(icon: .chart, help: "Agent activity and usage graphs (⌃⌘A)", action: ActivityDashboard.toggle)
-                }
-                if settings.isOn(.missionControl) { MissionControlButton() }
+            // Every tool when they fit; in a narrow sidebar the less used ones move to a menu.
+            ViewThatFits(in: .horizontal) {
+                toolRow(.none)
+                toolRow(.some)
+                toolRow(.most)
             }
         }
         .padding(.horizontal, 12)
         .padding(.top, 12)
         .padding(.bottom, 10)
+    }
+
+    /// How many tools go in the "more" menu.
+    private enum Overflow { case none, some, most }
+
+    private func toolRow(_ overflow: Overflow) -> some View {
+        let menu = overflow != .none
+        return HStack(spacing: menu ? 4 : 6) {
+            NewSessionMenu(owner: owner, compact: true)
+            Spacer(minLength: 0)
+            if settings.isOn(.editor) { EditorHeaderButton(owner: owner) }
+            if !menu {
+                ExtremeIconButton(icon: condensed ? .expand : .condense,
+                                  help: condensed ? "Expand view" : "Condense view") { condensed.toggle() }
+            }
+            if settings.isOn(.localhost) { LocalhostHeaderButton() }
+            if settings.isOn(.review) { ReviewHeaderButton() }
+            if !menu, settings.isOn(.activity) {
+                ExtremeIconButton(icon: .chart, help: "Agent activity and usage graphs (⌃⌘A)", action: ActivityDashboard.toggle)
+            }
+            if overflow != .most, settings.isOn(.skills) {
+                ExtremeIconButton(icon: .skills, help: "Skills: what your agents have installed, updates, and what's trending (⌃⌘U)") {
+                    SkillsWindow.show(folder: owner.focusedSurface?.pwd)
+                }
+            }
+            if settings.isOn(.missionControl) { MissionControlButton() }
+            if menu { moreMenu(skills: overflow == .most) }
+        }
+    }
+
+    /// The tools that don't fit in a narrow sidebar.
+    private func moreMenu(skills: Bool) -> some View {
+        Menu {
+            Button(condensed ? "Expand View" : "Condense View") { condensed.toggle() }
+            if settings.isOn(.activity) { Button("Agent Activity") { ActivityDashboard.toggle() } }
+            if skills, settings.isOn(.skills) { Button("Skills") { SkillsWindow.show(folder: owner.focusedSurface?.pwd) } }
+        } label: {
+            PixelIconView(icon: .more, color: Extreme.text.opacity(0.8), pixel: 1.5)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .frame(width: 22, height: 28)
+        .help("More tools")
     }
 }
 

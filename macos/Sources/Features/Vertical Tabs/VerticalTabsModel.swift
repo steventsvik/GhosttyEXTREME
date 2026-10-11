@@ -221,6 +221,7 @@ final class VerticalTabsMenu: NSObject {
             Extra(title: "Visual Fix", action: #selector(toggleVisualFix(_:)), key: "v", feature: .visualFix),
             Extra(title: "Background Processes", action: #selector(showHousekeeping(_:)), key: "k", feature: .background),
             Extra(title: "Project Memory", action: #selector(showMemory(_:)), key: "y", feature: .memory),
+            Extra(title: "Skills", action: #selector(showSkills(_:)), key: "u", feature: .skills),
             Extra(title: "Keyboard Shortcuts", action: #selector(showShortcuts(_:)), key: "/", feature: nil),
         ]
         for (offset, extra) in extras.enumerated() {
@@ -280,6 +281,10 @@ final class VerticalTabsMenu: NSObject {
 
     @objc func showMemory(_ sender: Any?) {
         MemoryWindow.showForFrontTab()
+    }
+
+    @objc func showSkills(_ sender: Any?) {
+        SkillsWindow.showForFrontTab()
     }
 
     @objc func showLocalhost(_ sender: Any?) {

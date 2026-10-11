@@ -100,6 +100,16 @@ enum PaletteExtras {
                     MemoryWindow.show(folder: pwd)
                 })
             }
+            if ExtremeSettings.isOn(.skills) {
+                options.append(CommandOption(
+                    title: "Skills",
+                    description: "Every skill your agents have installed, updates, and what's trending on skills.sh",
+                    symbols: ["⌃", "⌘", "U"],
+                    leadingIcon: "puzzlepiece.extension"
+                ) {
+                    SkillsWindow.show(folder: surfaceView.pwd)
+                })
+            }
             if !HermesSessions.shared.isHermes(owner), ExtremeSettings.isOn(.editor) {
                 options.append(CommandOption(
                     title: "Toggle Code Editor",
