@@ -36,6 +36,11 @@ final class GitPanelModel: ObservableObject {
     @Published var error: String?
     /// The last thing done, for a short confirmation line.
     @Published var notice: String?
+    /// Set while GitButler manages the repository (git is on its workspace branch).
+    @Published private(set) var butler: GitButler.Status?
+    @Published private(set) var isButler = false
+    /// The Graphite stack the current branch is in, top first; empty without Graphite.
+    @Published private(set) var stack: [Graphite.Branch] = []
 
     private let queue = DispatchQueue(label: "com.steventsvik.ghostty-extreme.gitpanel", qos: .userInitiated)
 
@@ -62,6 +67,11 @@ final class GitPanelModel: ObservableObject {
                     guard f.count >= 3 else { return nil }
                     return Stash(ref: f[0], message: f[1], age: f[2])
                 }
+            let current = branches.first { $0.isCurrent }?.name
+            let isButler = current == GitButler.workspaceBranch
+            let butler = isButler ? GitButler.status(root) : nil
+            let stack = !isButler && Graphite.isTracked(root)
+                ? Graphite.state(root).map { Graphite.stack(containing: current ?? "", in: $0) } ?? [] : []
             let commits = AgentTools.git(["log", "-8", "--format=%h%x09%s%x09%cr%x09%an"], in: root).output
                 .split(separator: "\n").compactMap { line -> Commit? in
                     let f = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
@@ -73,7 +83,11 @@ final class GitPanelModel: ObservableObject {
                 self.branches = branches
                 self.stashes = stashes
                 self.commits = commits
+                self.isButler = isButler
+                self.butler = butler
+                self.stack = stack
                 self.loaded = true
+                for branch in stack where !branch.isTrunk { GitHubPulls.shared.fetch(root: root, branch: branch.name) }
                 // A new branch has no cached answer yet, so this asks GitHub right away.
                 if let branch = self.currentBranch { GitHubPulls.shared.fetch(root: root, branch: branch) }
             }
@@ -107,13 +121,53 @@ final class GitPanelModel: ObservableObject {
     func pop(_ stash: Stash) { run(["stash", "pop", stash.ref], done: "Popped \(stash.ref)") }
     func drop(_ stash: Stash) { run(["stash", "drop", stash.ref], done: "Dropped \(stash.ref)") }
 
+    // MARK: GitButler
+
+    func butlerCommit(_ message: String, to branch: String) {
+        let message = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !message.isEmpty, let but = GitButler.binary else { return }
+        run(but, ["commit", "-b", branch, "-m", message], done: "Committed to \(branch)")
+    }
+
+    func butlerNewBranch(_ name: String) {
+        let name = name.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty, let but = GitButler.binary else { return }
+        run(but, ["branch", "new", name], done: "Created \(name)")
+    }
+
+    func butlerPush(_ branch: String) {
+        guard let but = GitButler.binary else { return }
+        run(but, ["push", branch], done: "Pushed \(branch)")
+    }
+
+    func butlerUndo() {
+        guard let but = GitButler.binary else { return }
+        run(but, ["undo"], done: "Undid GitButler's last operation")
+    }
+
+    func openGitButler() {
+        guard let but = GitButler.binary else { return }
+        let root = self.root
+        queue.async { _ = ToolPath.run(but, ["gui"], in: root) }
+    }
+
+    /// Runs a Graphite command in a new tab: they can ask questions, and pushing needs your login.
+    func graphiteInTab(_ args: String) {
+        SetupChecks.openTab(running: "cd \(AgentTools.shellQuote(root)) && \(Graphite.binary.map(AgentTools.shellQuote) ?? "gt") \(args)")
+    }
+
     private func run(_ args: [String], done: String) {
+        run(nil, args, done: done)
+    }
+
+    /// Runs git, or `tool` when given, then reloads.
+    private func run(_ tool: String?, _ args: [String], done: String) {
         busy = true
         error = nil
         notice = nil
         let root = self.root
         queue.async { [weak self] in
-            let result = AgentTools.git(args, in: root)
+            let result = tool.map { ToolPath.run($0, args, in: root) } ?? AgentTools.git(args, in: root)
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.busy = false
@@ -122,7 +176,8 @@ final class GitPanelModel: ObservableObject {
                 } else {
                     let message = (result.error.isEmpty ? result.output : result.error)
                         .trimmingCharacters(in: .whitespacesAndNewlines)
-                    self.error = message.isEmpty ? "git \(args.first ?? "") failed" : String(message.prefix(400))
+                    let name = tool.map { ($0 as NSString).lastPathComponent } ?? "git"
+                    self.error = message.isEmpty ? "\(name) \(args.first ?? "") failed" : String(message.prefix(400))
                 }
                 VerticalTabsGit.shared.refreshNow(root: root)
                 self.load()

@@ -139,7 +139,11 @@ struct GitPanelView: View {
                     pullSection
                     if isJJ {
                         JJPanelSections(model: jj)
+                    } else if model.isButler {
+                        GitButlerSection(model: model)
+                        commitSection
                     } else {
+                        if !model.stack.isEmpty { GraphiteStackSection(model: model) }
                         branchSection
                         stashSection
                         commitSection
@@ -197,6 +201,12 @@ struct GitPanelView: View {
             if let status = info?.jj, status.bookmark != nil { parts.append("on \(status.changeID)") }
             if info?.jj?.bookmark != nil { parts.append(isPushed ? "pushed" : "not pushed") }
             if dirty { parts.append("+\(info?.added ?? 0) −\(info?.removed ?? 0) in the working copy") }
+            return parts.joined(separator: " · ")
+        }
+        if model.isButler {
+            let applied = model.butler?.stacks.reduce(0) { $0 + $1.branches.count } ?? 0
+            parts.append("GitButler workspace")
+            if model.butler != nil { parts.append("\(applied) branch\(applied == 1 ? "" : "es") applied") }
             return parts.joined(separator: " · ")
         }
         if let upstream = model.branches.first(where: { $0.isCurrent })?.upstream, !upstream.isEmpty {

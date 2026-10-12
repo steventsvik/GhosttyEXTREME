@@ -6,24 +6,8 @@ import Foundation
 /// them; GhosttyEXTREME reads jj for what git can't tell (the change you're on, its
 /// bookmarks, the operation log) and shows jj's actions in the Git panel.
 enum JJ {
-    /// The jj executable: the app doesn't get the login shell's PATH, so look where
-    /// installers put it, then (off the main thread) on the login shell's PATH.
-    static var binary: String? {
-        lock.lock()
-        defer { lock.unlock() }
-        if let found { return found }
-        let home = NSHomeDirectory()
-        let common = ["/opt/homebrew/bin", "/usr/local/bin", home + "/.cargo/bin", home + "/.local/bin",
-                      home + "/.nix-profile/bin", "/run/current-system/sw/bin", home + "/.local/share/mise/shims"]
-        let path = (ProcessInfo.processInfo.environment["PATH"] ?? "").split(separator: ":").map(String.init)
-        found = (path + common).map { $0 + "/jj" }.first { FileManager.default.isExecutableFile(atPath: $0) }
-        // Asking the login shell can take a moment; never on the main thread.
-        if found == nil, !Thread.isMainThread { found = SetupChecks.locate("jj") }
-        return found
-    }
-
-    private static let lock = NSLock()
-    private static var found: String?
+    /// The jj executable, if installed.
+    static var binary: String? { ToolPath.find("jj") }
 
     /// Whether `root` (a repository's top folder) is a jj repository.
     static func isRepo(_ root: String) -> Bool {
@@ -39,26 +23,10 @@ enum JJ {
     @discardableResult
     static func run(_ args: [String], in directory: String, snapshot: Bool = true) -> AgentTools.Result {
         guard let binary else { return AgentTools.Result(status: -1, output: "", error: "jj isn't installed") }
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: binary)
-        process.arguments = ["--repository", directory, "--no-pager", "--color=never"]
-            + (snapshot ? [] : ["--ignore-working-copy"]) + args
-        var environment = ProcessInfo.processInfo.environment
-        environment["GIT_TERMINAL_PROMPT"] = "0"
         // An editor would wait forever; every command here passes its message.
-        environment["JJ_EDITOR"] = "true"
-        process.environment = environment
-        let out = Pipe(), err = Pipe()
-        process.standardOutput = out
-        process.standardError = err
-        process.standardInput = FileHandle.nullDevice
-        do { try process.run() } catch { return AgentTools.Result(status: -1, output: "", error: "\(error)") }
-        let outData = out.fileHandleForReading.readDataToEndOfFile()
-        let errData = err.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        return AgentTools.Result(status: process.terminationStatus,
-                                 output: String(decoding: outData, as: UTF8.self),
-                                 error: String(decoding: errData, as: UTF8.self))
+        return ToolPath.run(binary, ["--repository", directory, "--no-pager", "--color=never"]
+                                + (snapshot ? [] : ["--ignore-working-copy"]) + args,
+                            in: directory, environment: ["JJ_EDITOR": "true"])
     }
 
     // MARK: What the sidebar shows

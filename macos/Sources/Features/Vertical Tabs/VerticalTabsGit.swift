@@ -136,7 +136,12 @@ final class VerticalTabsGit: ObservableObject {
                 let (added, removed) = colocated ? Self.diffStats(repo: root, gitPath: gitPath) : JJ.diffStats(root)
                 result = VerticalTabsGitInfo(branch: status.label, added: added, removed: removed, jj: status)
             } else {
-                let branch = Self.readBranch(gitDir: gitDir) ?? "HEAD"
+                var branch = Self.readBranch(gitDir: gitDir) ?? "HEAD"
+                // GitButler's workspace: name the branches it has applied instead.
+                if branch == GitButler.workspaceBranch {
+                    let applied = GitButler.appliedBranches(root)
+                    branch = applied.isEmpty ? "GitButler" : applied.count == 1 ? applied[0] : "\(applied[0]) +\(applied.count - 1)"
+                }
                 let (added, removed) = Self.diffStats(repo: root, gitPath: gitPath)
                 // Ahead/behind is for the Git panel's badge; skipped when that's turned off.
                 let counts = ExtremeSettings.isOn(.git) ? Self.aheadBehind(repo: root, gitPath: gitPath) : nil
