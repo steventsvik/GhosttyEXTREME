@@ -243,6 +243,7 @@ enum VerticalTabsTestSupport {
                     case "settings": ExtremeSettingsWindow.show()
                     case "update": UpdateWindow.show()
                     case "skills": SkillsWindow.show(folder: env["GHOSTTY_EXTREME_TEST_SKILLS_PROJECT"])
+                    case "environment": EnvironmentWindow.show(folder: env["GHOSTTY_EXTREME_TEST_SKILLS_PROJECT"])
                     case "localhost-session":
                         // A throwaway server in a temporary folder, for the sidebar's localhost cards.
                         _ = LocalhostSessions.shared.start(command: "python3 -m http.server 8791 --bind 127.0.0.1",
@@ -651,6 +652,7 @@ struct VerticalTabsSidebar: View {
             Button(condensed ? "Expand View" : "Condense View") { condensed.toggle() }
             if settings.isOn(.activity) { Button("Agent Activity") { ActivityDashboard.toggle() } }
             if skills, settings.isOn(.skills) { Button("Skills") { SkillsWindow.show(folder: owner.focusedSurface?.pwd) } }
+            if settings.isOn(.environment) { Button("Environment") { EnvironmentWindow.show(folder: owner.focusedSurface?.pwd) } }
         } label: {
             PixelIconView(icon: .more, color: Extreme.text.opacity(0.8), pixel: 1.5)
         }

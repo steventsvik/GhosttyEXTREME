@@ -22,6 +22,7 @@ enum ExtremeFeature: String, CaseIterable, Identifiable {
     case memory
     case sharedMemory
     case skills
+    case environment
 
     var id: String { rawValue }
 
@@ -43,6 +44,7 @@ enum ExtremeFeature: String, CaseIterable, Identifiable {
         case .memory: return "Project memory"
         case .sharedMemory: return "Shared memory"
         case .skills: return "Skills"
+        case .environment: return "Environment"
         }
     }
 
@@ -64,6 +66,7 @@ enum ExtremeFeature: String, CaseIterable, Identifiable {
         case .memory: return "See, edit and delete what Claude Code and Codex remember about each project"
         case .sharedMemory: return "Codex sessions start with what Claude Code remembers about the project, and Claude Code sessions with what Codex remembers"
         case .skills: return "Every skill your agents have installed, with updates, and what's trending on skills.sh"
+        case .environment: return "A folder's tool versions and variables (mise, direnv), your containers, and local models"
         }
     }
 
@@ -81,6 +84,7 @@ enum ExtremeFeature: String, CaseIterable, Identifiable {
         case .background: return "K"
         case .memory: return "Y"
         case .skills: return "U"
+        case .environment: return "N"
         case .undo, .usage, .ports, .git, .sharedMemory: return nil
         }
     }
@@ -105,7 +109,7 @@ enum ExtremePreset: String, CaseIterable, Identifiable {
     var detail: String {
         switch self {
         case .everything: return "Every feature on"
-        case .essentials: return "Editor, Mission Control, review, undo, localhost, ports, git, memory, skills and usage"
+        case .essentials: return "Editor, Mission Control, review, undo, localhost, ports, git, memory, skills, environment and usage"
         case .sidebar: return "Vertical tabs with agent status, nothing else"
         }
     }
@@ -113,7 +117,7 @@ enum ExtremePreset: String, CaseIterable, Identifiable {
     var features: Set<ExtremeFeature> {
         switch self {
         case .everything: return Set(ExtremeFeature.allCases)
-        case .essentials: return [.editor, .missionControl, .localhost, .review, .undo, .usage, .ports, .git, .memory, .sharedMemory, .skills]
+        case .essentials: return [.editor, .missionControl, .localhost, .review, .undo, .usage, .ports, .git, .memory, .sharedMemory, .skills, .environment]
         case .sidebar: return []
         }
     }
@@ -236,6 +240,8 @@ final class ExtremeSettings: ObservableObject {
             AgentToolWindows.close(id: "memory")
         case .skills:
             AgentToolWindows.close(id: SkillsWindow.windowID)
+        case .environment:
+            AgentToolWindows.close(id: EnvironmentWindow.windowID)
         case .races, .undo, .usage, .git, .sharedMemory:
             break
         }
