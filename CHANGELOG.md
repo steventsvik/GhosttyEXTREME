@@ -4,7 +4,7 @@ What changed in each GhosttyEXTREME release. Work in progress collects under
 **Unreleased**; at release time that heading becomes the version number, and
 `./release.sh` uses the section as the release notes.
 
-## Unreleased
+## 1.5.8
 
 - **jj (Jujutsu) support.** In a jj repository the sidebar shows the change you're on (or its nearest bookmark), and the Git panel shows jj instead of branches and stashes: the working-copy change with Describe, Commit, New change and Squash; the changes around it (edit one, start a new change on top, abandon); bookmarks with Fetch and Push; and the operation log, where Undo last or Restore reverses any jj command, an agent's included. Undo a Turn remembers jj's state when each turn starts, so if the agent also ran jj commands, **Restore with jj** puts jj's history back along with the files. Works with jj repositories that keep a git repository beside them (the default) and ones that don't. Pull request status and Create… work from the bookmark.
 - **GitButler.** When GitButler manages a repository, the sidebar names the branches it has applied (instead of gitbutler/workspace), and the Git panel shows them side by side with their commits, push state and pull requests, what's uncommitted, and GitButler's own Commit (to the branch you pick), New branch, Push and Undo, plus Open GitButler. Branch switching and stashes are hidden there, since they'd take the repository out of GitButler's workspace.
