@@ -141,7 +141,9 @@ enum HookInstaller {
         return merge.changes
     }
 
-    private static func write(_ config: [String: Any], to url: URL) throws {
+    private static func write(_ config: [String: Any], to link: URL) throws {
+        // A symlinked settings file (a dotfiles repo) stays a link: write to what it points at.
+        let url = link.resolvingSymlinksInPath()
         let fm = FileManager.default
         try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         if fm.fileExists(atPath: url.path) {

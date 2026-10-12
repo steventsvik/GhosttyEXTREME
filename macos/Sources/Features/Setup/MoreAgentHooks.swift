@@ -266,7 +266,17 @@ extension HookInstaller {
         return object
     }
 
-    private static func writeJSON(_ config: [String: Any], to url: URL) throws {
+    private static func writeJSON(_ config: [String: Any], to link: URL) throws {
+        // A symlinked settings file (a dotfiles repo) stays a link: write to what it points at.
+        let url = link.resolvingSymlinksInPath()
+        do {
+            try writeJSONFile(config, to: url)
+        } catch {
+            throw Failure(message: "Couldn't update \(display(link)): \((error as NSError).localizedFailureReason ?? error.localizedDescription)")
+        }
+    }
+
+    private static func writeJSONFile(_ config: [String: Any], to url: URL) throws {
         let fm = FileManager.default
         try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         if fm.fileExists(atPath: url.path) {

@@ -10,16 +10,22 @@ const ACTIVE = process.env.GHOSTTY_EXTREME_AGENT_EVENTS === "1"
 const TOKEN = process.env.GHOSTTY_EXTREME_EVENT_TOKEN || ""
 
 function clip(text) {
-  return String(text || "").replace(/\s+/g, " ").trim().slice(0, 48)
+  return String(text || "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 48)
 }
 
 function send(event, detail) {
   if (!ACTIVE) return
-  const body = JSON.stringify({ agent: "opencode", event, detail: clip(detail), t: TOKEN })
+  let text = clip(detail)
+  let body = JSON.stringify({ agent: "opencode", event, detail: text, t: TOKEN })
+  // The terminal caps notification bodies at 255 bytes; emoji take four each.
+  while (Buffer.byteLength(body) > 250 && text) {
+    text = Array.from(text).slice(0, -1).join("")
+    body = JSON.stringify({ agent: "opencode", event, detail: text, t: TOKEN })
+  }
   for (const path of [process.env.GHOSTTY_EXTREME_AGENT_TTY, "/dev/tty"]) {
     if (!path) continue
     try {
-      const fd = openSync(path, "w")
+      const fd = openSync(path, "a")
       writeSync(fd, `\x1b]777;notify;ghostty-extreme://agent;${body}\x07`)
       closeSync(fd)
       return

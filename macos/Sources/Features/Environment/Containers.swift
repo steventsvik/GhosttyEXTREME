@@ -148,6 +148,14 @@ final class ContainersModel: ObservableObject {
         SetupChecks.openTab(running: "\(docker) exec -it \(AgentTools.shellQuote(container.name)) sh -c 'command -v bash >/dev/null && exec bash || exec sh'")
     }
 
+    /// Whether Start can do anything: Colima's command, or OrbStack's or Docker Desktop's app.
+    var canStartRuntime: Bool {
+        guard case .stopped(let context) = runtime else { return false }
+        if context.contains("colima") { return ToolPath.find("colima") != nil }
+        let app = context.contains("orbstack") ? "/Applications/OrbStack.app" : "/Applications/Docker.app"
+        return FileManager.default.fileExists(atPath: app)
+    }
+
     /// Starts whatever runs containers here: Colima in a tab (it prints progress), or the app.
     func startRuntime() {
         guard case .stopped(let context) = runtime else { return }

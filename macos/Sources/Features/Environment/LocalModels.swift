@@ -41,11 +41,27 @@ final class LocalModelsModel: ObservableObject {
     private var loading = false
 
     /// Ollama's address: OLLAMA_HOST like Ollama's own CLI, else its default.
-    nonisolated static var ollamaBase: URL {
-        var host = ProcessInfo.processInfo.environment["OLLAMA_HOST"] ?? "127.0.0.1:11434"
-        if !host.contains("://") { host = "http://" + host }
-        if host.hasPrefix("http://0.0.0.0") { host = host.replacingOccurrences(of: "0.0.0.0", with: "127.0.0.1") }
-        return URL(string: host) ?? URL(string: "http://127.0.0.1:11434")!
+    nonisolated static var ollamaBase: URL { ollamaURL(ProcessInfo.processInfo.environment["OLLAMA_HOST"]) }
+
+    /// Reads OLLAMA_HOST the way Ollama does: "host", "host:port", ":port" or a URL; no port
+    /// means 11434, and "0.0.0.0" (listen everywhere) is reached on 127.0.0.1.
+    nonisolated static func ollamaURL(_ value: String?) -> URL {
+        let fallback = URL(string: "http://127.0.0.1:11434")!
+        var text = (value ?? "").trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else { return fallback }
+        var scheme = "http"
+        if let range = text.range(of: "://") {
+            scheme = String(text[..<range.lowerBound])
+            text = String(text[range.upperBound...])
+        }
+        text = String(text.prefix { $0 != "/" })
+        var host = text, port = scheme == "https" ? "443" : "11434"
+        if let colon = text.lastIndex(of: ":"), !text.hasSuffix("]") {
+            host = String(text[..<colon])
+            port = String(text[text.index(after: colon)...])
+        }
+        if host.isEmpty || host == "0.0.0.0" || host == "[::]" { host = "127.0.0.1" }
+        return URL(string: "\(scheme)://\(host):\(port)") ?? fallback
     }
 
     nonisolated static let lmStudioBase = URL(string: "http://127.0.0.1:1234")!

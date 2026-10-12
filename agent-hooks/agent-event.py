@@ -84,7 +84,9 @@ def translate(agent, event, p):
 
 
 def clip(detail):
-    return " ".join(str(detail).split())[:48]
+    # One line of printable text: control characters would show up in the sidebar.
+    text = "".join(c if c.isprintable() else " " for c in str(detail))
+    return " ".join(text.split())[:48]
 
 
 def tty_path():

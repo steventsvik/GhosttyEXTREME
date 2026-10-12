@@ -44,6 +44,8 @@ final class JJPanelModel: ObservableObject {
     @Published private(set) var operations: [Operation] = []
     /// Files changed in the working-copy change.
     @Published private(set) var changedFiles = 0
+    /// Remotes to fetch from and push to; none in a repository that's only local.
+    @Published private(set) var hasRemote = true
     @Published private(set) var loaded = false
     @Published private(set) var busy = false
     @Published var error: String?
@@ -104,8 +106,11 @@ final class JJPanelModel: ObservableObject {
                     guard f.count == 3 else { return nil }
                     return Operation(id: f[0], age: f[1], description: JJ.shortenHashes(f[2]))
                 }
+            let remotes = JJ.run(["git", "remote", "list"], in: root, snapshot: false)
+            let hasRemote = !remotes.ok || !remotes.output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             DispatchQueue.main.async {
                 guard let self else { return }
+                self.hasRemote = hasRemote
                 self.changedFiles = files
                 self.changes = changes
                 self.bookmarks = bookmarks
@@ -317,9 +322,13 @@ struct JJPanelSections: View {
         VStack(alignment: .leading, spacing: 6) {
             ExtremeSectionLabel("Bookmarks") {
                 HStack(spacing: 10) {
-                    Button("Fetch") { model.fetch() }
-                        .buttonStyle(.plain).font(Extreme.font(10.5)).foregroundColor(Extreme.gold)
-                        .disabled(model.busy).help("jj git fetch")
+                    if model.hasRemote {
+                        Button("Fetch") { model.fetch() }
+                            .buttonStyle(.plain).font(Extreme.font(10.5)).foregroundColor(Extreme.gold)
+                            .disabled(model.busy).help("jj git fetch")
+                    } else {
+                        Text("no remote").font(Extreme.font(10)).foregroundColor(Extreme.dim)
+                    }
                     Button(naming ? "Cancel" : "New…") { naming.toggle(); newBookmark = "" }
                         .buttonStyle(.plain).font(Extreme.font(10.5)).foregroundColor(Extreme.gold)
                 }
@@ -342,8 +351,10 @@ struct JJPanelSections: View {
                     Text(bookmark.target).font(Extreme.mono(9.5)).foregroundColor(Extreme.dim)
                     Spacer(minLength: 4)
                     Text(syncText(bookmark)).font(Extreme.font(9.5)).foregroundColor(Extreme.dim).lineLimit(1)
-                    small("Push") { model.push(bookmark) }
-                        .help("jj git push -b \(bookmark.name)")
+                    if model.hasRemote {
+                        small("Push") { model.push(bookmark) }
+                            .help("jj git push -b \(bookmark.name)")
+                    }
                 }
             }
         }

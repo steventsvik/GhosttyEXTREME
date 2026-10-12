@@ -53,6 +53,8 @@ struct FolderEnvironment: Equatable {
     }
 
     let folder: String
+    /// The folder was deleted or moved (a tab can outlive its folder).
+    var missing = false
     var tools: [Tool] = []
     var variables: [Variable] = []
     var mise: Mise = .notInstalled
@@ -97,6 +99,11 @@ enum FolderEnvironmentProbe {
     /// Reads everything about `folder`. Runs mise, direnv and each tool once; call off the main thread.
     static func probe(_ folder: String) -> FolderEnvironment {
         var env = FolderEnvironment(folder: folder)
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: folder, isDirectory: &isDirectory), isDirectory.boolValue else {
+            env.missing = true
+            return env
+        }
         let shellRC = ["/.zshrc", "/.zprofile", "/.bashrc", "/.bash_profile", "/.config/fish/config.fish"]
             .compactMap { try? String(contentsOfFile: NSHomeDirectory() + $0, encoding: .utf8) }.joined(separator: "\n")
 
@@ -131,8 +138,7 @@ enum FolderEnvironmentProbe {
                     }
                     env.mise = .untrusted(files.isEmpty ? [folder] : files)
                 } else {
-                    let line = message.split(separator: "\n").first { $0.contains("ERROR") }.map(String.init) ?? message
-                    env.mise = message.isEmpty ? .unused : .failed(line.replacingOccurrences(of: "mise ERROR ", with: ""))
+                    env.mise = message.isEmpty ? .unused : .failed(summary(of: message))
                 }
             }
         }
@@ -187,6 +193,17 @@ enum FolderEnvironmentProbe {
             env.direnv = .notAllowed(path)
         }
         return env
+    }
+
+    /// One line out of mise's error report: its "× …" headline, an ERROR line, or the first line.
+    static func summary(of message: String) -> String {
+        let lines = message.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
+        let line = lines.first { $0.hasPrefix("×") }.map { String($0.dropFirst()) }
+            ?? lines.first { $0.contains("ERROR") }
+            ?? lines.first ?? message
+        let text = line.replacingOccurrences(of: "mise ERROR", with: "").replacingOccurrences(of: "mise WARN", with: "")
+            .trimmingCharacters(in: .whitespaces)
+        return text.count > 160 ? String(text.prefix(159)) + "…" : text
     }
 
     /// `export NAME=…` lines in an .envrc.

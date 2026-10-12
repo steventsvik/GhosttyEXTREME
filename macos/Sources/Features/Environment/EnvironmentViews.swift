@@ -155,7 +155,10 @@ private struct FolderPane: View {
                 Button("Refresh") { model.load() }
                 Button("Choose Folder…", action: choose)
             }
-            if let env = model.environment {
+            if let env = model.environment, env.missing {
+                Text("This folder doesn't exist anymore. Choose another one.")
+                    .font(Extreme.font(12)).foregroundColor(Extreme.warn)
+            } else if let env = model.environment {
                 miseNotices(env)
                 if env.isEmpty {
                     Text("Nothing here sets up tools or environment variables: no mise or asdf config, no version files, no .envrc.")
@@ -304,8 +307,8 @@ private struct ContainersPane: View {
                 Text("Docker isn't installed. Install Docker Desktop, OrbStack, or Colima (brew install colima docker) to run containers.")
                     .font(Extreme.font(12)).foregroundColor(Extreme.muted).fixedSize(horizontal: false, vertical: true)
             case .stopped(let context):
-                banner("\(name(context)) isn't running, so Docker can't list containers.", color: Extreme.warn) {
-                    Button("Start \(name(context))") { model.startRuntime() }
+                banner("\(name(context)) isn't running, so there are no containers to show.", color: Extreme.warn) {
+                    if model.canStartRuntime { Button("Start \(name(context))") { model.startRuntime() } }
                 }
             case .running(let context):
                 HStack {
