@@ -22,13 +22,13 @@
 </p>
 
 <p align="center">
-  <img src="images/readme/demo.gif" alt="Claude Code and Codex working in two projects at once, a permission prompt answered from the sidebar, the editor following Claude's edits, Codex answering from Claude's project notes, and a hand-off from Claude to Codex" width="100%">
+  <a href="images/readme/demo.mp4"><img src="images/readme/demo.gif" alt="A 40-second tour: Claude Code and Codex working in three projects at once, a permission prompt answered from the sidebar, the editor and code map following Claude, Mission Control, the review inbox, a jj repository in the Git panel, the Environment window and Skills" width="100%"></a>
 </p>
 
-<p align="center"><sub>Real app, real agents, demo projects.</sub></p>
+<p align="center"><sub>Real app, real agents, demo projects. <a href="images/readme/demo.mp4">Watch in full quality</a>.</sub></p>
 
 **GhosttyEXTREME is a macOS terminal for developers who run several AI coding agents,
-like Claude Code and Codex, across several projects at once.** It's a fork of
+like Claude Code, Codex, Gemini CLI and Copilot CLI, across several projects at once.** It's a fork of
 [Ghostty](https://ghostty.org), the fast native terminal, that shows what every agent is
 doing, live: the code it's writing as it writes it, where it is in your project, what part
 of your backend it touches, and when it needs you. Agents share what they learn about each
@@ -51,8 +51,8 @@ curl -fsSL https://raw.githubusercontent.com/steventsvik/GhosttyEXTREME/custom/i
 
 ## Watch your agents work, live
 
-Run Claude Code, Codex, Gemini CLI or another agent in a tab, the way you already do.
-GhosttyEXTREME follows each one as it works.
+Run Claude Code, Codex, Gemini CLI, Copilot CLI or another agent in a tab, the way you
+already do. GhosttyEXTREME follows each one as it works.
 
 <p align="center">
   <img src="images/readme/main-window.png" alt="GhosttyEXTREME with a live Claude Code agent: the agent sidebar, the terminal, the code editor typing in the agent's edit, and the code map tracing its path" width="100%">
@@ -69,9 +69,16 @@ GhosttyEXTREME follows each one as it works.
 | **needs you** | Its card turns amber with **Allow** and **Deny** buttons and jumps to the top of the command palette and Mission Control. You get a notification you can answer from, and a Dock badge. |
 | **finishes** | Its changes land in Review with the full diff. Not what you wanted? **Undo last turn** puts your files back. |
 
-Claude Code and Codex report live status through hooks that the welcome window sets up in
-one click. Gemini CLI, Copilot, Cursor, Amp, opencode, Goose, Droid and Hermes are
-recognized by their logos.
+Nine agents report live status: **Claude Code** and **Codex**, plus **GitHub Copilot CLI,
+Droid, Gemini CLI, Antigravity (agy), Kiro CLI, Cursor CLI and OpenCode**. The welcome window
+connects Claude Code and Codex in one click, and **Check Setup** offers **Connect** for each
+of the others it finds on your Mac. Each hook only observes: it never approves, blocks or
+changes anything, and any settings file it touches is backed up first (symlinked dotfiles
+stay symlinks). Copilot, Droid, Gemini and OpenCode also report permission prompts; Kiro,
+Antigravity and Cursor show Working and Done.
+
+Amp, Goose, Hermes, Aider, Crush, Qwen Code, Kimi and Mistral Vibe are recognized by name
+and logo when you start them.
 
 <br>
 
@@ -101,7 +108,7 @@ recognized by their logos.
 <tr>
 <td valign="top"><b><a href="#localhost-sessions">Localhost sessions</a></b><br><sub>Dev servers that outlive the agent that started them</sub></td>
 <td valign="top"><b><a href="#ports">Ports</a></b><br><sub>What's listening, and who holds a busy port</sub></td>
-<td valign="top"><b><a href="#git-panel">Git panel</a></b><br><sub>Pull request, checks, branches, stashes, commits</sub></td>
+<td valign="top"><b><a href="#git-panel">Git panel</a></b><br><sub>Pull request and checks, plus jj, GitButler and Graphite</sub></td>
 </tr>
 <tr>
 <td valign="top"><b><a href="#isolated-sessions">Isolated sessions</a></b><br><sub>Throwaway Docker containers with only your project</sub></td>
@@ -113,6 +120,11 @@ recognized by their logos.
 <td valign="top"><b><a href="#agent-activity">Agent activity</a></b><br><sub>Time, prompts, changes and tokens per day and project</sub></td>
 <td valign="top"><b><a href="#setup-settings-and-updates">Setup and settings</a></b><br><sub>One-click setup, Check Setup, signed updates</sub></td>
 </tr>
+<tr>
+<td valign="top"><b><a href="#environment">Environment</a></b><br><sub>Tool versions, containers and local models</sub></td>
+<td valign="top"><b><a href="#skills">Skills</a></b><br><sub>Every agent's skills, kept up to date, and what's trending</sub></td>
+<td valign="top"></td>
+</tr>
 </table>
 
 <br>
@@ -120,7 +132,7 @@ recognized by their logos.
 ### Every agent, at a glance
 
 <p align="center">
-  <img src="images/readme/allow.png" alt="The sidebar: an agent waiting for permission, with Allow and Deny on its card, and a second project below" width="70%">
+  <img src="images/readme/allow.png" alt="The sidebar with three projects: Claude Code waiting for permission to run its tests, with Allow and Deny on its card, while Claude Code and Codex work in the other two" width="80%">
 </p>
 
 A vertical sidebar (⌃⌘S) lists every tab with its folder, git branch and uncommitted
@@ -144,7 +156,7 @@ detail.
 ### Mission Control
 
 <p align="center">
-  <img src="images/readme/mission-control.png" alt="Mission Control: Codex working in one project and Claude Code done in another, each with its task, last action and terminal" width="100%">
+  <img src="images/readme/mission-control.png" alt="Mission Control: Codex and two Claude Code agents in three projects, each with its task, last action and terminal" width="100%">
 </p>
 
 ⌃⌘M shows every agent (or every pane) in every window as a live card: status, task, last
@@ -245,7 +257,7 @@ mid-turn or over your own typing.
 ### Review changes
 
 <p align="center">
-  <img src="images/readme/review.png" alt="Review Changes: an agent's turn with its changed files and the diff of one of them" width="100%">
+  <img src="images/readme/review.png" alt="Review Changes: turns from Codex and Claude Code in two projects, with Codex's new route shown as a diff" width="100%">
 </p>
 
 When an agent finishes working in a git repository, its changes land in an inbox (⌃⌘I).
@@ -266,6 +278,10 @@ agent timeline. It lists every file it will change and asks first, and your curr
 are saved too, so the undo can be undone, and the review inbox updates to match. Snapshots are git objects only: no commits,
 branches or stash entries, and your staged changes stay as they are. Folders that aren't
 repositories work too.
+
+In a [jj](https://jj-vcs.github.io/jj/) repository, the snapshot also remembers jj's own
+state, so if the agent ran jj commands during the turn, **Restore with jj** puts jj's
+history back along with the files.
 
 <br>
 
@@ -359,15 +375,34 @@ to its tab, or stop it. When a command fails because its port is taken ("EADDRIN
 
 ### Git panel
 
-<p align="center">
-  <img src="images/readme/git-panel.png" alt="The Git panel for a branch: its pull request, branches, stashes and recent commits" width="60%">
-</p>
+<table>
+<tr>
+<td width="50%" valign="top"><img src="images/readme/git-panel.png" alt="The Git panel for a branch: its pull request, branches, stashes and recent commits"></td>
+<td width="50%" valign="top"><img src="images/readme/git-panel-jj.png" alt="The Git panel in a jj repository: the working-copy change with Describe and Commit, the changes around it, bookmarks and the operation log with Undo last and Restore"></td>
+</tr>
+</table>
 
 Click a tab's branch for a panel with its pull request (title, review state and every
 check, failing ones first, each linked to its log), branches (switch, filter, create),
 stashes (stash, apply, pop, drop) and recent commits. Tabs show commits to push and pull
 (↑2 ↓1) and the pull request's number and checks beside the branch. Pull requests come
 from the GitHub CLI (`gh`) when it's installed and signed in.
+
+The panel also speaks the tools people use instead of plain branches:
+
+- **[jj (Jujutsu)](https://jj-vcs.github.io/jj/):** the change you're on (or its nearest
+  bookmark) shows in the sidebar, and the panel shows the working-copy change with
+  **Describe**, **Commit**, **New change** and **Squash**, the changes around it (edit one,
+  start a new change on top, abandon), bookmarks with **Fetch** and **Push**, and the
+  operation log, where **Undo last** or **Restore** reverses any jj command, an agent's
+  included. Works with or without a git repository beside it.
+- **[GitButler](https://gitbutler.com):** the sidebar names the branches it has applied
+  instead of `gitbutler/workspace`, and the panel shows them side by side with their
+  commits, push state and pull requests, plus GitButler's own **Commit** (to the branch you
+  pick), **New branch**, **Push** and **Undo**.
+- **[Graphite](https://graphite.dev):** in a repository set up with `gt init`, the panel
+  shows the stack your branch is in, trunk to top, with each pull request and a "needs
+  restack" marker. **Restack**, **Submit** and **Sync** run `gt` in a new tab.
 
 <br>
 
@@ -418,6 +453,46 @@ per day, hour, agent and project. It reads the session history Claude Code and C
 already keep. **Resume** any recent session in a new tab, and **API value** shows what your
 usage would cost at API prices.
 
+### Environment
+
+<p align="center">
+  <img src="images/readme/environment.png" alt="The Environment window for a folder: node 22 and python 3.13 asked for by mise.toml but not installed, and the environment variables mise adds, names only" width="100%">
+</p>
+
+⌃⌘N (or Environment in the command palette) shows what's around your agents:
+
+- **This Folder:** the tool versions the folder asks for (mise, asdf, `.nvmrc`,
+  `.python-version` and friends), which aren't installed, when the terminal's own copy
+  differs, and the environment variables mise and direnv add. Only their names are shown;
+  values are never read. Install missing versions, trust a mise config, and allow or block
+  an `.envrc` after seeing what it runs.
+- **Containers:** everything Docker runs (Docker Desktop, OrbStack or Colima), grouped by
+  Compose project, with CPU, memory and published ports, and **Start**, **Stop**,
+  **Restart**, **Logs**, a shell inside, and **Remove**.
+- **Local Models:** the models in Ollama and LM Studio, which are loaded and how much memory
+  and GPU they take, with **Unload**, **Run**, **Pull** and **Remove**.
+
+<p align="center">
+  <img src="images/readme/local-models.png" alt="Local Models: Ollama running with three models, one loaded and using 885.7 MB, all on the GPU, with Unload, Run and Remove" width="100%">
+</p>
+
+### Skills
+
+<p align="center">
+  <img src="images/readme/skills.png" alt="The Skills window's Discover tab: trending skills from skills.sh with install counts, security reviews, and the agents and projects to install for" width="100%">
+</p>
+
+⌃⌘U shows every skill your agents have in one place: Claude Code, Codex, Cursor, Hermes,
+the shared `~/.agents/skills` folder, Claude Code plugins, Claude.ai's synced skills and the
+current project's own.
+
+- **Updates:** skills installed with `npx skills` or cloned with git are checked against
+  their source, with **Update** on each and **Update All**.
+- **Discover:** what's trending, hot and most installed on [skills.sh](https://skills.sh),
+  with search, install counts and security reviews. Official company skills can be hidden.
+- **Install** for the agents you pick, in every project or just this one. It shows the
+  exact command and runs it in a new tab.
+
 ### Setup, settings and updates
 
 <p align="center">
@@ -428,13 +503,16 @@ usage would cost at API prices.
   need, connects your agents in one click (backing up each file it changes), lets you pick
   features, and runs a live test.
 - **Check Setup** (GhosttyEXTREME menu or ⌘P) checks the hooks, each agent's config, jq,
-  the shell integration and notifications, with a fix button on each problem.
+  the shell integration and notifications, with a fix button on each problem, and offers
+  **Connect** for Copilot CLI, Droid, Gemini CLI, Antigravity, Kiro, Cursor CLI and OpenCode
+  when it finds them.
   `ghostty-extreme doctor` runs the same checks in a terminal.
 - **Settings** (⌘,) turns each feature on or off. A feature that's off has no menu item,
   shortcut, button or palette entry, and does no background work.
 - **Every shortcut:** hold ⌃⌘ for a moment to see them all over the window.
-- **Updates** arrive in the app (GhosttyEXTREME → Check for Updates…), signed with this
-  project's key; nothing else is accepted.
+- **Updates** appear as a card at the top of the sidebar, checked shortly after launch and
+  every hour. They're signed with this project's key (nothing else is accepted), and after
+  the update your windows, tabs, splits, agent sessions and localhost servers come back.
 
 ### Everything Ghostty already does
 
@@ -459,7 +537,9 @@ Apple silicon MacBook).
   its own terminals and hooks know, and events without it are ignored.
 - **The Backend view never stores credentials.** It runs your providers' own CLIs with
   their existing logins, read-only commands only. It reads only the *names* of your env
-  variables, never their values.
+  variables, never their values, and so does the Environment window.
+- **Agent hooks only observe.** They report status and never approve, block or change what
+  an agent does. Any agent settings file is backed up before it's changed.
 - **The editor stays local.** It can only show its own pages, and Visual Fix only talks
   to your local dev server.
 
@@ -543,6 +623,8 @@ Hold ⌃⌘ for a moment to see them all over the window.
 | ⌃⌘K | Background |
 | ⌃⌘B | Command history |
 | ⌃⌘A | Agent activity |
+| ⌃⌘U | Skills |
+| ⌃⌘N | Environment |
 | ⌃⌘/ | Every shortcut |
 
 <br>
@@ -597,6 +679,11 @@ privacy protection can block terminal processes from reading `~/Desktop` or
 **Codex.** Run `python3 agent-hooks/install-codex.py`. It registers Codex's hooks without
 touching Claude's settings or saved hook approvals, and backs up the config first.
 Restart Codex and approve the new registrations through its normal hook review.
+
+**Other agents.** Copilot CLI, Droid, Gemini CLI, Antigravity, Kiro, Cursor CLI and
+OpenCode are connected from **Check Setup → Connect**. Each gets a small hook
+(`agent-event.py`; for OpenCode, a plugin in `~/.config/opencode/plugins/`) in that agent's
+own settings.
 
 **Claude usage meter** (optional). Have your Claude Code status line script save
 `rate_limits` to `~/.claude/ghostty-extreme/claude-usage.json` as
