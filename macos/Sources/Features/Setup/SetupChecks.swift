@@ -242,6 +242,7 @@ final class SetupChecks: ObservableObject {
         let optional: [(String, String)] = [
             ("claude", "Claude Code"), ("codex", "Codex"), ("git", "Review, undo and races"),
             ("gh", "Pull request status (coming in the Git panel)"), ("docker", "Isolated sessions"), ("hermes", "Hermes sessions"),
+            ("jj", "jj repositories in the Git panel and Undo"),
         ]
         for (tool, use) in optional {
             if let path = tools[tool] {
@@ -293,7 +294,7 @@ final class SetupChecks: ObservableObject {
     /// The tools on the user's PATH, as their login shell sees it (apps launched from the
     /// Dock get a much shorter PATH). Off the main thread only.
     private static func findTools() -> [String: String] {
-        let names = ["claude", "codex", "jq", "git", "python3", "gh", "docker", "colima", "hermes", "brew"]
+        let names = ["claude", "codex", "jq", "git", "python3", "gh", "docker", "colima", "hermes", "brew", "jj"]
         var found: [String: String] = [:]
         let fm = FileManager.default
         for name in names {

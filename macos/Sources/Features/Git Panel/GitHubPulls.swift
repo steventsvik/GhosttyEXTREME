@@ -127,10 +127,11 @@ final class GitHubPulls: ObservableObject {
     }
 
     /// Opens the GitHub page to create a pull request for the branch.
-    func createPullRequest(root: String) {
+    /// `branch` names the branch when git has none checked out, as in a jj repository.
+    func createPullRequest(root: String, branch: String? = nil) {
         queue.async {
             guard let gh = SetupChecks.locate("gh") else { return }
-            _ = Self.run(gh, ["pr", "create", "--web"], in: root)
+            _ = Self.run(gh, ["pr", "create", "--web"] + (branch.map { ["--head", $0] } ?? []), in: root)
         }
     }
 

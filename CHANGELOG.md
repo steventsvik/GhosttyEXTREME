@@ -4,6 +4,10 @@ What changed in each GhosttyEXTREME release. Work in progress collects under
 **Unreleased**; at release time that heading becomes the version number, and
 `./release.sh` uses the section as the release notes.
 
+## Unreleased
+
+- **jj (Jujutsu) support.** In a jj repository the sidebar shows the change you're on (or its nearest bookmark), and the Git panel shows jj instead of branches and stashes: the working-copy change with Describe, Commit, New change and Squash; the changes around it (edit one, start a new change on top, abandon); bookmarks with Fetch and Push; and the operation log, where Undo last or Restore reverses any jj command, an agent's included. Undo a Turn remembers jj's state when each turn starts, so if the agent also ran jj commands, **Restore with jj** puts jj's history back along with the files. Works with jj repositories that keep a git repository beside them (the default) and ones that don't. Pull request status and Create… work from the bookmark.
+
 ## 1.5.7
 
 - **Skills.** A new Skills window (the puzzle-piece button at the top of the sidebar, ⌃⌘U, or Skills in the command palette) shows every skill your agents have, in one place: Claude Code, Codex, Cursor, Hermes, the shared `~/.agents/skills` folder, Claude Code plugins, Claude.ai's synced skills, and the current project's own. Skills installed with `npx skills` or cloned with git are checked against their source, with **Update** on each and **Update All**. **Discover** shows what's trending, hot and most installed on skills.sh, with search, install counts and security reviews; official company skills are hidden unless you want them. **Install** lets you pick which agents get it and whether it's for every project or just this one, shows the exact command, and runs it in a new tab.

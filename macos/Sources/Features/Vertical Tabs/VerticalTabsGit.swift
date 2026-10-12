@@ -11,6 +11,8 @@ struct VerticalTabsGitInfo: Equatable {
     /// Commits not yet pushed to / pulled from the upstream branch; nil without one.
     var ahead: Int?
     var behind: Int?
+    /// Set in a jj repository: `branch` is then its nearest bookmark or the change's ID.
+    var jj: JJ.Status?
 }
 
 /// Git info for the folders shown in the sidebar.
@@ -127,12 +129,20 @@ final class VerticalTabsGit: ObservableObject {
         let gitPath = self.gitPath
 
         queue.async { [weak self] in
-            let branch = Self.readBranch(gitDir: gitDir) ?? "HEAD"
-            let (added, removed) = Self.diffStats(repo: root, gitPath: gitPath)
-            // Ahead/behind is for the Git panel's badge; skipped when that's turned off.
-            let counts = ExtremeSettings.isOn(.git) ? Self.aheadBehind(repo: root, gitPath: gitPath) : nil
-            let result = VerticalTabsGitInfo(branch: branch, added: added, removed: removed,
+            let result: VerticalTabsGitInfo
+            if JJ.isRepo(root), JJ.binary != nil, let status = JJ.status(root) {
+                // Beside git, git's numbers are live; a jj-only repository has only jj's.
+                let colocated = FileManager.default.fileExists(atPath: root + "/.git")
+                let (added, removed) = colocated ? Self.diffStats(repo: root, gitPath: gitPath) : JJ.diffStats(root)
+                result = VerticalTabsGitInfo(branch: status.label, added: added, removed: removed, jj: status)
+            } else {
+                let branch = Self.readBranch(gitDir: gitDir) ?? "HEAD"
+                let (added, removed) = Self.diffStats(repo: root, gitPath: gitPath)
+                // Ahead/behind is for the Git panel's badge; skipped when that's turned off.
+                let counts = ExtremeSettings.isOn(.git) ? Self.aheadBehind(repo: root, gitPath: gitPath) : nil
+                result = VerticalTabsGitInfo(branch: branch, added: added, removed: removed,
                                              ahead: counts?.ahead, behind: counts?.behind)
+            }
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.inFlight.remove(root)
@@ -147,11 +157,15 @@ final class VerticalTabsGit: ObservableObject {
     }
 
     /// Walks up from `path` to find the repository. Handles worktrees and submodules,
-    /// where `.git` is a file pointing at the real git directory.
+    /// where `.git` is a file pointing at the real git directory, and jj repositories
+    /// without a git repository beside them.
     static func repoRoot(containing path: String) -> RepoRoot? {
         let fm = FileManager.default
         var dir = URL(fileURLWithPath: path).standardizedFileURL
         while true {
+            if JJ.isRepo(dir.path), !fm.fileExists(atPath: dir.appendingPathComponent(".git").path) {
+                return RepoRoot(path: dir.path, gitDir: dir.appendingPathComponent(".jj/repo/store/git").path)
+            }
             let dotGit = dir.appendingPathComponent(".git")
             var isDir: ObjCBool = false
             if fm.fileExists(atPath: dotGit.path, isDirectory: &isDir) {
