@@ -23,6 +23,8 @@ final class TurnCheckpoints: ObservableObject {
         let tree: String
         /// Taken just before a restore: going back to it undoes the restore.
         let isRestorePoint: Bool
+        /// In a jj repository, its operation at that moment, so jj's history can go back too.
+        var jjOperation: String?
     }
 
     /// Newest last, per pane.
@@ -88,6 +90,7 @@ final class TurnCheckpoints: ObservableObject {
         queue.async {
             let place = Self.place(of: folder)
             let tree = place.flatMap { ReviewInbox.snapshot($0.root, gitDir: $0.gitDir) }
+            let operation = place.flatMap { Self.jjOperation($0.root) }
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 self.taking.remove(key)
@@ -95,7 +98,7 @@ final class TurnCheckpoints: ObservableObject {
                 // Nothing changed since the last turn started: one checkpoint covers both.
                 if let last = self.checkpoints[key]?.last, last.tree == tree, !last.isRestorePoint { return }
                 self.append(Checkpoint(id: UUID(), time: time, title: title, agent: agent, repoRoot: place.root,
-                                       gitDir: place.gitDir, tree: tree, isRestorePoint: false), to: key)
+                                       gitDir: place.gitDir, tree: tree, isRestorePoint: false, jjOperation: operation), to: key)
             }
         }
     }
@@ -107,9 +110,18 @@ final class TurnCheckpoints: ObservableObject {
         checkpoints[key] = list
     }
 
+    /// jj's current operation, after recording the working copy so it holds exactly these files.
+    private static func jjOperation(_ root: String) -> String? {
+        guard JJ.binary != nil, JJ.isRepo(root) else { return nil }
+        return JJ.currentOperation(root, snapshot: true)
+    }
+
     /// The repository to snapshot, or Review's shadow repository for a plain folder.
     private static func place(of folder: String) -> (root: String, gitDir: String?)? {
         if let root = AgentTools.repoRoot(of: folder) { return (root, nil) }
+        // A jj repository with no git repository beside it: its own folder, in the shadow repository.
+        if let jjRoot = VerticalTabsGit.repoRoot(containing: folder)?.path, JJ.isRepo(jjRoot),
+           let shadow = ReviewInbox.shadowRepo(for: jjRoot) { return (jjRoot, shadow) }
         if let shadow = ReviewInbox.shadowRepo(for: folder) { return (folder, shadow) }
         return nil
     }
@@ -136,6 +148,9 @@ final class TurnCheckpoints: ObservableObject {
         queue.async {
             let current = ReviewInbox.snapshot(checkpoint.repoRoot, gitDir: checkpoint.gitDir)
             let changes = current.map { Self.changes(from: checkpoint, to: $0) } ?? []
+            // What was run with jj since: restoring files alone leaves those in jj's history.
+            let jjOperations = checkpoint.jjOperation.map { JJ.operations(since: $0, in: checkpoint.repoRoot) } ?? []
+            let currentOperation = checkpoint.jjOperation != nil ? Self.jjOperation(checkpoint.repoRoot) : nil
             DispatchQueue.main.async { [weak self, weak surface] in
                 guard let self, let surface else { return }
                 guard let current else {
@@ -145,20 +160,28 @@ final class TurnCheckpoints: ObservableObject {
                     return
                 }
                 DemoDirector.note("restore: \(changes.count) changes, current \(current.prefix(8))")
-                guard !changes.isEmpty else {
+                guard !changes.isEmpty || !jjOperations.isEmpty else {
                     let alert = NSAlert()
                     alert.messageText = "Nothing to restore"
                     alert.informativeText = "The files are already the same as they were at that point."
                     alert.runModal()
                     return
                 }
-                guard self.confirm(checkpoint, changes: changes) else { return }
+                let choice = self.confirm(checkpoint, changes: changes, jjOperations: jjOperations)
+                guard choice != .cancel else { return }
                 // The current state first, so this restore can be undone.
                 self.append(Checkpoint(id: UUID(), time: Date(), title: "Before restoring “\(Self.short(checkpoint.title))”",
                                        agent: nil, repoRoot: checkpoint.repoRoot, gitDir: checkpoint.gitDir,
-                                       tree: current, isRestorePoint: true), to: ObjectIdentifier(surface))
+                                       tree: current, isRestorePoint: true, jjOperation: currentOperation),
+                            to: ObjectIdentifier(surface))
                 self.queue.async {
-                    Self.apply(changes, from: checkpoint)
+                    if choice == .withJJ, let operation = checkpoint.jjOperation {
+                        // jj puts back its history and the files together.
+                        JJ.run(["op", "restore", operation], in: checkpoint.repoRoot)
+                    } else {
+                        Self.apply(changes, from: checkpoint)
+                    }
+                    DispatchQueue.main.async { VerticalTabsGit.shared.refreshNow(root: checkpoint.repoRoot) }
                     // Reviews of this project now show what's left (or go away).
                     DispatchQueue.main.async { ReviewInbox.shared.refresh(root: checkpoint.repoRoot) }
                 }
@@ -166,7 +189,9 @@ final class TurnCheckpoints: ObservableObject {
         }
     }
 
-    private func confirm(_ checkpoint: Checkpoint, changes: [Change]) -> Bool {
+    enum RestoreChoice { case files, withJJ, cancel }
+
+    private func confirm(_ checkpoint: Checkpoint, changes: [Change], jjOperations: [String]) -> RestoreChoice {
         DemoDirector.note("restore: asking about \(changes.map(\.path).joined(separator: ", "))")
         let alert = NSAlert()
         alert.messageText = checkpoint.isRestorePoint
@@ -174,18 +199,37 @@ final class TurnCheckpoints: ObservableObject {
             : "Restore files to before “\(Self.short(checkpoint.title))”?"
         let listed = changes.prefix(6).map { "\($0.kind == .delete ? "Delete" : "Restore") \($0.path)" }
         let more = changes.count > 6 ? "\n… and \(changes.count - 6) more" : ""
-        alert.informativeText = "\(changes.count) file\(changes.count == 1 ? "" : "s") will change:\n"
+        var text = changes.isEmpty ? "No files differ." : "\(changes.count) file\(changes.count == 1 ? "" : "s") will change:\n"
             + listed.joined(separator: "\n") + more
-            + "\n\nYour current files are saved first, so you can undo this from the same menu."
+        if !jjOperations.isEmpty {
+            let ran = jjOperations.prefix(4).joined(separator: "\n") + (jjOperations.count > 4 ? "\n… and \(jjOperations.count - 4) more" : "")
+            text += "\n\nSince then, jj also ran:\n\(ran)\n\nRestore with jj puts jj's history back too "
+                + "(jj op restore), including anything else done in jj since."
+        }
+        alert.informativeText = text + "\n\nYour current files are saved first, so you can undo this from the same menu."
         alert.alertStyle = .warning
         // Restoring overwrites files: it takes a click, and Return cancels.
-        let restore = alert.addButton(withTitle: "Restore")
-        restore.keyEquivalent = ""
-        restore.hasDestructiveAction = true
+        if !jjOperations.isEmpty {
+            let withJJ = alert.addButton(withTitle: "Restore with jj")
+            withJJ.keyEquivalent = ""
+            withJJ.hasDestructiveAction = true
+        }
+        if !changes.isEmpty {
+            let restore = alert.addButton(withTitle: jjOperations.isEmpty ? "Restore" : "Files Only")
+            restore.keyEquivalent = ""
+            restore.hasDestructiveAction = true
+        }
         alert.addButton(withTitle: "Cancel").keyEquivalent = "\r"
         let response = alert.runModal()
         DemoDirector.note("restore: dialog returned \(response.rawValue)")
-        return response == .alertFirstButtonReturn
+        switch response {
+        case .alertFirstButtonReturn:
+            return jjOperations.isEmpty ? .files : .withJJ
+        case .alertSecondButtonReturn:
+            return !jjOperations.isEmpty && !changes.isEmpty ? .files : .cancel
+        default:
+            return .cancel
+        }
     }
 
     /// What has to change for the files to match `checkpoint` again.

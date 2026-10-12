@@ -1,0 +1,250 @@
+#if os(macOS)
+import AppKit
+import Combine
+
+/// A model on this Mac, from Ollama or LM Studio.
+struct LocalModel: Identifiable, Equatable {
+    enum Host: String { case ollama = "Ollama", lmStudio = "LM Studio" }
+
+    let host: Host
+    let name: String
+    /// On disk, in bytes (Ollama).
+    let size: Int64?
+    /// "8.0B · Q4_K_M", "llm · 4bit".
+    let detail: String
+    /// Loaded into memory now.
+    var loaded: Bool
+    /// Memory it takes while loaded (Ollama), and how much of that is on the GPU.
+    var memory: Int64?
+    var gpuShare: Double?
+    var id: String { host.rawValue + "/" + name }
+}
+
+/// What's installed and loaded in Ollama and LM Studio, and the few things worth doing
+/// with it from a terminal: unload, run, pull, remove.
+@MainActor
+final class LocalModelsModel: ObservableObject {
+    enum HostState: Equatable {
+        case notInstalled
+        /// Installed but its server isn't answering.
+        case stopped
+        case running(version: String?)
+    }
+
+    @Published private(set) var ollama: HostState = .notInstalled
+    @Published private(set) var lmStudio: HostState = .notInstalled
+    @Published private(set) var models: [LocalModel] = []
+    @Published private(set) var busy: Set<String> = []
+    @Published var error: String?
+
+    private var timer: Timer?
+    private var loading = false
+
+    /// Ollama's address: OLLAMA_HOST like Ollama's own CLI, else its default.
+    nonisolated static var ollamaBase: URL { ollamaURL(ProcessInfo.processInfo.environment["OLLAMA_HOST"]) }
+
+    /// Reads OLLAMA_HOST the way Ollama does: "host", "host:port", ":port" or a URL; no port
+    /// means 11434, and "0.0.0.0" (listen everywhere) is reached on 127.0.0.1.
+    nonisolated static func ollamaURL(_ value: String?) -> URL {
+        let fallback = URL(string: "http://127.0.0.1:11434")!
+        var text = (value ?? "").trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else { return fallback }
+        var scheme = "http"
+        if let range = text.range(of: "://") {
+            scheme = String(text[..<range.lowerBound])
+            text = String(text[range.upperBound...])
+        }
+        text = String(text.prefix { $0 != "/" })
+        var host = text, port = scheme == "https" ? "443" : "11434"
+        if let colon = text.lastIndex(of: ":"), !text.hasSuffix("]") {
+            host = String(text[..<colon])
+            port = String(text[text.index(after: colon)...])
+        }
+        if host.isEmpty || host == "0.0.0.0" || host == "[::]" { host = "127.0.0.1" }
+        return URL(string: "\(scheme)://\(host):\(port)") ?? fallback
+    }
+
+    nonisolated static let lmStudioBase = URL(string: "http://127.0.0.1:1234")!
+
+    nonisolated static var ollamaBinary: String? {
+        ToolPath.find("ollama") ?? ["/Applications/Ollama.app/Contents/Resources/ollama"]
+            .first { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+
+    nonisolated static var lmsBinary: String? {
+        ToolPath.find("lms") ?? [NSHomeDirectory() + "/.lmstudio/bin/lms", NSHomeDirectory() + "/.cache/lm-studio/bin/lms"]
+            .first { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+
+    /// Memory taken by loaded models, in bytes.
+    var loadedMemory: Int64 { models.filter(\.loaded).compactMap(\.memory).reduce(0, +) }
+
+    func start() {
+        load()
+        guard timer == nil else { return }
+        let timer = Timer(timeInterval: 5, repeats: true) { [weak self] _ in self?.load() }
+        timer.tolerance = 2
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+    }
+
+    func stop() {
+        timer?.invalidate()
+        timer = nil
+    }
+
+    func load() {
+        guard !loading else { return }
+        loading = true
+        Task { [weak self] in
+            async let ollama = Self.readOllama()
+            async let studio = Self.readLMStudio()
+            let (o, l) = await (ollama, studio)
+            guard let self else { return }
+            self.loading = false
+            self.ollama = o.state
+            self.lmStudio = l.state
+            let models = o.models + l.models
+            if self.models != models { self.models = models }
+        }
+    }
+
+    // MARK: Ollama
+
+    nonisolated private static func readOllama() async -> (state: HostState, models: [LocalModel]) {
+        guard let version = await getJSON(ollamaBase.appendingPathComponent("api/version")) else {
+            let installed = ollamaBinary != nil || FileManager.default.fileExists(atPath: "/Applications/Ollama.app")
+            return (installed ? .stopped : .notInstalled, [])
+        }
+        let tags = await getJSON(ollamaBase.appendingPathComponent("api/tags"))?["models"] as? [[String: Any]] ?? []
+        let running = await getJSON(ollamaBase.appendingPathComponent("api/ps"))?["models"] as? [[String: Any]] ?? []
+        var loaded: [String: (Int64, Int64)] = [:]
+        for model in running {
+            guard let name = model["name"] as? String else { continue }
+            loaded[name] = (int64(model["size"]), int64(model["size_vram"]))
+        }
+        let models = tags.compactMap { model -> LocalModel? in
+            guard let name = model["name"] as? String else { return nil }
+            let details = model["details"] as? [String: Any] ?? [:]
+            let detail = [details["parameter_size"] as? String, details["quantization_level"] as? String]
+                .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+            let memory = loaded[name]
+            return LocalModel(host: .ollama, name: name, size: int64(model["size"]), detail: detail, loaded: memory != nil,
+                              memory: memory?.0, gpuShare: memory.map { $0.0 > 0 ? Double($0.1) / Double($0.0) : 0 })
+        }
+        return (.running(version: version["version"] as? String), models.sorted { ($0.loaded ? 0 : 1, $0.name) < ($1.loaded ? 0 : 1, $1.name) })
+    }
+
+    // MARK: LM Studio
+
+    nonisolated private static func readLMStudio() async -> (state: HostState, models: [LocalModel]) {
+        guard let reply = await getJSON(lmStudioBase.appendingPathComponent("api/v0/models")) else {
+            let installed = lmsBinary != nil || FileManager.default.fileExists(atPath: "/Applications/LM Studio.app")
+            return (installed ? .stopped : .notInstalled, [])
+        }
+        let models = (reply["data"] as? [[String: Any]] ?? []).compactMap { model -> LocalModel? in
+            guard let id = model["id"] as? String else { return nil }
+            let detail = [model["type"] as? String, model["quantization"] as? String].compactMap { $0 }.joined(separator: " · ")
+            return LocalModel(host: .lmStudio, name: id, size: nil, detail: detail,
+                              loaded: model["state"] as? String == "loaded", memory: nil, gpuShare: nil)
+        }
+        return (.running(version: nil), models.sorted { ($0.loaded ? 0 : 1, $0.name) < ($1.loaded ? 0 : 1, $1.name) })
+    }
+
+    // MARK: Actions
+
+    /// Frees the model's memory now (it loads again on the next request).
+    func unload(_ model: LocalModel) {
+        busy.insert(model.id)
+        error = nil
+        Task { [weak self] in
+            var failure: String?
+            switch model.host {
+            case .ollama:
+                var request = URLRequest(url: Self.ollamaBase.appendingPathComponent("api/generate"), timeoutInterval: 20)
+                request.httpMethod = "POST"
+                request.httpBody = try? JSONSerialization.data(withJSONObject: ["model": model.name, "keep_alive": 0])
+                let status = (try? await URLSession.shared.data(for: request)).map { ($0.1 as? HTTPURLResponse)?.statusCode ?? 0 }
+                if status != 200 { failure = "Ollama didn't unload \(model.name)" }
+            case .lmStudio:
+                if let lms = Self.lmsBinary {
+                    let result = await Task.detached { ToolPath.run(lms, ["unload", model.name], in: NSHomeDirectory()) }.value
+                    if !result.ok { failure = result.error.isEmpty ? "lms unload failed" : String(result.error.prefix(300)) }
+                } else {
+                    failure = "Unload it in LM Studio (its lms command isn't installed)"
+                }
+            }
+            let message = failure
+            guard let self else { return }
+            self.busy.remove(model.id)
+            self.error = message
+            self.load()
+        }
+    }
+
+    /// Chats with it in a new tab.
+    func run(_ model: LocalModel) {
+        switch model.host {
+        case .ollama:
+            SetupChecks.openTab(running: "\(Self.ollamaBinary.map(AgentTools.shellQuote) ?? "ollama") run \(AgentTools.shellQuote(model.name))")
+        case .lmStudio:
+            SetupChecks.openTab(running: "\(Self.lmsBinary.map(AgentTools.shellQuote) ?? "lms") chat \(AgentTools.shellQuote(model.name))")
+        }
+    }
+
+    /// Downloads a model in a new tab, where the progress shows.
+    func pull(_ name: String) {
+        let name = name.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else { return }
+        SetupChecks.openTab(running: "\(Self.ollamaBinary.map(AgentTools.shellQuote) ?? "ollama") pull \(AgentTools.shellQuote(name))")
+    }
+
+    /// Deletes an Ollama model from disk.
+    func remove(_ model: LocalModel) {
+        guard model.host == .ollama else { return }
+        busy.insert(model.id)
+        error = nil
+        Task { [weak self] in
+            var request = URLRequest(url: Self.ollamaBase.appendingPathComponent("api/delete"), timeoutInterval: 30)
+            request.httpMethod = "DELETE"
+            request.httpBody = try? JSONSerialization.data(withJSONObject: ["model": model.name, "name": model.name])
+            let status = (try? await URLSession.shared.data(for: request)).map { ($0.1 as? HTTPURLResponse)?.statusCode ?? 0 }
+            guard let self else { return }
+            self.busy.remove(model.id)
+            if status != 200 { self.error = "Ollama didn't remove \(model.name)" }
+            self.load()
+        }
+    }
+
+    /// Starts Ollama: its app if installed, else `ollama serve` in a tab.
+    func startOllama() {
+        if FileManager.default.fileExists(atPath: "/Applications/Ollama.app") {
+            NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications/Ollama.app"))
+        } else if let ollama = Self.ollamaBinary {
+            SetupChecks.openTab(running: "\(AgentTools.shellQuote(ollama)) serve")
+        }
+    }
+
+    /// Starts LM Studio's local server (`lms server start`), or opens the app.
+    func startLMStudio() {
+        if let lms = Self.lmsBinary {
+            SetupChecks.openTab(running: "\(AgentTools.shellQuote(lms)) server start")
+        } else {
+            NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications/LM Studio.app"))
+        }
+    }
+
+    // MARK: Helpers
+
+    nonisolated private static func getJSON(_ url: URL) async -> [String: Any]? {
+        let request = URLRequest(url: url, timeoutInterval: 2)
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    }
+
+    nonisolated private static func int64(_ value: Any?) -> Int64 {
+        (value as? NSNumber)?.int64Value ?? 0
+    }
+}
+#endif

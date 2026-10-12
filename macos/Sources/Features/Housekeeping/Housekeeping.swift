@@ -562,7 +562,8 @@ extension Housekeeping {
         if has("tail -f", "logs -f", "logs --follow", "wrangler tail", "vercel logs", "kubectl logs") { return .logs }
         if has("app-server daemon", " daemon pid-update", "--daemon") { return .service }
         if name == "claude" || has("@anthropic-ai/claude-code", "/claude-code/cli", ".local/bin/claude") { return .agent }
-        if name == "codex" || has("/codex app-server", "codex-cli", "@openai/codex") || ["aider", "gemini", "opencode", "goose", "hermes"].contains(name) {
+        if name == "codex" || has("/codex app-server", "codex-cli", "@openai/codex") || ["aider", "gemini", "opencode", "goose", "hermes", "agy", "copilot", "droid", "kiro-cli", "cursor-agent", "amp",
+                       "crush", "qwen", "kimi", "vibe"].contains(name) {
             return .agent
         }
         if ["mysqld", "postgres", "redis-server", "mongod", "memcached", "clickhouse", "minio", "mariadbd"].contains(name)

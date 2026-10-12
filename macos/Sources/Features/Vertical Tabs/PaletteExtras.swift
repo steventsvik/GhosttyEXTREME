@@ -110,6 +110,16 @@ enum PaletteExtras {
                     SkillsWindow.show(folder: surfaceView.pwd)
                 })
             }
+            if ExtremeSettings.isOn(.environment) {
+                options.append(CommandOption(
+                    title: "Environment",
+                    description: "This folder's tool versions and variables, your containers, and local models",
+                    symbols: ["⌃", "⌘", "N"],
+                    leadingIcon: "shippingbox"
+                ) {
+                    EnvironmentWindow.show(folder: surfaceView.pwd)
+                })
+            }
             if !HermesSessions.shared.isHermes(owner), ExtremeSettings.isOn(.editor) {
                 options.append(CommandOption(
                     title: "Toggle Code Editor",

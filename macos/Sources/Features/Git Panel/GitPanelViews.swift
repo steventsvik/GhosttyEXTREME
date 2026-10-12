@@ -84,6 +84,7 @@ struct GitPanelView: View {
     let pwd: String
     let dismiss: () -> Void
     @StateObject private var model: GitPanelModel
+    @StateObject private var jj: JJPanelModel
     @ObservedObject private var pulls = GitHubPulls.shared
     @ObservedObject private var git = VerticalTabsGit.shared
     @State private var filter = ""
@@ -98,6 +99,15 @@ struct GitPanelView: View {
         self.pwd = pwd
         self.dismiss = dismiss
         self._model = StateObject(wrappedValue: GitPanelModel(root: root))
+        self._jj = StateObject(wrappedValue: JJPanelModel(root: root))
+    }
+
+    /// A jj repository: jj's view of it replaces branches, stashes and commits.
+    private var isJJ: Bool { info?.jj != nil }
+
+    /// Pushed, so GitHub could have a pull request for it.
+    private var isPushed: Bool {
+        isJJ ? jj.isPushed(info?.jj?.bookmark) : model.branches.first(where: { $0.isCurrent })?.upstream.isEmpty == false
     }
 
     private var info: VerticalTabsGitInfo? { git.info(for: pwd) }
@@ -117,18 +127,27 @@ struct GitPanelView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     if let agent = busyAgent {
-                        notice("\(agent.kind.displayName) is working here. Switching branches under it can confuse it.",
+                        notice(isJJ ? "\(agent.kind.displayName) is working here. Changing the working copy under it can confuse it."
+                                    : "\(agent.kind.displayName) is working here. Switching branches under it can confuse it.",
                                color: Extreme.warn, symbol: "exclamationmark.triangle.fill")
                     }
-                    if let error = model.error {
+                    if let error = isJJ ? jj.error : model.error {
                         notice(error, color: Extreme.danger, symbol: "xmark.octagon.fill")
-                    } else if let done = model.notice {
+                    } else if let done = isJJ ? jj.notice : model.notice {
                         notice(done, color: Extreme.live, symbol: "checkmark.circle.fill")
                     }
                     pullSection
-                    branchSection
-                    stashSection
-                    commitSection
+                    if isJJ {
+                        JJPanelSections(model: jj)
+                    } else if model.isButler {
+                        GitButlerSection(model: model)
+                        commitSection
+                    } else {
+                        if !model.stack.isEmpty { GraphiteStackSection(model: model) }
+                        branchSection
+                        stashSection
+                        commitSection
+                    }
                 }
                 .padding(12)
             }
@@ -138,7 +157,7 @@ struct GitPanelView: View {
         .extremePanel(active: true, fill: Extreme.ink)
         .shadow(color: .black.opacity(0.6), radius: 14, y: 6)
         .onAppear {
-            model.load()
+            if isJJ { jj.load() } else { model.load() }
             if let branch = info?.branch { pulls.fetch(root: model.root, branch: branch, force: true) }
             // Escape closes it, wherever focus is (usually still the terminal).
             escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
@@ -164,7 +183,7 @@ struct GitPanelView: View {
                 Text(headerDetail).font(Extreme.font(10.5)).foregroundColor(Extreme.muted).lineLimit(1)
             }
             Spacer(minLength: 6)
-            if model.busy { ProgressView().controlSize(.small) }
+            if model.busy || jj.busy { ProgressView().controlSize(.small) }
             Button(action: dismiss) {
                 Image(systemName: "xmark").font(.system(size: 10, weight: .bold)).foregroundColor(Extreme.dim)
             }
@@ -177,6 +196,19 @@ struct GitPanelView: View {
 
     private var headerDetail: String {
         var parts: [String] = [(model.root as NSString).lastPathComponent]
+        if isJJ {
+            parts.append("jj")
+            if let status = info?.jj, status.bookmark != nil { parts.append("on \(status.changeID)") }
+            if info?.jj?.bookmark != nil { parts.append(isPushed ? "pushed" : "not pushed") }
+            if dirty { parts.append("+\(info?.added ?? 0) −\(info?.removed ?? 0) in the working copy") }
+            return parts.joined(separator: " · ")
+        }
+        if model.isButler {
+            let applied = model.butler?.stacks.reduce(0) { $0 + $1.branches.count } ?? 0
+            parts.append("GitButler workspace")
+            if model.butler != nil { parts.append("\(applied) branch\(applied == 1 ? "" : "es") applied") }
+            return parts.joined(separator: " · ")
+        }
         if let upstream = model.branches.first(where: { $0.isCurrent })?.upstream, !upstream.isEmpty {
             parts.append("tracks \(upstream)")
         } else if model.loaded {
@@ -235,11 +267,11 @@ struct GitPanelView: View {
                     Text("No pull request for \(branch)").font(Extreme.font(11)).foregroundColor(Extreme.muted)
                     Spacer()
                     // Only once it's pushed: for an unpushed branch, gh would want to push first.
-                    if model.branches.first(where: { $0.isCurrent })?.upstream.isEmpty == false {
-                        Button("Create…") { pulls.createPullRequest(root: model.root) }
+                    if isPushed {
+                        Button("Create…") { pulls.createPullRequest(root: model.root, branch: isJJ ? info?.jj?.bookmark : nil) }
                             .help("Opens GitHub's new pull request page (gh pr create --web)")
-                    } else if model.loaded {
-                        Text("Push it first").font(Extreme.font(10.5)).foregroundColor(Extreme.dim)
+                    } else if model.loaded || jj.loaded {
+                        Text(isJJ && info?.jj?.bookmark == nil ? "Set a bookmark first" : "Push it first").font(Extreme.font(10.5)).foregroundColor(Extreme.dim)
                     }
                 }
             } else {

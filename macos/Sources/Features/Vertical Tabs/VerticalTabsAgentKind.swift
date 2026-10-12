@@ -14,6 +14,13 @@ enum VerticalTabAgentKind: String, CaseIterable {
     case droid
     case goose
     case hermes
+    case antigravity
+    case kiro
+    case aider
+    case crush
+    case qwen
+    case kimi
+    case mistral
     case unknown
 
     /// Resolves the `agent` field of an event ("claude", "codex", ...).
@@ -33,6 +40,13 @@ enum VerticalTabAgentKind: String, CaseIterable {
         case .droid: return "Droid"
         case .goose: return "Goose"
         case .hermes: return "Hermes"
+        case .antigravity: return "Antigravity"
+        case .kiro: return "Kiro"
+        case .aider: return "Aider"
+        case .crush: return "Crush"
+        case .qwen: return "Qwen Code"
+        case .kimi: return "Kimi"
+        case .mistral: return "Mistral Vibe"
         case .unknown: return "Agent"
         }
     }
@@ -50,7 +64,12 @@ enum VerticalTabAgentKind: String, CaseIterable {
         case .droid: return "AgentLogo-droid"
         case .goose: return "AgentLogo-goose"
         case .hermes: return "AgentLogo-hermes"
-        case .unknown: return nil
+        case .antigravity: return "AgentLogo-antigravity"
+        case .kiro: return "AgentLogo-kiro"
+        case .qwen: return "AgentLogo-qwen"
+        case .kimi: return "AgentLogo-kimi"
+        case .mistral: return "AgentLogo-mistral"
+        case .aider, .crush, .unknown: return nil
         }
     }
 
@@ -67,6 +86,13 @@ enum VerticalTabAgentKind: String, CaseIterable {
         case .droid: return .white
         case .goose: return Color(white: 16 / 255)
         case .hermes: return Color(red: 124 / 255, green: 58 / 255, blue: 237 / 255)
+        case .antigravity: return Color(red: 66 / 255, green: 133 / 255, blue: 244 / 255)
+        case .kiro: return Color(red: 121 / 255, green: 64 / 255, blue: 255 / 255)
+        case .aider: return Color(red: 20 / 255, green: 150 / 255, blue: 90 / 255)
+        case .crush: return Color(red: 107 / 255, green: 80 / 255, blue: 255 / 255)
+        case .qwen: return Color(red: 97 / 255, green: 92 / 255, blue: 237 / 255)
+        case .kimi: return Color(white: 16 / 255)
+        case .mistral: return Color(red: 250 / 255, green: 82 / 255, blue: 15 / 255)
         case .unknown: return Color(white: 0.45)
         }
     }
@@ -83,7 +109,7 @@ enum VerticalTabAgentKind: String, CaseIterable {
     /// vanish on a dark sidebar, so those fall back to the text color.
     var standaloneLogoColor: Color {
         switch self {
-        case .codex, .cursor, .goose, .droid, .unknown: return .primary
+        case .codex, .cursor, .goose, .droid, .kimi, .unknown: return .primary
         default: return brandColor
         }
     }
@@ -100,6 +126,12 @@ struct VerticalTabAgentLogo: View {
             } else {
                 Image(asset).resizable().interpolation(.none).scaledToFit()
             }
+        } else if kind != .unknown {
+            // No logo to draw: its initial, sized to fit wherever the logo would go.
+            Text(String(kind.displayName.prefix(1)))
+                .font(.system(size: 100, weight: .heavy, design: .rounded))
+                .minimumScaleFactor(0.01)
+                .foregroundColor(tint)
         }
     }
 }
