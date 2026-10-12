@@ -22,7 +22,7 @@
 </p>
 
 <p align="center">
-  <a href="images/readme/demo.mp4"><img src="images/readme/demo.gif" alt="A 40-second tour: Claude Code and Codex working in three projects at once, a permission prompt answered from the sidebar, the editor and code map following Claude, Mission Control, the review inbox, a jj repository in the Git panel, the Environment window and Skills" width="100%"></a>
+  <a href="images/readme/demo.mp4"><img src="images/readme/demo.gif" alt="A 40-second tour: Claude Code and Codex working in three projects at once with the editor following along, a permission prompt answered from the sidebar, a dev server moved into its own tab, Visual Fix adding a button to a running app, Mission Control, the review inbox, a jj repository in the Git panel, the Environment window, Skills, and the Background window closing a stale server" width="100%"></a>
 </p>
 
 <p align="center"><sub>Real app, real agents, demo projects. <a href="images/readme/demo.mp4">Watch in full quality</a>.</sub></p>
@@ -151,7 +151,11 @@ detail.
 - **Alerts:** when an agent waits on you in a pane you aren't looking at, you get a
   notification (click it to jump there) and a count on the Dock icon.
 - **Usage meters** for your Claude and ChatGPT plans (5-hour and weekly windows), with
-  graphs.
+  graphs. Click the panel to switch between percentages and when each limit resets.
+
+<p align="center">
+  <img src="images/readme/sidebar.png" alt="The sidebar: three projects with their agents, a live localhost card for acme-shop, a '2 stale in the background' chip, and the usage meters for Claude and ChatGPT" width="40%">
+</p>
 
 ### Mission Control
 
@@ -329,7 +333,7 @@ Cloudflare D1, Postgres behind Hyperdrive (read from your migrations) and Prisma
 ### Visual Fix
 
 <p align="center">
-  <img src="images/readme/visual-fix.png" alt="Visual Fix: a product heading picked in the running app, with a box to say what should change and send it to Claude Code" width="100%">
+  <img src="images/readme/visual-fix.png" alt="Visual Fix beside Claude Code: the shop's product grid picked in the running app, with &quot;Show an Add to cart button under each price&quot; typed in and ready to send to Claude Code" width="100%">
 </p>
 
 ⌃⌘V previews your running dev server beside the terminal, at desktop, tablet or phone size.
@@ -342,7 +346,7 @@ Cloudflare D1, Postgres behind Hyperdrive (read from your migrations) and Prisma
   the preview reloads where you were.
 
 <p align="center">
-  <img src="images/readme/visual-fix-done.png" alt="The same page after Claude Code made the change: products as cards in a three-column grid, and the request marked done" width="100%">
+  <img src="images/readme/visual-fix-done.png" alt="The same page after Claude Code made the change: an Add to cart button on every product, and the request marked done, page reloaded" width="100%">
 </p>
 
 <br>
@@ -350,7 +354,7 @@ Cloudflare D1, Postgres behind Hyperdrive (read from your migrations) and Prisma
 ### Localhost sessions
 
 <p align="center">
-  <img src="images/readme/localhost.png" alt="A dev server Claude Code started, running in its own tab, with an 'acme-shop is live' banner and a Localhost card in the sidebar" width="100%">
+  <img src="images/readme/localhost.png" alt="The Localhost manager: acme-shop's Next.js dev server, live on localhost:3000, with its CPU, memory and ports, and Open, Preview, Logs and Fix" width="100%">
 </p>
 
 When an agent starts a dev server (`npm run dev`, `vite`, `rails s`, `make dev`, …), an
@@ -365,6 +369,10 @@ read the logs.
   Mac, with **Keep alive** to move one into its own tab.
 - **Start one yourself** from **New → Localhost Server…**, which offers your
   `package.json` scripts.
+
+<p align="center">
+  <img src="images/readme/localhost-preview.png" alt="The built-in preview of the running shop at localhost:3000, opened from the Localhost manager" width="100%">
+</p>
 
 ### Ports
 
@@ -428,7 +436,7 @@ their diffs side by side and apply the one you want.
 ### Background processes
 
 <p align="center">
-  <img src="images/readme/background.png" alt="The Background window: leftover VMs, containers, agent sessions and browsers with staleness ratings" width="85%">
+  <img src="images/readme/background.png" alt="The Background window: Supabase containers in a Colima VM and a localhost session, each with a staleness rating, when it was last used, its memory, and Stop or Close" width="100%">
 </p>
 
 ⌃⌘K finds everything left running: dev servers, Colima VMs and containers, agent sessions,
