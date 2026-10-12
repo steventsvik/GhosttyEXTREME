@@ -102,7 +102,7 @@ final class JJPanelModel: ObservableObject {
                 .split(separator: "\n").compactMap { line -> Operation? in
                     let f = line.split(separator: "\t", maxSplits: 2, omittingEmptySubsequences: false).map(String.init)
                     guard f.count == 3 else { return nil }
-                    return Operation(id: f[0], age: f[1], description: f[2])
+                    return Operation(id: f[0], age: f[1], description: JJ.shortenHashes(f[2]))
                 }
             DispatchQueue.main.async {
                 guard let self else { return }
@@ -250,42 +250,52 @@ struct JJPanelSections: View {
     }
 
     private func changeRow(_ change: JJPanelModel.Change) -> some View {
-        Menu {
-            if !change.isWorkingCopy && !change.immutable {
-                Button("Edit This Change") { model.edit(change) }
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(change.isWorkingCopy ? "@" : "○").font(Extreme.mono(10))
+                .foregroundColor(change.isWorkingCopy ? Extreme.gold : Extreme.dim).frame(width: 10)
+            Text(change.changeID).font(Extreme.mono(10)).foregroundColor(change.immutable ? Extreme.dim : Extreme.bronze)
+            ForEach(change.bookmarks, id: \.self) { name in
+                Text(name).font(Extreme.mono(9.5)).foregroundColor(Extreme.gold)
+                    .padding(.horizontal, 4).padding(.vertical, 1)
+                    .background(RoundedRectangle(cornerRadius: 4).fill(Extreme.gold.opacity(0.12)))
             }
-            Button("New Change on Top") { model.newChange(on: change) }
-            Button("Copy Change ID") { copy(change.changeID) }
-            Button("Copy Commit ID") { copy(change.commitID) }
-            if !change.immutable {
-                Divider()
-                Button("Abandon…") { confirmAbandon(change) }
+            Text(change.description.isEmpty ? (change.empty ? "(empty)" : "(no description)") : change.description)
+                .font(Extreme.font(10.5))
+                .foregroundColor(change.description.isEmpty ? Extreme.dim : Extreme.text).lineLimit(1)
+            if change.conflict {
+                Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 9)).foregroundColor(Extreme.danger)
             }
-        } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(change.isWorkingCopy ? "@" : "○").font(Extreme.mono(10))
-                    .foregroundColor(change.isWorkingCopy ? Extreme.gold : Extreme.dim).frame(width: 10)
-                Text(change.changeID).font(Extreme.mono(10)).foregroundColor(change.immutable ? Extreme.dim : Extreme.bronze)
-                ForEach(change.bookmarks, id: \.self) { name in
-                    Text(name).font(Extreme.mono(9.5)).foregroundColor(Extreme.gold)
-                        .padding(.horizontal, 4).padding(.vertical, 1)
-                        .background(RoundedRectangle(cornerRadius: 4).fill(Extreme.gold.opacity(0.12)))
-                }
-                Text(change.description.isEmpty ? (change.empty ? "(empty)" : "(no description)") : change.description)
-                    .font(Extreme.font(10.5))
-                    .foregroundColor(change.description.isEmpty ? Extreme.dim : Extreme.text).lineLimit(1)
-                if change.conflict {
-                    Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 9)).foregroundColor(Extreme.danger)
-                }
-                Spacer(minLength: 4)
-                Text(change.age).font(Extreme.font(9.5)).foregroundColor(Extreme.dim).lineLimit(1)
+            Spacer(minLength: 4)
+            Text(change.age).font(Extreme.font(9.5)).foregroundColor(Extreme.dim).lineLimit(1)
+            // A menu's label only draws one line of text, so the actions sit in their own menu.
+            Menu {
+                changeActions(change)
+            } label: {
+                Image(systemName: "ellipsis").font(.system(size: 9, weight: .bold)).foregroundColor(Extreme.muted)
             }
-            .contentShape(Rectangle())
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .frame(width: 18)
+            .disabled(model.busy)
+            .help("Edit, start a new change on top, copy, or abandon")
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .disabled(model.busy)
+        .contentShape(Rectangle())
+        .contextMenu { changeActions(change) }
         .help("\(change.author) · commit \(change.commitID)")
+    }
+
+    @ViewBuilder
+    private func changeActions(_ change: JJPanelModel.Change) -> some View {
+        if !change.isWorkingCopy && !change.immutable {
+            Button("Edit This Change") { model.edit(change) }
+        }
+        Button("New Change on Top") { model.newChange(on: change) }
+        Button("Copy Change ID") { copy(change.changeID) }
+        Button("Copy Commit ID") { copy(change.commitID) }
+        if !change.immutable {
+            Divider()
+            Button("Abandon…") { confirmAbandon(change) }
+        }
     }
 
     private func confirmAbandon(_ change: JJPanelModel.Change) {

@@ -128,8 +128,7 @@ struct EnvironmentWindowView: View {
     private var subtitle: String {
         switch tab {
         case .folder:
-            let home = NSHomeDirectory(), folder = folderModel.folder
-            return folder.hasPrefix(home) ? "~" + folder.dropFirst(home.count) : folder
+            return (folderModel.folder as NSString).lastPathComponent
         case .containers: return "Everything Docker runs, from Docker Desktop, OrbStack or Colima"
         case .models: return "Models on this Mac in Ollama and LM Studio"
         }

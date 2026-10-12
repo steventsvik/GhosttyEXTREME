@@ -85,10 +85,15 @@ enum JJ {
             let f = line.split(separator: "\t", maxSplits: 1).map(String.init)
             guard f.count == 2 else { continue }
             if f[0] == operation { return found }
-            if f[1] != "snapshot working copy" { found.append(f[1]) }
+            if f[1] != "snapshot working copy" { found.append(shortenHashes(f[1])) }
         }
         // The starting operation is too far back to say.
         return found
+    }
+
+    /// "describe commit 034f6967387b4fd2f52ab09a377a4bd8f7a144b2" → "describe commit 034f6967387b".
+    static func shortenHashes(_ text: String) -> String {
+        text.replacingOccurrences(of: #"\b([0-9a-f]{12})[0-9a-f]{28,116}\b"#, with: "$1", options: .regularExpression)
     }
 }
 #endif

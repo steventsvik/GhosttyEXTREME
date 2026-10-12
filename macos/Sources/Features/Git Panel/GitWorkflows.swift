@@ -17,6 +17,7 @@ enum GitButler {
         var id: String { name }
 
         var statusText: String {
+            if commits.isEmpty { return "nothing committed yet" }
             switch status {
             case "completelyUnpushed": return "not pushed"
             case "nothingToPush": return "pushed"

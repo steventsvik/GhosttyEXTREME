@@ -36,9 +36,11 @@ struct GitButlerSection: View {
                     Button("Undo") { model.butlerUndo() }
                         .buttonStyle(.plain).font(Extreme.font(10.5)).foregroundColor(Extreme.gold)
                         .disabled(model.busy).help("but undo: reverse GitButler's last operation")
-                    Button("Open GitButler") { model.openGitButler() }
+                    Button("Open") { model.openGitButler() }
                         .buttonStyle(.plain).font(Extreme.font(10.5)).foregroundColor(Extreme.gold)
+                        .help("Open this project in GitButler")
                 }
+                .fixedSize()
             }
             if naming {
                 HStack(spacing: 6) {
