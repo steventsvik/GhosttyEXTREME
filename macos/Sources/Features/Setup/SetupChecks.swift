@@ -28,6 +28,7 @@ struct SetupCheck: Identifiable, Equatable {
 enum SetupFix: Equatable {
     case installHooks
     case connect(HookConfig.Agent)
+    case connectMore(MoreAgent)
     case addShellIntegration
     case installJq
     case notifications
@@ -41,6 +42,7 @@ enum SetupFix: Equatable {
         case .installHooks: return "Install hooks"
         case .connect(.claude): return "Connect Claude Code"
         case .connect(.codex): return "Connect Codex"
+        case .connectMore(let agent): return "Connect \(agent.title)"
         case .addShellIntegration: return "Add to ~/.zshrc"
         case .installJq: return "Install jq"
         case .notifications: return "Allow notifications"
@@ -196,6 +198,19 @@ final class SetupChecks: ObservableObject {
             }
         }
 
+        // Other agents with hooks: optional, so never a problem, only an offer.
+        for agent in MoreAgent.allCases where agent.isPresent(home: home, tools: tools) {
+            let file = HookInstaller.display(agent.file(home: home))
+            if HookInstaller.isConnected(agent) {
+                checks.append(.init(id: "more-" + agent.rawValue, section: .agentStatus, title: "\(agent.title) connected",
+                                    status: .ok, detail: "Reports \(agent.reports) · \(file)"))
+            } else {
+                checks.append(.init(id: "more-" + agent.rawValue, section: .agentStatus, title: "\(agent.title) can show live status",
+                                    status: .info, detail: "Adds GhosttyEXTREME's hooks to \(file). It reports \(agent.reports).",
+                                    fix: .connectMore(agent)))
+            }
+        }
+
         // jq: the hooks report nothing without it.
         if tools["jq"] != nil {
             checks.append(.init(id: "jq", section: .agentStatus, title: "jq installed", status: .ok, detail: "The hooks use it to build events"))
@@ -295,6 +310,7 @@ final class SetupChecks: ObservableObject {
     /// Dock get a much shorter PATH). Off the main thread only.
     private static func findTools() -> [String: String] {
         let names = ["claude", "codex", "jq", "git", "python3", "gh", "docker", "colima", "hermes", "brew", "jj"]
+            + MoreAgent.allCases.flatMap(\.commands)
         var found: [String: String] = [:]
         let fm = FileManager.default
         for name in names {
@@ -418,6 +434,8 @@ final class SetupChecks: ObservableObject {
                 try HookInstaller.installFiles()
             case .connect(let agent):
                 if HookInstaller.filesState() != .current { try HookInstaller.installFiles() }
+                try HookInstaller.connect(agent)
+            case .connectMore(let agent):
                 try HookInstaller.connect(agent)
             case .addShellIntegration:
                 if HookInstaller.filesState() != .current { try HookInstaller.installFiles() }

@@ -181,14 +181,14 @@ pass "version $VERSION"
 
 HOOKS=$OUT/GhosttyEXTREME-agent-hooks
 mkdir -p $HOOKS
-for f in agent-hook.sh ghostty-extreme.zsh ghostty-extreme install.sh localhost localhost-run codex-hook.py memory_context.py install-codex.py; do
+for f in agent-hook.sh ghostty-extreme.zsh ghostty-extreme install.sh localhost localhost-run codex-hook.py memory_context.py install-codex.py agent-event.py opencode-plugin.js; do
   git show HEAD:agent-hooks/$f > $HOOKS/$f || fail "agent-hooks/$f missing"
 done
-chmod +x $HOOKS/{agent-hook.sh,ghostty-extreme,install.sh,localhost,localhost-run,codex-hook.py,install-codex.py}
+chmod +x $HOOKS/{agent-hook.sh,ghostty-extreme,install.sh,localhost,localhost-run,codex-hook.py,install-codex.py,agent-event.py}
 grep -rqE "/Users/|$USER" $HOOKS && fail "the hooks contain a personal path or name"
 for f in $HOOKS/*.sh $HOOKS/localhost $HOOKS/localhost-run $HOOKS/ghostty-extreme; do bash -n $f || fail "$f has a syntax error"; done
 # The app installs these itself (welcome window, Check Setup).
-for f in agent-hook.sh ghostty-extreme.zsh ghostty-extreme codex-hook.py memory_context.py localhost localhost-run; do
+for f in agent-hook.sh ghostty-extreme.zsh ghostty-extreme codex-hook.py memory_context.py localhost localhost-run agent-event.py opencode-plugin.js; do
   cmp -s $HOOKS/$f $APP/Contents/Resources/agent-hooks/$f || fail "the app's bundled agent-hooks/$f doesn't match the repo"
 done
 # Parse only: py_compile would leave a __pycache__ folder in the release.

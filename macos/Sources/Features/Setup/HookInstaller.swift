@@ -32,13 +32,15 @@ enum HookInstaller {
             ("ghostty-extreme.zsh", hooksFolder),
             ("codex-hook.py", hooksFolder),
             ("memory_context.py", hooksFolder),
+            ("agent-event.py", hooksFolder),
+            ("opencode-plugin.js", hooksFolder),
             ("localhost", binFolder),
             ("localhost-run", binFolder),
             ("ghostty-extreme", binFolder),
         ]
     }
 
-    private static let executables: Set<String> = ["agent-hook.sh", "localhost", "localhost-run", "ghostty-extreme"]
+    private static let executables: Set<String> = ["agent-hook.sh", "agent-event.py", "localhost", "localhost-run", "ghostty-extreme"]
 
     // MARK: Hook files
 

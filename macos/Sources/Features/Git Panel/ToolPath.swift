@@ -46,8 +46,8 @@ enum ToolPath {
         let errData = err.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
         return AgentTools.Result(status: process.terminationStatus,
-                                 output: String(decoding: outData, as: UTF8.self),
-                                 error: String(decoding: errData, as: UTF8.self))
+                                 output: String(bytes: outData, encoding: .utf8) ?? "",
+                                 error: String(bytes: errData, encoding: .utf8) ?? "")
     }
 }
 #endif

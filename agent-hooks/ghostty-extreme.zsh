@@ -38,6 +38,13 @@ typeset -gA _gc_agent_commands=(
   droid droid
   goose goose
   hermes hermes
+  agy antigravity
+  kiro-cli kiro
+  aider aider
+  crush crush
+  qwen qwen
+  kimi kimi
+  vibe mistral
 )
 
 _gc_agent_event() {
@@ -55,6 +62,8 @@ _gc_agent_preexec() {
   local agent=${_gc_agent_commands[${word:t}]}
   [[ -n $agent ]] || return 0
   _gc_running_agent=$agent
+  # Hooks often run without a terminal of their own: tell them which pane is theirs.
+  export GHOSTTY_EXTREME_AGENT_TTY="$TTY"
   if [[ $agent == codex ]]; then
     # Codex tool hooks need not have a controlling TTY. Bind them to this pane once,
     # rather than guessing from a changing worker-process ancestry.
@@ -66,6 +75,7 @@ _gc_agent_preexec() {
 _gc_agent_precmd() {
   [[ -n $_gc_running_agent ]] || return 0
   _gc_agent_event "$_gc_running_agent" session_end
+  unset GHOSTTY_EXTREME_AGENT_TTY
   [[ $_gc_running_agent == codex ]] && unset GHOSTTY_EXTREME_CODEX_TTY
   _gc_running_agent=""
 }
