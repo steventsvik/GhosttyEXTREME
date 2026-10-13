@@ -2,20 +2,101 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#0b0a09">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GhosttyEXTREME">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
 <title>GhosttyEXTREME</title>
-<style>
-  :root { color-scheme: dark; }
-  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0b0a09; color: #d8cfbf;
-         font: 15px -apple-system, system-ui, sans-serif; text-align: center; padding: 0 24px; }
-  h1 { color: #deb86e; font-size: 20px; letter-spacing: .12em; font-weight: 600; }
-  p { color: #8c8374; max-width: 32ch; margin: 0 auto; line-height: 1.5; }
-</style>
+<link rel="stylesheet" href="vendor/xterm.css">
+<link rel="stylesheet" href="app.css">
 </head>
 <body>
-<main>
-  <h1>GHOSTTY·EXTREME</h1>
-  <p>Your Mac is reachable. The phone app is on its way in the next update.</p>
-</main>
+
+<!-- Pairing -->
+<section id="pair" class="page" hidden>
+  <div class="pair-card">
+    <div class="sigil" aria-hidden="true"></div>
+    <h1>GHOSTTY·EXTREME</h1>
+    <p class="lede">Pair this phone with your Mac to use its terminal from anywhere on your Tailscale network.</p>
+    <form id="pair-form" autocomplete="off">
+      <label for="pair-code">Pairing code</label>
+      <input id="pair-code" name="code" inputmode="text" autocapitalize="characters" spellcheck="false"
+             placeholder="XXXX-XXXX" maxlength="12" required>
+      <label for="pair-name">Name for this phone</label>
+      <input id="pair-name" name="name" maxlength="40" spellcheck="false" placeholder="iPhone">
+      <button type="submit" class="primary" id="pair-submit">Pair</button>
+      <p class="error" id="pair-error" role="alert"></p>
+    </form>
+    <p class="hint">On your Mac, open <b>Phone</b> in the sidebar and choose <b>Pair a phone…</b> Scan the code with your camera, or type it here.</p>
+  </div>
+</section>
+
+<!-- Tabs -->
+<section id="home" class="page" hidden>
+  <header class="bar">
+    <div class="bar-title">
+      <span class="brand">GHOSTTY·EXTREME</span>
+      <span class="sub" id="mac-name">Mac</span>
+    </div>
+    <span class="conn" id="conn" aria-live="polite"></span>
+    <button class="icon-btn" id="menu-btn" aria-label="Settings">⋯</button>
+  </header>
+  <main class="list" id="tab-list"></main>
+</section>
+
+<!-- One tab -->
+<section id="term" class="page" hidden>
+  <header class="bar">
+    <button class="icon-btn back" id="back-btn" aria-label="All tabs">‹</button>
+    <div class="bar-title">
+      <span class="title" id="term-title"></span>
+      <span class="sub" id="term-sub"></span>
+    </div>
+    <span class="conn" id="conn2" aria-live="polite"></span>
+    <button class="icon-btn" id="zoom-btn" aria-label="Zoom">Fit</button>
+  </header>
+  <div class="screen-wrap" id="screen-wrap">
+    <div id="screen"></div>
+  </div>
+  <div class="choices" id="choices" hidden>
+    <span class="choices-label" id="choices-label">Needs you</span>
+    <button data-key="1">1</button>
+    <button data-key="2">2</button>
+    <button data-key="3">3</button>
+    <button data-key="escape">Esc</button>
+  </div>
+  <div class="keys" id="keys" role="toolbar" aria-label="Keys">
+    <button data-key="escape">esc</button>
+    <button data-key="tab">tab</button>
+    <button id="ctrl-btn" class="toggle" aria-pressed="false">ctrl</button>
+    <button data-key="arrowUp" aria-label="Up">↑</button>
+    <button data-key="arrowDown" aria-label="Down">↓</button>
+    <button data-key="arrowLeft" aria-label="Left">←</button>
+    <button data-key="arrowRight" aria-label="Right">→</button>
+    <button data-key="c" data-mods="ctrl">^C</button>
+    <button data-key="backspace" aria-label="Backspace">⌫</button>
+    <button data-key="enter" aria-label="Return">⏎</button>
+  </div>
+  <form class="composer" id="composer" autocomplete="off">
+    <textarea id="input" rows="1" placeholder="Type to the terminal…" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send"></textarea>
+    <button type="submit" class="send" id="send-btn" aria-label="Send">↑</button>
+  </form>
+</section>
+
+<!-- Settings sheet -->
+<div class="sheet-backdrop" id="sheet" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="sheet-title">
+    <h2 id="sheet-title">This phone</h2>
+    <p class="sheet-info" id="sheet-info"></p>
+    <button id="forget-btn" class="danger">Unpair this phone</button>
+    <button id="sheet-close">Done</button>
+  </div>
+</div>
+
+<script src="vendor/xterm.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

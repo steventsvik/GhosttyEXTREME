@@ -270,13 +270,16 @@ final class PhoneServer: ObservableObject {
         case "text":
             guard let surface = surface(message["id"]), let text = message["text"] as? String, !text.isEmpty else { return }
             // Messages arrive on the main queue.
-            MainActor.assumeIsolated { surface.surfaceModel?.sendText(text) }
+            MainActor.assumeIsolated { Self.type(text, on: surface) }
         case "key":
             guard let surface = surface(message["id"]), let key = message["key"] as? String else { return }
             let mods = message["mods"] as? [String] ?? []
             MainActor.assumeIsolated { Self.press(key, mods: mods, on: surface) }
         case "ping":
             client.socket.send(Self.json(["t": "pong"]))
+        case "unpair":
+            // The phone asked to be forgotten.
+            PhoneDevices.shared.remove(device.id)
         default:
             break
         }
@@ -400,10 +403,11 @@ final class PhoneServer: ObservableObject {
     // MARK: Keys
 
     /// Presses a key in the surface: "enter", "tab", "escape", "backspace", "arrowUp"… or a
-    /// letter/digit with modifiers ("c" with ["ctrl"] for Ctrl-C).
+    /// letter, digit or space with modifiers ("c" with ["ctrl"] for Ctrl-C, "1" to pick the
+    /// first option in an agent's menu).
     @MainActor
     private static func press(_ name: String, mods names: [String], on surface: Ghostty.SurfaceView) {
-        guard let model = surface.surfaceModel, let key = Ghostty.Input.Key(rawValue: name) else { return }
+        guard let model = surface.surfaceModel, let key = key(named: name) else { return }
         var mods: Ghostty.Input.Mods = []
         if names.contains("ctrl") { mods.insert(.ctrl) }
         if names.contains("alt") { mods.insert(.alt) }
@@ -416,10 +420,73 @@ final class PhoneServer: ObservableObject {
         case .backspace: text = "\u{7f}"
         default: text = mods.isEmpty && name.count == 1 ? name : nil
         }
-        let codepoint = name.count == 1 ? name.unicodeScalars.first!.value : 0
+        let codepoint = name.count == 1 ? name.lowercased().unicodeScalars.first!.value : 0
         model.sendKeyEvent(.init(key: key, action: .press, text: mods.contains(.ctrl) ? nil : text,
                                  mods: mods, unshiftedCodepoint: codepoint))
         model.sendKeyEvent(.init(key: key, action: .release, mods: mods, unshiftedCodepoint: codepoint))
+    }
+
+    /// Types text the way a keyboard would, so programs see keystrokes rather than a paste
+    /// (vim runs ":q!" instead of inserting it). Several lines, long text and characters a
+    /// US keyboard doesn't have go in as a paste.
+    @MainActor
+    private static func type(_ text: String, on surface: Ghostty.SurfaceView) {
+        guard let model = surface.surfaceModel else { return }
+        if text.contains(where: \.isNewline) || text.count > 300 {
+            model.sendText(text)
+            return
+        }
+        var pending = ""
+        for char in text {
+            guard let (key, shift) = usKey(for: char) else {
+                pending.append(char)
+                continue
+            }
+            if !pending.isEmpty { model.sendText(pending); pending = "" }
+            let mods: Ghostty.Input.Mods = shift ? [.shift] : []
+            let unshifted = shift ? (usUnshifted[key] ?? char) : char
+            let codepoint = unshifted.unicodeScalars.first?.value ?? 0
+            model.sendKeyEvent(.init(key: key, action: .press, text: String(char), mods: mods, consumedMods: mods,
+                                     unshiftedCodepoint: codepoint))
+            model.sendKeyEvent(.init(key: key, action: .release, mods: mods, unshiftedCodepoint: codepoint))
+        }
+        if !pending.isEmpty { model.sendText(pending) }
+    }
+
+    private static let usShifted: [Character: Character] = [
+        "!": "1", "@": "2", "#": "3", "$": "4", "%": "5", "^": "6", "&": "7", "*": "8", "(": "9", ")": "0",
+        "_": "-", "+": "=", "{": "[", "}": "]", "|": "\\", ":": ";", "\"": "'", "<": ",", ">": ".", "?": "/", "~": "`",
+    ]
+
+    private static let usPunctuation: [Character: Ghostty.Input.Key] = [
+        "-": .minus, "=": .equal, "[": .bracketLeft, "]": .bracketRight, "\\": .backslash, ";": .semicolon,
+        "'": .quote, ",": .comma, ".": .period, "/": .slash, "`": .backquote, " ": .space,
+    ]
+
+    /// The unshifted character on each key, for shifted punctuation.
+    private static let usUnshifted: [Ghostty.Input.Key: Character] = {
+        var map: [Ghostty.Input.Key: Character] = [:]
+        for (char, key) in usPunctuation { map[key] = char }
+        for digit in "0123456789" { if let key = Ghostty.Input.Key(rawValue: "digit\(digit)") { map[key] = digit } }
+        return map
+    }()
+
+    /// The key and Shift state that types a character on a US keyboard.
+    private static func usKey(for char: Character) -> (Ghostty.Input.Key, Bool)? {
+        guard char.isASCII else { return nil }
+        if char.isLetter, let key = Ghostty.Input.Key(rawValue: char.lowercased()) { return (key, char.isUppercase) }
+        if char.isNumber, let key = Ghostty.Input.Key(rawValue: "digit\(char)") { return (key, false) }
+        if let key = usPunctuation[char] { return (key, false) }
+        if let base = usShifted[char], let found = usKey(for: base) { return (found.0, true) }
+        return nil
+    }
+
+    private static func key(named name: String) -> Ghostty.Input.Key? {
+        guard name.count == 1, let char = name.first, char.isASCII else { return Ghostty.Input.Key(rawValue: name) }
+        if char.isLetter { return Ghostty.Input.Key(rawValue: name.lowercased()) }
+        if char.isNumber { return Ghostty.Input.Key(rawValue: "digit" + name) }
+        if char == " " { return .space }
+        return nil
     }
 
     /// Sorted keys, so the same content always gives the same text (messages are only sent

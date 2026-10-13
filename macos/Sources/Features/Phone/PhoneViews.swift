@@ -262,7 +262,11 @@ private struct PhoneSetupView: View {
                 QRCodeView(text: url.absoluteString + "#pair=" + code, size: 150)
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Scan with your phone's camera").font(Extreme.font(12.5, weight: .semibold)).foregroundColor(Extreme.text)
-                    Text("The code works once, for 10 minutes. Your phone has to be on Tailscale.")
+                    Text(code)
+                        .font(.system(size: 17, weight: .semibold, design: .monospaced))
+                        .foregroundColor(Extreme.gold)
+                        .textSelection(.enabled)
+                    Text("Or open \(url.host ?? "the address") on your phone and type this code. It works once, for 10 minutes. Your phone has to be on Tailscale.")
                         .font(Extreme.font(11)).foregroundColor(Extreme.muted)
                         .fixedSize(horizontal: false, vertical: true)
                     Button("Cancel") { phones.cancelPairing() }
