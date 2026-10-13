@@ -12,7 +12,7 @@ struct ReleaseNotesTests {
 
         #expect(notes != nil)
         if case .tagged(let url) = notes {
-            // GhosttyEXTREME links to its own releases.
+            // Tellurion links to its own releases.
             #expect(url.absoluteString == "https://github.com/steventsvik/GhosttyEXTREME/releases/tag/extreme-1.2.3")
             #expect(notes?.label == "View Release Notes")
         } else {
@@ -110,7 +110,7 @@ struct ReleaseNotesTests {
             currentCommit: nil
         )
 
-        // GhosttyEXTREME has four-part versions (1.5.5.1), each with its own release.
+        // Tellurion has four-part versions (1.5.5.1), each with its own release.
         if case .tagged(let url) = notes {
             #expect(url.absoluteString == "https://github.com/steventsvik/GhosttyEXTREME/releases/tag/extreme-1.2.3.4")
         } else {

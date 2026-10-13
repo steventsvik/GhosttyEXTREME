@@ -2,7 +2,7 @@
 import AppKit
 import SwiftUI
 
-/// GhosttyEXTREME's additions to the command palette (⌘P / ⌘⇧P): agents waiting on the
+/// Tellurion's additions to the command palette (⌘P / ⌘⇧P): agents waiting on the
 /// user, new sessions, and the sidebar, editor and usage toggles. Tabs already appear as
 /// Ghostty's own "Focus:" entries; `agentBadge` adds each one's agent status.
 enum PaletteExtras {
@@ -27,7 +27,7 @@ enum PaletteExtras {
         }
     }
 
-    /// New sessions and GhosttyEXTREME's own view toggles. Sorted in with Ghostty's commands.
+    /// New sessions and Tellurion's own view toggles. Sorted in with Ghostty's commands.
     static func commandOptions(for surfaceView: Ghostty.SurfaceView) -> [CommandOption] {
         var options: [CommandOption] = []
         if let owner = surfaceView.window?.windowController as? TerminalController {
@@ -174,7 +174,7 @@ enum PaletteExtras {
             VerticalTabsMenu.shared.toggle(nil)
         })
         options.append(CommandOption(
-            title: "GhosttyEXTREME Settings",
+            title: "Tellurion Settings",
             description: "Features, animation and the sidebar",
             symbols: ["⌃", "⌘", ","],
             leadingIcon: "gearshape"

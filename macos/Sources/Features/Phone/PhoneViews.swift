@@ -118,7 +118,7 @@ private struct PhoneSetupView: View {
                             .foregroundColor(Extreme.danger)
                             .textSelection(.enabled)
                     }
-                    Text("GhosttyEXTREME only uses Tailscale inside your own tailnet. It never turns on Funnel, which would put your terminal on the public internet.")
+                    Text("Tellurion only uses Tailscale inside your own tailnet. It never turns on Funnel, which would put your terminal on the public internet.")
                         .font(Extreme.font(10.5))
                         .foregroundColor(Extreme.dim)
                         .padding(.top, 4)

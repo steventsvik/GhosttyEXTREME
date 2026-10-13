@@ -2,7 +2,7 @@
 import AppKit
 
 /// One agent session, summarized from its transcript on disk. Nothing is recorded by
-/// GhosttyEXTREME itself; Claude Code (~/.claude/projects) and Codex (~/.codex/sessions)
+/// Tellurion itself; Claude Code (~/.claude/projects) and Codex (~/.codex/sessions)
 /// already keep everything needed.
 struct ActivitySession: Identifiable, Codable, Equatable {
     let id: String

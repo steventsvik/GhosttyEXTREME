@@ -5,7 +5,7 @@ import Foundation
 /// config file; all of them run the same observer, `agent-event.py <agent> <event>`, which
 /// never approves, blocks or changes anything.
 ///
-/// Where the agent reads a folder of hook files, GhosttyEXTREME writes a file of its own
+/// Where the agent reads a folder of hook files, Tellurion writes a file of its own
 /// there. Where hooks share a settings file with the user's, only our entries are added
 /// or removed, and the file is backed up first.
 enum MoreAgent: String, CaseIterable, Identifiable {
@@ -232,7 +232,7 @@ extension HookInstaller {
         let url = agent.file(home: home)
         if agent == .opencode {
             guard let source = bundled?.appendingPathComponent("opencode-plugin.js") else {
-                throw Failure(message: "This build of GhosttyEXTREME doesn't include the OpenCode plugin.")
+                throw Failure(message: "This build of Tellurion doesn't include the OpenCode plugin.")
             }
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try Data(contentsOf: source).write(to: url, options: .atomic)

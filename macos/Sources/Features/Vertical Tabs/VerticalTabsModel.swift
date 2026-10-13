@@ -174,7 +174,7 @@ extension UserDefaults {
 /// palette shortcut, "Mission Control" (⌃⌘M), "Race Agents…" (⌃⌘R), "Localhost Manager"
 /// (⌃⌘L), "Review Changes" (⌃⌘I), "Command History" (⌃⌘B), "Agent Activity" (⌃⌘A),
 /// "Project Memory" (⌃⌘Y) and "Keyboard Shortcuts" (⌃⌘/) in the View menu, and
-/// GhosttyEXTREME's Settings (⌘,), Check Setup and Welcome in the app menu. Items of features turned off in Settings are hidden, which
+/// Tellurion's Settings (⌘,), Check Setup and Welcome in the app menu. Items of features turned off in Settings are hidden, which
 /// also turns off their shortcuts.
 final class VerticalTabsMenu: NSObject {
     static let shared = VerticalTabsMenu()
@@ -253,7 +253,7 @@ final class VerticalTabsMenu: NSObject {
         let items = [
             ClosureMenuItem("Settings…", image: nil) { ExtremeSettingsWindow.show() },
             ClosureMenuItem("Check Setup…", image: nil) { SetupCheckWindow.show() },
-            ClosureMenuItem("Welcome to GhosttyEXTREME…", image: nil) { WelcomeWindow.show() },
+            ClosureMenuItem("Welcome to Tellurion…", image: nil) { WelcomeWindow.show() },
         ]
         items[0].image = NSImage(systemSymbolName: "gear", accessibilityDescription: nil)
         // The old shortcut keeps working.

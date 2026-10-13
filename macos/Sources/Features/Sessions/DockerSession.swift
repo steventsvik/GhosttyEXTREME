@@ -110,7 +110,7 @@ enum DockerSessions {
     private static let agentImage = "ghostty-extreme/agent:1"
 
     private static let agentDockerfile = """
-    # GhosttyEXTREME: image for sandboxed Claude Code and Codex sessions.
+    # Tellurion: image for sandboxed Claude Code and Codex sessions.
     FROM node:22-bookworm
     RUN apt-get update \\
      && apt-get install -y --no-install-recommends git ripgrep python3 python3-pip less curl ca-certificates \\
@@ -125,7 +125,7 @@ enum DockerSessions {
 
     private static let launcherScript = """
     #!/bin/bash
-    # GhosttyEXTREME: starts an isolated Docker session.
+    # Tellurion: starts an isolated Docker session.
     # Usage: sandbox.sh <ubuntu|python|node|claude|codex> <folder to share | - | -home>
     # Always ends in a normal shell on the Mac, so errors stay readable.
     kind="$1"
@@ -187,7 +187,7 @@ enum DockerSessions {
 
     printf '\\033[1;36m▣ Isolated %s session\\033[0m  %s\\n  Type exit to leave; the container is deleted.\\n\\n' "$kind" "$shared"
     docker run "${args[@]}" "$image" "${cmd[@]}"
-    # The VM uses gigabytes of memory: if a GhosttyEXTREME session started it and no
+    # The VM uses gigabytes of memory: if a Tellurion session started it and no
     # containers are left running, stop it.
     if [ -f "$HOME/.ghostty-extreme/colima-started" ] && [ -z "$(docker ps -q 2>/dev/null)" ]; then
       echo "Stopping Docker (Colima); nothing else is using it…"

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="images/readme/banner.png" alt="GhosttyEXTREME: the macOS terminal built for coding agents" width="100%">
+  <img src="images/readme/banner.png" alt="Tellurion: the macOS terminal built for coding agents" width="100%">
 </p>
 
 <p align="center">
@@ -27,7 +27,7 @@
 
 <p align="center"><sub>Real app, real agents, demo projects. <a href="images/readme/demo.mp4">Watch in full quality</a>.</sub></p>
 
-**GhosttyEXTREME is a macOS terminal for developers who run several AI coding agents,
+**Tellurion is a macOS terminal for developers who run several AI coding agents,
 like Claude Code, Codex, Gemini CLI and Copilot CLI, across several projects at once.** It's a fork of
 [Ghostty](https://ghostty.org), the fast native terminal, that shows what every agent is
 doing, live: the code it's writing as it writes it, where it is in your project, what part
@@ -37,6 +37,10 @@ from.
 
 Everything Ghostty does still works, and your Ghostty config works as-is. This fork tracks
 official Ghostty releases and adds its features on top.
+
+> **Tellurion was called GhosttyEXTREME.** It was renamed at the Ghostty project's request:
+> "Ghostty" and the ghost icon are its trademarks. Same app, same features; if you have
+> GhosttyEXTREME installed, Check for Updates… brings you to Tellurion.
 
 > [!NOTE]
 > Unofficial fork. Not affiliated with or endorsed by the Ghostty project.
@@ -52,10 +56,10 @@ curl -fsSL https://raw.githubusercontent.com/steventsvik/GhosttyEXTREME/custom/i
 ## Watch your agents work, live
 
 Run Claude Code, Codex, Gemini CLI, Copilot CLI or another agent in a tab, the way you
-already do. GhosttyEXTREME follows each one as it works.
+already do. Tellurion follows each one as it works.
 
 <p align="center">
-  <img src="images/readme/main-window.png" alt="GhosttyEXTREME with a live Claude Code agent: the agent sidebar, the terminal, the code editor typing in the agent's edit, and the code map tracing its path" width="100%">
+  <img src="images/readme/main-window.png" alt="Tellurion with a live Claude Code agent: the agent sidebar, the terminal, the code editor typing in the agent's edit, and the code map tracing its path" width="100%">
 </p>
 
 | As the agent… | …you see |
@@ -504,17 +508,17 @@ current project's own.
 ### Setup, settings and updates
 
 <p align="center">
-  <img src="images/readme/shortcuts.png" alt="The shortcut overlay: every GhosttyEXTREME and Ghostty shortcut" width="60%">
+  <img src="images/readme/shortcuts.png" alt="The shortcut overlay: every Tellurion and Ghostty shortcut" width="60%">
 </p>
 
 - **Welcome window:** on first launch it finds Claude Code, Codex and the tools the hooks
   need, connects your agents in one click (backing up each file it changes), lets you pick
   features, and runs a live test.
-- **Check Setup** (GhosttyEXTREME menu or ⌘P) checks the hooks, each agent's config, jq,
+- **Check Setup** (Tellurion menu or ⌘P) checks the hooks, each agent's config, jq,
   the shell integration and notifications, with a fix button on each problem, and offers
   **Connect** for Copilot CLI, Droid, Gemini CLI, Antigravity, Kiro, Cursor CLI and OpenCode
   when it finds them.
-  `ghostty-extreme doctor` runs the same checks in a terminal.
+  `tellurion doctor` runs the same checks in a terminal.
 - **Settings** (⌘,) turns each feature on or off. A feature that's off has no menu item,
   shortcut, button or palette entry, and does no background work.
 - **Every shortcut:** hold ⌃⌘ for a moment to see them all over the window.
@@ -533,7 +537,7 @@ ligatures, shell integration, AppleScript and Shortcuts. Your Ghostty config wor
 
 All of the sidebar's animations run in Core Animation, so the app does almost no work per
 frame. Anything you can't see pauses: background tabs, hidden and minimized windows. With
-six agents working at once, GhosttyEXTREME uses about **1–3% CPU** (measured on an
+six agents working at once, Tellurion uses about **1–3% CPU** (measured on an
 Apple silicon MacBook).
 
 ## Security and privacy
@@ -555,10 +559,10 @@ Apple silicon MacBook).
 
 ## How it compares
 
-GhosttyEXTREME is for watching and steering the CLI agents you already use. If you want a
+Tellurion is for watching and steering the CLI agents you already use. If you want a
 terminal or editor with its own built-in AI, Warp or Zed may suit you better.
 
-| | GhosttyEXTREME | [Ghostty](https://ghostty.org) | [cmux](https://github.com/manaflow-ai/cmux) | [Warp](https://www.warp.dev) | [Zed](https://zed.dev) |
+| | Tellurion | [Ghostty](https://ghostty.org) | [cmux](https://github.com/manaflow-ai/cmux) | [Warp](https://www.warp.dev) | [Zed](https://zed.dev) |
 |---|---|---|---|---|---|
 | **What it is** | Ghostty fork for running coding agents | Fast native terminal | Ghostty-based terminal for agents | Terminal with built-in agents | Code editor with an agent panel |
 | **Runs Claude Code, Codex & co. unchanged** | ✓ | ✓ | ✓ | ✓ | ✓ in its terminal; also via ACP |
@@ -575,7 +579,7 @@ terminal or editor with its own built-in AI, Warp or Zed may suit you better.
 **Where others are ahead:** Warp and Zed run on Linux and Windows and come with their own
 AI. cmux has SSH workspaces and a browser your agents can control, and its sidebar also
 shows PR status and listening ports. Ghostty is the lean original that all of this is built
-on. GhosttyEXTREME is macOS-only, Apple silicon only, and maintained by one person.
+on. Tellurion is macOS-only, Apple silicon only, and maintained by one person.
 
 <sub>Compared from each project's public docs on October 7, 2026. Corrections welcome.</sub>
 
@@ -590,12 +594,12 @@ curl -fsSL https://raw.githubusercontent.com/steventsvik/GhosttyEXTREME/custom/i
 ```
 
 It downloads the [latest release](https://github.com/steventsvik/GhosttyEXTREME/releases/latest),
-checks it against the release's SHA-256 checksums and puts **GhosttyEXTREME.app** in
+checks it against the release's SHA-256 checksums and puts **Tellurion.app** in
 `/Applications`. Then it opens: the welcome window connects Claude Code and Codex in one
 click and runs a live test.
 
-**Updates** arrive in the app: GhosttyEXTREME checks for new releases and installs them when
-you say so (GhosttyEXTREME → Check for Updates…). They're signed, and the app only accepts
+**Updates** arrive in the app: Tellurion checks for new releases and installs them when
+you say so (Tellurion → Check for Updates…). They're signed, and the app only accepts
 updates signed by this project.
 
 <details>
@@ -603,9 +607,9 @@ updates signed by this project.
 
 <br>
 
-Download `GhosttyEXTREME-<version>-macos-arm64.zip` from the
+Download `Tellurion-<version>-macos-arm64.zip` from the
 [latest release](https://github.com/steventsvik/GhosttyEXTREME/releases/latest), unzip it and
-move **GhosttyEXTREME.app** to `/Applications`. It's signed with a Developer ID and notarized by
+move **Tellurion.app** to `/Applications`. It's signed with a Developer ID and notarized by
 Apple, so it opens like any other download.
 
 </details>
@@ -619,7 +623,7 @@ Hold ⌃⌘ for a moment to see them all over the window.
 | Shortcut | |
 |---|---|
 | ⌘P | Command palette: agents waiting on you, new sessions, every tool |
-| ⌘, | Settings (Ghostty's config file is under GhosttyEXTREME → Edit Config File…) |
+| ⌘, | Settings (Ghostty's config file is under Tellurion → Edit Config File…) |
 | ⌃⌘S | Show or hide the sidebar |
 | ⌃⌘M | Mission Control |
 | ⌃⌘E | Code editor |
@@ -647,7 +651,7 @@ Hold ⌃⌘ for a moment to see them all over the window.
 The welcome window and **Check Setup** do all of this for you. The steps below are what
 they do.
 
-GhosttyEXTREME sets `GHOSTTY_EXTREME_AGENT_EVENTS=1` in its terminals. The hook
+Tellurion sets `GHOSTTY_EXTREME_AGENT_EVENTS=1` in its terminals. The hook
 scripts in `agent-hooks/` do nothing anywhere else.
 
 ```sh
@@ -716,7 +720,7 @@ own settings.
 git clone https://github.com/steventsvik/GhosttyEXTREME.git
 cd GhosttyEXTREME
 /opt/homebrew/opt/zig@0.15/bin/zig build -Doptimize=ReleaseFast -Dxcframework-target=native
-ditto macos/build/ReleaseLocal/Ghostty.app /Applications/GhosttyEXTREME.app
+ditto macos/build/ReleaseLocal/Ghostty.app /Applications/Tellurion.app
 ```
 
 If the repo is in an iCloud-synced folder (like Desktop or Documents), codesign fails on

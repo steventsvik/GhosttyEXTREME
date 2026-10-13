@@ -46,7 +46,7 @@ struct LocalhostSession: Identifiable, Equatable {
 }
 
 /// A listening dev server that isn't in a localhost session (started in a normal tab, by an
-/// agent that isn't hooked up, or outside GhosttyEXTREME).
+/// agent that isn't hooked up, or outside Tellurion).
 struct LocalhostOtherServer: Identifiable, Equatable {
     let pid: Int32
     /// The process to restart when moving it into a session (e.g. `npm run dev`, not the
@@ -405,7 +405,7 @@ final class LocalhostSessions: ObservableObject {
         guard FileManager.default.isExecutableFile(atPath: Self.runner) else {
             let alert = NSAlert()
             alert.messageText = "Localhost sessions aren't installed"
-            alert.informativeText = "Run agent-hooks/install.sh from the GhosttyEXTREME repository, then try again."
+            alert.informativeText = "Run agent-hooks/install.sh from the Tellurion repository, then try again."
             alert.runModal()
             return
         }

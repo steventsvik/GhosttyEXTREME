@@ -3,7 +3,7 @@ import AppKit
 import Combine
 import SwiftUI
 
-/// Keeps GhosttyEXTREME current: checks for a new release soon after launch and every hour,
+/// Keeps Tellurion current: checks for a new release soon after launch and every hour,
 /// and installs it when asked, now or once the agents have finished their turns.
 final class ExtremeUpdates: ObservableObject {
     static let shared = ExtremeUpdates()
@@ -110,7 +110,7 @@ struct UpdateCard: View {
                 Image(systemName: "arrow.down.circle.fill").foregroundColor(Extreme.gold).font(.system(size: 15))
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Update available").font(Extreme.font(12, weight: .semibold)).foregroundColor(Extreme.text)
-                    Text("GhosttyEXTREME \(version)").font(Extreme.font(10.5)).foregroundColor(Extreme.muted)
+                    Text("Tellurion \(version)").font(Extreme.font(10.5)).foregroundColor(Extreme.muted)
                 }
                 Spacer(minLength: 0)
                 Button("What's new") { UpdateWindow.show() }

@@ -2,7 +2,7 @@
 import AppKit
 import Combine
 
-/// Where the user's Tailscale setup stands, as far as using GhosttyEXTREME from a phone goes.
+/// Where the user's Tailscale setup stands, as far as using Tellurion from a phone goes.
 /// Read from `tailscale status --json`; nothing here changes Tailscale on its own. Each
 /// step the setup panel offers runs only when the user presses its button.
 struct TailscaleStatus: Equatable {

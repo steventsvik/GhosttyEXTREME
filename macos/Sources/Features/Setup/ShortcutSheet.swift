@@ -146,8 +146,8 @@ final class ShortcutSheet {
         if let main = NSApp.mainMenu { walk(main) }
         let ordered = essentials.compactMap { ghostty[$0] }
         return [
-            Group(id: "GhosttyEXTREME", shortcuts: extreme.sorted { $0.title < $1.title }),
-            Group(id: "Ghostty", shortcuts: ordered),
+            Group(id: "Tellurion", shortcuts: extreme.sorted { $0.title < $1.title }),
+            Group(id: "Terminal", shortcuts: ordered),
             Group(id: "Splits", shortcuts: splits.sorted { $0.title < $1.title }),
         ].filter { !$0.shortcuts.isEmpty }
     }

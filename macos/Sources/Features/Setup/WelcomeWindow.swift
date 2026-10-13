@@ -4,13 +4,13 @@ import SwiftUI
 
 /// The first-run window: what's installed, setting up agent status in one click, choosing
 /// features, and a live test. Shown on first launch only when something needs setting up,
-/// and any time from the GhosttyEXTREME menu.
+/// and any time from the Tellurion menu.
 enum WelcomeWindow {
     static let windowID = "welcome"
     static let doneKey = "ExtremeWelcomeDone"
 
     static func show() {
-        AgentToolWindows.show(id: windowID, title: "Welcome to GhosttyEXTREME", size: NSSize(width: 640, height: 600)) {
+        AgentToolWindows.show(id: windowID, title: "Welcome to Tellurion", size: NSSize(width: 640, height: 600)) {
             WelcomeView()
         }
     }
@@ -105,7 +105,7 @@ private struct WelcomeView: View {
             Spacer()
             if page < pages.count - 1 {
                 Button("Skip setup") { WelcomeWindow.finish() }
-                    .help("You can come back from GhosttyEXTREME > Welcome… or Check Setup…")
+                    .help("You can come back from Tellurion > Welcome… or Check Setup…")
                 Button(page == 1 && setUpResult == nil && needsSetUp ? "Next without setting up" : "Next") { page += 1 }
                     .buttonStyle(ExtremeButtonStyle(prominent: !(page == 1 && needsSetUp && setUpResult == nil)))
             } else {
@@ -123,7 +123,7 @@ private struct WelcomeView: View {
             HStack(spacing: 14) {
                 ExtremeSigil(size: 44)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("GHOSTTY·EXTREME").font(Extreme.font(18, weight: .semibold)).kerning(2.4).foregroundColor(Extreme.gold)
+                    Text("TELLURION").font(Extreme.font(18, weight: .semibold)).kerning(4.2).foregroundColor(Extreme.gold)
                     Text("A terminal built for watching coding agents work")
                         .font(Extreme.font(12.5, weight: .regular)).foregroundColor(Extreme.muted)
                 }
@@ -166,7 +166,7 @@ private struct WelcomeView: View {
 
     private var agentStatus: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Agents tell GhosttyEXTREME what they're doing through small hook scripts. Setting up:")
+            Text("Agents tell Tellurion what they're doing through small hook scripts. Setting up:")
                 .font(Extreme.font(12.5, weight: .regular)).foregroundColor(Extreme.text)
             VStack(alignment: .leading, spacing: 8) {
                 plan(true, "Install the hooks", "Into ~/.ghostty-extreme, outside folders macOS protects", locked: true)
@@ -259,7 +259,7 @@ private struct WelcomeView: View {
 
     private var tryIt: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Send a test event through the real hooks. A new tab runs ghostty-extreme doctor, which checks everything and reports to the sidebar.")
+            Text("Send a test event through the real hooks. A new tab runs tellurion doctor, which checks everything and reports to the sidebar.")
                 .font(Extreme.font(12.5, weight: .regular)).foregroundColor(Extreme.text)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 12) {
@@ -278,7 +278,7 @@ private struct WelcomeView: View {
                 hint("⌃⌘ held for a moment", "shows every shortcut")
                 hint("⌘P", "jumps to any tab, agent or command")
                 hint("+ New in the sidebar", "starts Claude Code, Codex and other sessions")
-                hint("GhosttyEXTREME menu", "Settings, Check Setup and this window")
+                hint("Tellurion menu", "Settings, Check Setup and this window")
                 hint("New tabs", "pick up the ~/.zshrc change; tabs that were already open don't")
             }
         }

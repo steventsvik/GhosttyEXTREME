@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Shared memory for GhosttyEXTREME: what one agent remembers about a project, for the other.
+"""Shared memory for Tellurion: what one agent remembers about a project, for the other.
 
     memory_context.py <claude|codex> <folder>
 
 Prints the context to add at the start of a session of the named agent: for Codex, Claude
 Code's notes about the project and its CLAUDE.md; for Claude Code, Codex's memories about
 the project and its AGENTS.md. Prints nothing when there's nothing to share or sharing is
-turned off in GhosttyEXTREME's Settings. Only reads files; never fails a session.
+turned off in Tellurion's Settings. Only reads files; never fails a session.
 
 The app reads the same places (macos/Sources/Features/Memory/ProjectMemory.swift).
 """
@@ -122,9 +122,9 @@ def context(agent, folder):
         return None
     text = "\n\n".join(parts)
     if len(text) > LIMIT:
-        text = text[:LIMIT] + "\n…(cut; the rest is in GhosttyEXTREME → Project Memory)"
+        text = text[:LIMIT] + "\n…(cut; the rest is in Tellurion → Project Memory)"
     return (f"## What {source} remembers about this project\n\n"
-            f"Shared by GhosttyEXTREME from {source}'s own memory of {root}. Treat these as notes "
+            f"Shared by Tellurion from {source}'s own memory of {root}. Treat these as notes "
             f"from a colleague who worked here: they can be out of date, so check before relying "
             f"on one, and follow the user if they disagree.\n\n{text}")
 

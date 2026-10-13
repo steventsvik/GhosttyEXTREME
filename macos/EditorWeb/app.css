@@ -328,7 +328,7 @@ kbd { font: 11px var(--font-ui); background: #8080802b; border: 1px solid #33333
 #agent-turn .turn-file:hover { filter: brightness(1.25); }
 #agent-turn .turn-more { color: var(--fg-muted); }
 
-/* ---------- GhosttyEXTREME: refined chrome, gold on dark ---------- */
+/* ---------- Tellurion: refined chrome, gold on dark ---------- */
 :root { --accent: #deb86e; }
 html, body { font-size: 12.5px; }
 .pane-title, .section-title { text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }

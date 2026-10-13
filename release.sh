@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Builds a GhosttyEXTREME release, checks it, and creates a draft release on GitHub.
+# Builds a Tellurion release, checks it, and creates a draft release on GitHub.
 #
 #   ./release.sh check 1.5.0    build and check everything; nothing leaves this Mac
 #   ./release.sh draft 1.5.0    the same, then a *draft* release (nobody is notified)
@@ -126,15 +126,15 @@ pass "editor scripts parse"
 
 # ── Package ─────────────────────────────────────────────────────────────
 step "Package"
-APP=$OUT/GhosttyEXTREME.app
-rm -rf $APP $OUT/GhosttyEXTREME-agent-hooks $OUT/*.zip(N)
+APP=$OUT/Tellurion.app
+rm -rf $APP $OUT/Tellurion-agent-hooks $OUT/*.zip(N)
 ditto macos/build/ReleaseLocal/Ghostty.app $APP
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" -c "Set :CFBundleVersion $VERSION" $APP/Contents/Info.plist
 # Only release builds check for updates by themselves (see AppDelegate).
 /usr/libexec/PlistBuddy -c "Delete :GhosttyExtremeRelease" $APP/Contents/Info.plist 2>/dev/null
 /usr/libexec/PlistBuddy -c "Add :GhosttyExtremeRelease bool true" $APP/Contents/Info.plist
 # The menu bar shows CFBundleName, which Xcode sets from the target name ("Ghostty").
-/usr/libexec/PlistBuddy -c "Set :CFBundleName GhosttyEXTREME" $APP/Contents/Info.plist
+/usr/libexec/PlistBuddy -c "Set :CFBundleName Tellurion" $APP/Contents/Info.plist
 # Debug info carries the build machine's paths; the release doesn't need it.
 find $APP -type f -perm +111 -exec sh -c 'file "$1" | grep -q Mach-O && strip -S -x "$1" 2>/dev/null; true' _ {} \;
 LEAKS=$(LC_ALL=C grep -rl -a "/Users/$USER" $APP | wc -l | xargs)
@@ -179,16 +179,16 @@ pass "updates signed with your key ($KEY_ACCOUNT) will be accepted"
 [[ $(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" $APP/Contents/Info.plist) == $VERSION ]] || fail "version not set"
 pass "version $VERSION"
 
-HOOKS=$OUT/GhosttyEXTREME-agent-hooks
+HOOKS=$OUT/Tellurion-agent-hooks
 mkdir -p $HOOKS
-for f in agent-hook.sh ghostty-extreme.zsh ghostty-extreme install.sh localhost localhost-run codex-hook.py memory_context.py install-codex.py agent-event.py opencode-plugin.js; do
+for f in agent-hook.sh ghostty-extreme.zsh tellurion ghostty-extreme install.sh localhost localhost-run codex-hook.py memory_context.py install-codex.py agent-event.py opencode-plugin.js; do
   git show HEAD:agent-hooks/$f > $HOOKS/$f || fail "agent-hooks/$f missing"
 done
-chmod +x $HOOKS/{agent-hook.sh,ghostty-extreme,install.sh,localhost,localhost-run,codex-hook.py,install-codex.py,agent-event.py}
+chmod +x $HOOKS/{agent-hook.sh,tellurion,ghostty-extreme,install.sh,localhost,localhost-run,codex-hook.py,install-codex.py,agent-event.py}
 grep -rqE "/Users/|$USER" $HOOKS && fail "the hooks contain a personal path or name"
-for f in $HOOKS/*.sh $HOOKS/localhost $HOOKS/localhost-run $HOOKS/ghostty-extreme; do bash -n $f || fail "$f has a syntax error"; done
+for f in $HOOKS/*.sh $HOOKS/localhost $HOOKS/localhost-run $HOOKS/tellurion $HOOKS/ghostty-extreme; do bash -n $f || fail "$f has a syntax error"; done
 # The app installs these itself (welcome window, Check Setup).
-for f in agent-hook.sh ghostty-extreme.zsh ghostty-extreme codex-hook.py memory_context.py localhost localhost-run agent-event.py opencode-plugin.js; do
+for f in agent-hook.sh ghostty-extreme.zsh tellurion ghostty-extreme codex-hook.py memory_context.py localhost localhost-run agent-event.py opencode-plugin.js; do
   cmp -s $HOOKS/$f $APP/Contents/Resources/agent-hooks/$f || fail "the app's bundled agent-hooks/$f doesn't match the repo"
 done
 # Parse only: py_compile would leave a __pycache__ folder in the release.
@@ -235,10 +235,10 @@ if [[ $SIGNED == 1 ]]; then
   xcrun stapler staple $APP > $OUT/staple.log 2>&1 || { cat $OUT/staple.log; fail "couldn't attach the notarization ticket"; }
   pass "ticket attached, so it opens even offline"
   # What a downloaded copy goes through: quarantined, then judged by Gatekeeper.
-  GK=$OUT/gatekeeper && rm -rf $GK && mkdir -p $GK && ditto $APP $GK/GhosttyEXTREME.app
-  xattr -w com.apple.quarantine "0081;$(printf %x $(date +%s));Safari;" $GK/GhosttyEXTREME.app
-  spctl --assess --type execute -vv $GK/GhosttyEXTREME.app 2>&1 | grep -q 'source=Notarized Developer ID' \
-    || { spctl --assess --type execute -vv $GK/GhosttyEXTREME.app; fail "Gatekeeper wouldn't open a downloaded copy"; }
+  GK=$OUT/gatekeeper && rm -rf $GK && mkdir -p $GK && ditto $APP $GK/Tellurion.app
+  xattr -w com.apple.quarantine "0081;$(printf %x $(date +%s));Safari;" $GK/Tellurion.app
+  spctl --assess --type execute -vv $GK/Tellurion.app 2>&1 | grep -q 'source=Notarized Developer ID' \
+    || { spctl --assess --type execute -vv $GK/Tellurion.app; fail "Gatekeeper wouldn't open a downloaded copy"; }
   rm -rf $GK
   pass "Gatekeeper opens a downloaded copy (Notarized Developer ID)"
 else
@@ -247,9 +247,9 @@ fi
 
 # ── Archives and notes ──────────────────────────────────────────────────
 step "Archives"
-APPZIP=GhosttyEXTREME-$VERSION-macos-arm64.zip
-HOOKZIP=GhosttyEXTREME-$VERSION-agent-hooks.zip
-(cd $OUT && ditto -c -k --keepParent GhosttyEXTREME.app $APPZIP && ditto -c -k --keepParent GhosttyEXTREME-agent-hooks $HOOKZIP)
+APPZIP=Tellurion-$VERSION-macos-arm64.zip
+HOOKZIP=Tellurion-$VERSION-agent-hooks.zip
+(cd $OUT && ditto -c -k --keepParent Tellurion.app $APPZIP && ditto -c -k --keepParent Tellurion-agent-hooks $HOOKZIP)
 APPSHA=$(shasum -a 256 $OUT/$APPZIP | cut -d' ' -f1)
 HOOKSHA=$(shasum -a 256 $OUT/$HOOKZIP | cut -d' ' -f1)
 (cd $OUT && shasum -a 256 $APPZIP $HOOKZIP > SHA256SUMS)
@@ -261,10 +261,10 @@ cat > $OUT/appcast.xml <<APPCAST
 <?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
-    <title>GhosttyEXTREME</title>
+    <title>Tellurion</title>
     <link>https://github.com/$REPO/releases</link>
     <item>
-      <title>GhosttyEXTREME $VERSION</title>
+      <title>Tellurion $VERSION</title>
       <pubDate>$(LC_ALL=C date -u "+%a, %d %b %Y %H:%M:%S +0000")</pubDate>
       <sparkle:version>$VERSION</sparkle:version>
       <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
@@ -288,7 +288,7 @@ $NOTES_BODY
 
 Apple silicon Macs only, macOS 13 or newer. Based on **Ghostty $UPSTREAM**.
 
-**Already on 1.5.0 or later?** GhosttyEXTREME → Check for Updates… installs it.
+**Already on 1.5.0 or later?** Check for Updates… in the app menu installs it.
 
 **New install, or updating from 1.4.x** (whose updater can't reach this release), in Terminal:
 
@@ -296,7 +296,7 @@ Apple silicon Macs only, macOS 13 or newer. Based on **Ghostty $UPSTREAM**.
 curl -fsSL https://raw.githubusercontent.com/$REPO/custom/install.sh | bash
 \`\`\`
 
-It downloads \`$APPZIP\`, checks it against \`SHA256SUMS\`, and puts it in \`/Applications\`. Or by hand: download the zip, open it, and move \`GhosttyEXTREME.app\` to \`/Applications\`. The app is notarized by Apple, so it opens like any other download.
+It downloads \`$APPZIP\`, checks it against \`SHA256SUMS\`, and puts it in \`/Applications\`. Or by hand: download the zip, open it, and move \`Tellurion.app\` to \`/Applications\`. The app is notarized by Apple, so it opens like any other download.
 
 Then open it. The welcome window connects Claude Code and Codex and runs a live test (the hooks are inside the app). \`$HOOKZIP\` has the same hooks for setting up by hand; see the [README](https://github.com/$REPO#agent-status-setup).
 
@@ -322,7 +322,7 @@ fi
 
 # ── Draft ───────────────────────────────────────────────────────────────
 step "Draft release"
-URL=$(gh release create $TAG -R $REPO --draft --target $(git rev-parse HEAD) --title "GhosttyEXTREME $VERSION" \
+URL=$(gh release create $TAG -R $REPO --draft --target $(git rev-parse HEAD) --title "Tellurion $VERSION" \
   --notes-file $OUT/notes.md $OUT/$APPZIP $OUT/$HOOKZIP $OUT/SHA256SUMS $OUT/appcast.xml) || fail "couldn't create the draft"
 pass "draft created (not visible to anyone else yet)"
 print -P "\n%F{green}Review it here, then press Publish:%f\n  $URL"

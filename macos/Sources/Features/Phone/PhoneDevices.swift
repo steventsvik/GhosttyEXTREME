@@ -16,7 +16,7 @@ struct PhoneDevice: Codable, Identifiable, Equatable {
 }
 
 /// Paired phones and the one-time code that pairs a new one. Saved (tokens hashed) in
-/// ~/Library/Application Support/GhosttyEXTREME/phone-devices.json, readable only by the user.
+/// ~/Library/Application Support/Tellurion/phone-devices.json, readable only by the user.
 final class PhoneDevices: ObservableObject {
     static let shared = PhoneDevices()
 

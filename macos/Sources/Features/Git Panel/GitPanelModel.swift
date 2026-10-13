@@ -114,7 +114,7 @@ final class GitPanelModel: ObservableObject {
 
     /// Stashes uncommitted changes, including new files.
     func stashChanges() {
-        run(["stash", "push", "--include-untracked", "-m", "GhosttyEXTREME \(AgentTools.timestamp())"], done: "Changes stashed")
+        run(["stash", "push", "--include-untracked", "-m", "Tellurion \(AgentTools.timestamp())"], done: "Changes stashed")
     }
 
     func apply(_ stash: Stash) { run(["stash", "apply", stash.ref], done: "Applied \(stash.ref)") }

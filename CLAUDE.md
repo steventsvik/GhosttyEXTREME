@@ -1,6 +1,6 @@
-# Working on GhosttyEXTREME
+# Working on Tellurion
 
-GhosttyEXTREME is a fork of Ghostty for macOS, built for watching coding agents
+Tellurion is a fork of Ghostty for macOS, built for watching coding agents
 work. Most of what's ours is Swift in `macos/Sources/Features/` plus the editor's web
 code in `macos/EditorWeb/`. `AGENTS.md` and `macos/AGENTS.md` are upstream Ghostty's
 files; where they disagree with this one, follow this one.
@@ -40,7 +40,7 @@ New Swift files are picked up automatically (synchronized folders); no project e
 
 ## Testing without disturbing the maintainer
 
-The maintainer runs GhosttyEXTREME all day with live agent sessions.
+The maintainer runs Tellurion all day with live agent sessions.
 
 - Never quit, restart or replace `/Applications/GhosttyEXTREME.app` while it's running.
   Installing happens only after they say they've quit it.

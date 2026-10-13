@@ -3,7 +3,7 @@ import AppKit
 import CoreText
 import SwiftUI
 
-/// GhosttyEXTREME's look: near-black, bronze hairlines, gold for what matters, and one
+/// Tellurion's look: near-black, bronze hairlines, gold for what matters, and one
 /// pale cyan glow reserved for the AI itself. Everything is set in the terminal's own
 /// monospace, panels are square with small corner ticks, and motion is stepped, like pixel
 /// art, never smooth.
@@ -94,9 +94,7 @@ struct PixelBitmap: View {
 
 // MARK: - The sigil
 
-/// The GhosttyEXTREME sigil: alpha and iota ("AI" in Greek) fused into one mark, the
-/// iota as the alpha's spine and its crossbar broken open around a glowing core, sealed in
-/// a hexagonal cell.
+/// The Tellurion sigil: a T with a glowing core on its stem, sealed in a hexagonal cell.
 struct ExtremeSigil: View {
     var size: CGFloat = 32
     /// The core glows, breathing in steps.
@@ -109,28 +107,28 @@ struct ExtremeSigil: View {
         "............bb....bb............",
         "...........b........b...........",
         ".........bb...dddd...bb.........",
-        "........b...ddggggdd...b........",
-        "......bb..dd...bb...dd..bb......",
-        "....bb..dd.....bb.....dd..bb....",
-        "...g..dd.......bb.......dd..g...",
-        "...b.d........gbbg........d.b...",
-        "...b.d........bbbb........d.b...",
-        "...b.d.......gbbbbg.......d.b...",
-        "...b.d.......gbbbbg.......d.b...",
-        "...b.d.......b.bb.b.......d.b...",
-        "...b.d......gb.bb.bg......d.b...",
-        "...b.d......b..bb..b......d.b...",
-        "...b.d......b..cc..b......d.b...",
-        "...b.d.....gb.cwwc.bg.....d.b...",
-        "...b.d.....gggcwwcggg.....d.b...",
-        "...b.d....gb...cc...bg....d.b...",
-        "...b.d....gb...bb...bg....d.b...",
-        "...b.d....b....bb....b....d.b...",
-        "...b.d...gb....bb....bg...d.b...",
-        "...g..dggggg...bb...gggggd..g...",
-        "....bb..dd.....bb.....dd..bb....",
-        "......bb..dd...bb...dd..bb......",
-        "........bb..ddggggdd..bb........",
+        "........b...dd....dd...b........",
+        "......bb..dd........dd..bb......",
+        "....bb..dd............dd..bb....",
+        "...g..dd..g..........g..dd..g...",
+        "...b.d....gggggggggggg....d.b...",
+        "...b.d....bbbbbbbbbbbb....d.b...",
+        "...b.d....g....bb....g....d.b...",
+        "...b.d.........bb.........d.b...",
+        "...b.d.........bb.........d.b...",
+        "...b.d.........cc.........d.b...",
+        "...b.d........cwwc........d.b...",
+        "...b.d........cwwc........d.b...",
+        "...b.d.........cc.........d.b...",
+        "...b.d.........bb.........d.b...",
+        "...b.d.........bb.........d.b...",
+        "...b.d.........bb.........d.b...",
+        "...b.d.........bb.........d.b...",
+        "...b.d.......gggggg.......d.b...",
+        "...g..d..................d..g...",
+        "....bb..dd............dd..bb....",
+        "......bb..dd........dd..bb......",
+        "........bb..dd....dd..bb........",
         "..........bb..dddd..bb..........",
         "............bb....bb............",
         "..............bbbb..............",

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Installs or updates GhosttyEXTREME from the latest release on GitHub:
+# Installs or updates Tellurion (formerly GhosttyEXTREME) from the latest release on GitHub:
 #
 #   curl -fsSL https://raw.githubusercontent.com/steventsvik/GhosttyEXTREME/custom/install.sh | bash
 #
@@ -11,18 +11,21 @@
 set -euo pipefail
 
 REPO=steventsvik/GhosttyEXTREME
-DEST=${GHOSTTY_EXTREME_INSTALL_TO:-/Applications}/GhosttyEXTREME.app
+DIR=${GHOSTTY_EXTREME_INSTALL_TO:-/Applications}
+DEST=$DIR/Tellurion.app
+# The app's name before the rebrand; an existing copy is replaced, not kept beside it.
+OLD=$DIR/GhosttyEXTREME.app
 
 say() { printf '%s\n' "$*"; }
-die() { printf 'GhosttyEXTREME: %s\n' "$*" >&2; exit 1; }
+die() { printf 'Tellurion: %s\n' "$*" >&2; exit 1; }
 
 [ "$(uname -s)" = Darwin ] || die "this is a macOS app."
 [ "$(uname -m)" = arm64 ] || die "only Apple silicon Macs are supported for now (https://github.com/$REPO/issues/7)."
 major=$(sw_vers -productVersion | cut -d. -f1)
 [ "$major" -ge 13 ] || die "macOS 13 or newer is needed (this Mac has $(sw_vers -productVersion))."
 
-if pgrep -qf "$DEST/Contents/MacOS/"; then
-  die "GhosttyEXTREME is running. Quit it (⌘Q), then run this again."
+if pgrep -qf "$DEST/Contents/MacOS/" || pgrep -qf "$OLD/Contents/MacOS/"; then
+  die "Tellurion is running. Quit it (⌘Q), then run this again."
 fi
 
 work=$(mktemp -d /tmp/ghostty-extreme-install.XXXXXX)
@@ -47,7 +50,7 @@ while name=$(json "assets.$i.name"); do
 done
 [ -n "$zip_url" ] || die "release $tag has no app download."
 
-say "Downloading GhosttyEXTREME ${version}…"
+say "Downloading Tellurion ${version}…"
 curl -fL --progress-bar "$zip_url" -o "$work/$zip_name" || die "download failed."
 
 # The checksum comes from the release's SHA256SUMS file, or its notes for older releases.
@@ -63,19 +66,31 @@ actual=$(shasum -a 256 "$work/$zip_name" | awk '{print $1}')
 say "Checksum verified."
 
 ditto -x -k "$work/$zip_name" "$work/unpacked" || die "couldn't unpack the download."
-[ -d "$work/unpacked/GhosttyEXTREME.app" ] || die "the download doesn't contain GhosttyEXTREME.app."
-xattr -dr com.apple.quarantine "$work/unpacked/GhosttyEXTREME.app" 2>/dev/null || true
+# Releases before the rebrand contain GhosttyEXTREME.app.
+app="$work/unpacked/Tellurion.app"
+[ -d "$app" ] || app="$work/unpacked/GhosttyEXTREME.app"
+[ -d "$app" ] || die "the download doesn't contain Tellurion.app."
+xattr -dr com.apple.quarantine "$app" 2>/dev/null || true
 
 # Swap in the new copy; put the old one back if that fails.
-if [ -d "$DEST" ]; then
-  mv "$DEST" "$work/previous.app" || die "couldn't move the old copy aside (is /Applications writable?)."
-fi
-if ! mv "$work/unpacked/GhosttyEXTREME.app" "$DEST"; then
-  [ -d "$work/previous.app" ] && mv "$work/previous.app" "$DEST"
+previous=""
+for old in "$DEST" "$OLD"; do
+  if [ -d "$old" ]; then
+    mv "$old" "$work/previous.app" || die "couldn't move the old copy aside (is /Applications writable?)."
+    previous=$old
+    break
+  fi
+done
+if ! mv "$app" "$DEST"; then
+  [ -n "$previous" ] && mv "$work/previous.app" "$previous"
   die "couldn't put the app in /Applications."
 fi
+# An old-named copy left beside the new one would be a second, outdated app.
+if [ "$previous" = "$DEST" ] && [ -d "$OLD" ]; then
+  rm -rf "$OLD"
+fi
 
-say "Installed GhosttyEXTREME ${version} in /Applications."
+say "Installed Tellurion ${version} in /Applications."
 say "Opening it: the welcome window connects Claude Code and Codex. Later versions arrive"
-say "through GhosttyEXTREME > Check for Updates…"
+say "through Tellurion > Check for Updates…"
 [ -n "${GHOSTTY_EXTREME_INSTALL_TO:-}" ] || open "$DEST"

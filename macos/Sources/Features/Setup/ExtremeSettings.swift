@@ -2,7 +2,7 @@
 import AppKit
 import Combine
 
-/// One of GhosttyEXTREME's optional features. Everything is on in a fresh install; Settings
+/// One of Tellurion's optional features. Everything is on in a fresh install; Settings
 /// and the welcome window turn them off. A feature that's off has no menu item, shortcut,
 /// button or palette entry, and does no background work.
 enum ExtremeFeature: String, CaseIterable, Identifiable {
@@ -143,7 +143,7 @@ enum ExtremeMotionLevel: String, CaseIterable, Identifiable {
     }
 }
 
-/// GhosttyEXTREME's own settings (Ghostty's are in its config file).
+/// Tellurion's own settings (Ghostty's are in its config file).
 final class ExtremeSettings: ObservableObject {
     static let shared = ExtremeSettings()
 

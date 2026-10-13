@@ -1,4 +1,4 @@
-// GhosttyEXTREME on your phone: the Mac's tabs, a live view of one, and a keyboard for it.
+// Tellurion on your phone: the Mac's tabs, a live view of one, and a keyboard for it.
 // Talks to PhoneServer.swift over one WebSocket; see that file for the protocol.
 "use strict";
 

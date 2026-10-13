@@ -282,7 +282,7 @@ struct LocalhostTabCard: View {
 
     private var controls: some View {
         HStack(spacing: 4) {
-            LocalhostIconButton(symbol: "eye", help: "Preview in GhosttyEXTREME", tint: .cyan, size: 20) {
+            LocalhostIconButton(symbol: "eye", help: "Preview in Tellurion", tint: .cyan, size: 20) {
                 if let url = session.url { LocalhostPreview.show(url, title: session.project.name) }
             }
             .disabled(session.url == nil)
@@ -308,7 +308,7 @@ struct LocalhostTabCard: View {
     private var menu: some View {
         Button("Fix Visually…") { VisualFixPanel.shared.show(from: owner, url: session.url) }.disabled(session.url == nil)
         Button("Open in Browser") { LocalhostSessions.shared.openInBrowser(session.url) }.disabled(session.url == nil)
-        Button("Preview in GhosttyEXTREME") {
+        Button("Preview in Tellurion") {
             if let url = session.url { LocalhostPreview.show(url, title: session.project.name) }
         }.disabled(session.url == nil)
         Button("Copy URL") { VerticalTabsActions.copy(session.url?.absoluteString ?? "") }.disabled(session.url == nil)

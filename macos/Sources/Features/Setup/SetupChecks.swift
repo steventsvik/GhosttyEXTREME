@@ -34,7 +34,7 @@ enum SetupFix: Equatable {
     case notifications
     /// Reinstall the hooks and repoint every agent at them.
     case repair
-    /// Open a tab running `ghostty-extreme doctor`, which sends a test event.
+    /// Open a tab running `tellurion doctor`, which sends a test event.
     case liveTest
 
     var title: String {
@@ -66,7 +66,7 @@ final class SetupChecks: ObservableObject {
     /// When a verified event from any agent last arrived (this launch). Not published:
     /// agents send many events, and every sidebar watches this object.
     private(set) var lastEventAt: Date?
-    /// When `ghostty-extreme doctor`'s test event last arrived (this launch).
+    /// When `tellurion doctor`'s test event last arrived (this launch).
     @Published private(set) var liveCheckAt: Date?
     /// True for a few seconds after a live test passes, for the sidebar's confirmation.
     @Published private(set) var showLivePass = false
@@ -163,7 +163,7 @@ final class SetupChecks: ObservableObject {
                                 fix: .installHooks))
         case .outdated:
             checks.append(.init(id: "hooks", section: .agentStatus, title: "Hooks are out of date", status: .warning,
-                                detail: "Installed by a different build of GhosttyEXTREME", fix: .installHooks))
+                                detail: "Installed by a different build of Tellurion", fix: .installHooks))
         case .unavailable:
             checks.append(.init(id: "hooks", section: .agentStatus, title: "Hooks not included in this build", status: .warning,
                                 detail: "Run ./agent-hooks/install.sh from the repository"))
@@ -180,7 +180,7 @@ final class SetupChecks: ObservableObject {
                 } else {
                     var parts: [String] = []
                     if report.isEmpty {
-                        parts.append("No GhosttyEXTREME hooks in \(file) yet")
+                        parts.append("No Tellurion hooks in \(file) yet")
                     } else if !report.missing.isEmpty {
                         parts.append("Missing \(report.missing.joined(separator: ", "))")
                     }
@@ -206,7 +206,7 @@ final class SetupChecks: ObservableObject {
                                     status: .ok, detail: "Reports \(agent.reports) · \(file)"))
             } else {
                 checks.append(.init(id: "more-" + agent.rawValue, section: .agentStatus, title: "\(agent.title) can show live status",
-                                    status: .info, detail: "Adds GhosttyEXTREME's hooks to \(file). It reports \(agent.reports).",
+                                    status: .info, detail: "Adds Tellurion's hooks to \(file). It reports \(agent.reports).",
                                     fix: .connectMore(agent)))
             }
         }
@@ -454,7 +454,7 @@ final class SetupChecks: ObservableObject {
                 if checks.contains(where: { $0.id == "codex" }) { try HookInstaller.connect(.codex) }
             case .liveTest:
                 if HookInstaller.filesState() != .current { try HookInstaller.installFiles() }
-                Self.openTab(running: "~/.ghostty-extreme/bin/ghostty-extreme doctor")
+                Self.openTab(running: "~/.ghostty-extreme/bin/tellurion doctor")
             }
         } catch {
             fixError = error.localizedDescription
@@ -478,7 +478,7 @@ final class SetupChecks: ObservableObject {
                     center.getNotificationSettings { after in
                         DispatchQueue.main.async {
                             if !granted || after.authorizationStatus != .authorized {
-                                // System Settings lists apps by their name on disk ("GhosttyEXTREME").
+                                // System Settings lists apps by their name on disk ("Tellurion").
                                 let name = FileManager.default.displayName(atPath: Bundle.main.bundlePath)
                                     .replacingOccurrences(of: ".app", with: "")
                                 self.fixError = "Notifications aren't on yet. In System Settings → Notifications, choose "

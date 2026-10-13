@@ -1,9 +1,9 @@
-# GhosttyEXTREME: tells the vertical tabs sidebar which coding agent a pane is running,
+# Tellurion: tells the vertical tabs sidebar which coding agent a pane is running,
 # the way Warp recognizes agents from the command line. Starting `claude`, `codex`, etc.
 # marks the pane with that agent immediately; the mark clears when the command exits,
 # even if the agent crashed. The agents' own hooks (agent-hook.sh) add live status.
 #
-# Sourced from ~/.zshrc. Does nothing outside GhosttyEXTREME.
+# Sourced from ~/.zshrc. Does nothing outside Tellurion.
 
 # The pre-rebrand "Ghostty Custom" build is still served until it's replaced.
 if [[ "${GHOSTTY_EXTREME_AGENT_EVENTS:-}" == 1 ]]; then

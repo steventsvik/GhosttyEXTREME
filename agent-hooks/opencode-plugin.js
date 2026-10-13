@@ -1,5 +1,5 @@
-// GhosttyEXTREME: live status for OpenCode in the sidebar. Installed by GhosttyEXTREME as
-// ~/.config/opencode/plugins/ghostty-extreme.js; does nothing outside GhosttyEXTREME.
+// Tellurion: live status for OpenCode in the sidebar. Installed by Tellurion as
+// ~/.config/opencode/plugins/ghostty-extreme.js; does nothing outside Tellurion.
 //
 // OpenCode has no command hooks, so this plugin listens to its events and writes the
 // same OSC 777 notification the other agents' hooks send to the terminal. It only

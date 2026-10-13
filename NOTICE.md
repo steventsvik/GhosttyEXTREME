@@ -1,12 +1,14 @@
 # Notices
 
-GhosttyEXTREME is an unofficial fork of Ghostty. It is not affiliated with or
-endorsed by the Ghostty project, Warp, or any of the companies whose products
-are named below.
+Tellurion (formerly GhosttyEXTREME) is an unofficial fork of Ghostty. It is not
+affiliated with or endorsed by the Ghostty project, Warp, or any of the companies
+whose products are named below. "Ghostty" and the Ghostty icon are trademarks of
+the Ghostty project; Tellurion uses neither as its name or icon, and mentions
+Ghostty only to credit it and to describe compatibility.
 
 ## License
 
-GhosttyEXTREME as a whole is distributed under the GNU Affero General Public
+Tellurion as a whole is distributed under the GNU Affero General Public
 License v3.0 (see [LICENSE](LICENSE)), because parts of its design and assets
 are derived from AGPL-3.0 code.
 

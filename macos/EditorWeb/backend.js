@@ -1182,7 +1182,7 @@
     if (!B.comps.length) {
       const e = el('div', 'be-empty');
       e.append(el('div', 'be-empty-title', 'No backend found in this project'),
-               el('div', null, 'GhosttyEXTREME looks for Supabase, Cloudflare (wrangler), Vercel, Prisma, Firebase, server frameworks and the services your env variables point at.'));
+               el('div', null, 'Tellurion looks for Supabase, Cloudflare (wrangler), Vercel, Prisma, Firebase, server frameworks and the services your env variables point at.'));
       archEl.append(e);
       return;
     }

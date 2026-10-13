@@ -1,7 +1,9 @@
 import AppKit
 import System
 
-/// The icon style for the Ghostty App.
+/// The icon style for the app. Tellurion ships one icon: Ghostty's alternate icons and
+/// its colorized ghost are Ghostty's artwork, so those settings fall back to it. A custom
+/// icon file (`macos-icon = custom`) still works.
 enum AppIcon: Equatable, Codable {
     case official
     case blueprint
@@ -19,68 +21,24 @@ enum AppIcon: Equatable, Codable {
 #if !DOCK_TILE_PLUGIN
     init?(config: Ghostty.Config) {
         switch config.macosIcon {
-        case .official:
+        case .official, .blueprint, .chalkboard, .glass, .holographic, .microchip, .paper, .retro, .xray, .customStyle:
             return nil
-        case .blueprint:
-            self = .blueprint
-        case .chalkboard:
-            self = .chalkboard
-        case .glass:
-            self = .glass
-        case .holographic:
-            self = .holographic
-        case .microchip:
-            self = .microchip
-        case .paper:
-            self = .paper
-        case .retro:
-            self = .retro
-        case .xray:
-            self = .xray
         case .custom:
             if let data = try? Data(contentsOf: URL(filePath: config.macosCustomIcon, relativeTo: nil)) {
                 self = .custom(data)
             } else {
                 return nil
             }
-        case .customStyle:
-            // Discard saved icon name
-            // if no valid colours were found
-            guard
-                let ghostColor = config.macosIconGhostColor,
-                let screenColors = config.macosIconScreenColor
-            else {
-                return nil
-            }
-            self = .customStyle(ColorizedGhosttyIcon(screenColors: screenColors, ghostColor: ghostColor, frame: config.macosIconFrame))
         }
     }
 #endif
 
     func image(in bundle: Bundle) -> NSImage? {
         switch self {
-        case .official:
+        case .official, .blueprint, .chalkboard, .glass, .holographic, .microchip, .paper, .retro, .xray, .customStyle:
             return nil
-        case .blueprint:
-            return bundle.image(forResource: "BlueprintImage")!
-        case .chalkboard:
-            return bundle.image(forResource: "ChalkboardImage")!
-        case .glass:
-            return bundle.image(forResource: "GlassImage")!
-        case .holographic:
-            return bundle.image(forResource: "HolographicImage")!
-        case .microchip:
-            return bundle.image(forResource: "MicrochipImage")!
-        case .paper:
-            return bundle.image(forResource: "PaperImage")!
-        case .retro:
-            return bundle.image(forResource: "RetroImage")!
-        case .xray:
-            return bundle.image(forResource: "XrayImage")!
         case let .custom(file):
             return NSImage(data: file)
-        case let .customStyle(customIcon):
-            return customIcon.makeImage(in: bundle)
         }
     }
 }

@@ -6,17 +6,8 @@ class AboutViewModel: ObservableObject {
 
     private var timerCancellable: AnyCancellable?
 
-    private let icons: [Ghostty.MacOSIcon] = [
-        .official,
-        .blueprint,
-        .chalkboard,
-        .microchip,
-        .glass,
-        .holographic,
-        .paper,
-        .retro,
-        .xray,
-    ]
+    // Tellurion has one icon, so there's nothing to cycle through.
+    private let icons: [Ghostty.MacOSIcon] = [.official]
 
     func startCyclingIcons() {
         timerCancellable = Timer.publish(every: 3, on: .main, in: .common)

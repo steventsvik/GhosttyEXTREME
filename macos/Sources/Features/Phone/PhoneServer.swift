@@ -159,7 +159,7 @@ final class PhoneServer: ObservableObject {
 
     private func handle(_ request: PhoneHTTPServer.Request) -> PhoneHTTPServer.Response {
         guard caller(request) != nil else {
-            return .text("This GhosttyEXTREME only answers its owner's Tailscale devices.", status: 403)
+            return .text("This Tellurion only answers its owner's Tailscale devices.", status: 403)
         }
         switch (request.method, request.path) {
         case ("POST", "/api/pair"):

@@ -95,7 +95,7 @@ struct TerminalCommandPaletteView: View {
         // convey it'll go all the way through.
         let title: String
         if case .updateAvailable = updateViewModel.state {
-            title = "Update Ghostty and Restart"
+            title = "Update Tellurion and Restart"
         } else {
             title = updateViewModel.text
         }
@@ -137,7 +137,7 @@ struct TerminalCommandPaletteView: View {
             }
     }
 
-    /// GhosttyEXTREME: new sessions and sidebar/editor toggles.
+    /// Tellurion: new sessions and sidebar/editor toggles.
     private var customOptions: [CommandOption] {
         #if os(macOS)
         PaletteExtras.commandOptions(for: surfaceView)

@@ -1,7 +1,7 @@
 #if os(macOS)
 import Foundation
 
-/// The agent hook entries GhosttyEXTREME adds to Claude Code's `settings.json` and Codex's
+/// The agent hook entries Tellurion adds to Claude Code's `settings.json` and Codex's
 /// `hooks.json`, and the line it adds to `~/.zshrc`.
 ///
 /// Pure data in, data out: it never touches files itself (`HookInstaller` does), so the
@@ -170,10 +170,10 @@ enum HookConfig {
 
     // MARK: Shell
 
-    /// The line added to ~/.zshrc. It does nothing outside GhosttyEXTREME.
+    /// The line added to ~/.zshrc. It does nothing outside Tellurion.
     static let zshrcBlock = """
 
-    # GhosttyEXTREME: shows which coding agent each pane runs (does nothing in other terminals)
+    # Tellurion: shows which coding agent each pane runs (does nothing in other terminals)
     [[ -n "$GHOSTTY_EXTREME_AGENT_EVENTS" ]] && source ~/.ghostty-extreme/agent-hooks/ghostty-extreme.zsh
 
     """

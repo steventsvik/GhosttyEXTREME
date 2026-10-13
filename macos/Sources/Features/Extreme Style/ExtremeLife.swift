@@ -138,7 +138,7 @@ struct LivingSigil: View {
         var parts: [String] = []
         if pulse.working > 0 { parts.append("\(pulse.working) working") }
         if pulse.waiting > 0 { parts.append("\(pulse.waiting) waiting for you") }
-        return parts.isEmpty ? "GhosttyEXTREME" : "Agents: " + parts.joined(separator: " · ")
+        return parts.isEmpty ? "Tellurion" : "Agents: " + parts.joined(separator: " · ")
     }
 
     /// The core's light: slow breathing at rest, faster with each working agent.

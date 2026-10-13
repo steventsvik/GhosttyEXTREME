@@ -81,9 +81,9 @@ struct NewTabSplash: View {
                     }
                     .frame(width: 96, height: 93)
                     .shadow(color: Extreme.core.opacity(build >= 1 ? 0.6 : 0), radius: 10)
-                    Text(String("GHOSTTY·EXTREME".prefix(Int(15 * min(1, max(0, (t - 0.3) / 0.5))))))
+                    Text(String("TELLURION".prefix(Int(9 * min(1, max(0, (t - 0.3) / 0.5))))))
                         .font(Extreme.font(12))
-                        .kerning(3)
+                        .kerning(4.5)
                         .foregroundColor(Extreme.gold)
                         .frame(height: 16)
                 }
