@@ -193,8 +193,9 @@ private struct LocalhostManagerCard: View {
                         Label(String(format: "%.0f%% CPU", session.cpu), systemImage: "cpu")
                         Label(String(format: "%.0f MB", session.memoryMB), systemImage: "memorychip")
                     }
-                    if session.ports.count > 1 {
-                        Label(session.ports.dropFirst().map { ":\($0)" }.joined(separator: " "), systemImage: "point.3.connected.trianglepath.dotted")
+                    let extra = session.ports.filter { $0 != session.url?.port }
+                    if !extra.isEmpty {
+                        Label(extra.map { ":\($0)" }.joined(separator: " "), systemImage: "point.3.connected.trianglepath.dotted")
                     }
                     if let agent = session.agent {
                         HStack(spacing: 4) {

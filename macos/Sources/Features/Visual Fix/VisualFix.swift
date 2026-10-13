@@ -544,7 +544,8 @@ final class VisualFixPanel: ObservableObject {
     /// Opens the panel in `controller`'s tab, on `url` or the best running app.
     func show(from controller: TerminalController?, url: URL? = nil) {
         guard ExtremeSettings.isOn(.visualFix) else { return }
-        guard let controller = controller ?? Self.frontController else { return }
+        guard let picked = controller ?? Self.frontController else { return }
+        let controller = Self.panelTab(for: picked)
         let session = session(for: controller)
         if let url = url ?? (session.url == nil ? Self.bestURL(for: controller) : nil), url != session.url { session.load(url) }
         let id = ObjectIdentifier(controller)
@@ -583,6 +584,29 @@ final class VisualFixPanel: ObservableObject {
         }
         return onScreen.first { LocalhostSessions.shared.session(for: $0) == nil } ?? onScreen.first
             ?? EditorPanel.frontController
+    }
+
+    /// Where the panel opens for `controller`: that tab, unless it's a server's own localhost
+    /// tab (Fix on its card, or ⌃⌘V while looking at its output). Then it's the tab of an
+    /// agent working on the server's project, else that project's tab, else another tab in
+    /// front; requests go to the agent, and a new one would otherwise start in the server's tab.
+    static func panelTab(for controller: TerminalController) -> TerminalController {
+        guard let server = LocalhostSessions.shared.session(for: controller) else { return controller }
+        let root = ProjectPath.canonical(server.project.root)
+        func inProject(_ surface: Ghostty.SurfaceView) -> Bool {
+            guard let pwd = surface.pwd.map(ProjectPath.canonical) else { return false }
+            return pwd == root || pwd.hasPrefix(root + "/")
+        }
+        func hasAgent(_ surface: Ghostty.SurfaceView) -> Bool { VerticalTabsAgents.shared.info(for: surface) != nil }
+        // Tabs in the server tab's own window first, so the panel stays where the user is.
+        let group = controller.window?.tabGroup?.windows.compactMap { $0.windowController as? TerminalController } ?? []
+        let tabs = (group + TerminalController.all.filter { tab in !group.contains { $0 === tab } })
+            .filter { LocalhostSessions.shared.session(for: $0) == nil }
+        return tabs.first { $0.surfaceTree.contains { inProject($0) && hasAgent($0) } }
+            ?? tabs.first { $0.surfaceTree.contains(where: inProject) }
+            ?? frontController.flatMap { LocalhostSessions.shared.session(for: $0) == nil ? $0 : nil }
+            ?? tabs.first
+            ?? controller
     }
 
     /// The live localhost app for this tab's project, or else the most recent one.

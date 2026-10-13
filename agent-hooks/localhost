@@ -170,6 +170,14 @@ rewrite() {
 
 status_field() { jq -r "$2 // empty" "$dir/$1.status.json" 2>/dev/null; }
 
+# True if something is listening on the session's address.
+listening() {
+  local port url
+  url=$(status_field "$1" .url)
+  port="${url##*:}"
+  [ -n "$port" ] && lsof -nP -iTCP:"$port" -sTCP:LISTEN -t >/dev/null 2>&1
+}
+
 print_session() {
   local id="$1" url
   url=$(status_field "$id" .url)
@@ -194,26 +202,38 @@ start() {
   mkdir -p "$dir"
   [ -n "$log" ] && case "$log" in /*) ;; *) log="$PWD/$log" ;; esac
 
-  # Already running here? Point at it instead of starting a second copy.
-  local f id
+  # Already a session for this here? Point at it if it's serving; restart it in its tab if
+  # it stopped, or stopped listening, instead of opening a second copy.
+  local f id state reuse=""
   for f in "$dir"/*.status.json; do
     [ -f "$f" ] || continue
     id=$(basename "$f" .status.json)
-    [ "$(jq -r .state "$f")" = "live" ] || continue
     [ "$(jq -r .cwd "$dir/$id.json" 2>/dev/null)" = "$PWD" ] || continue
     [ "$(jq -r .command "$dir/$id.json" 2>/dev/null)" = "$cmd" ] || continue
-    echo "✓ Already running in GhosttyEXTREME localhost session $id (a separate tab that keeps running)."
-    print_session "$id"
-    return 0
+    state=$(jq -r .state "$f")
+    if [ "$state" = "live" ] && listening "$id"; then
+      echo "✓ Already running in GhosttyEXTREME localhost session $id (a separate tab that keeps running)."
+      print_session "$id"
+      return 0
+    fi
+    case "$state" in live|quiet|exited) reuse="$id"; break ;; esac
   done
 
-  id="lh-$(date +%s)-$RANDOM"
-  jq -n --arg id "$id" --arg cwd "$PWD" --arg command "$cmd" --arg log "${log:-$dir/$id.log}" --arg agent "$agent" \
-    '{id: $id, cwd: $cwd, command: $command, log: $log, agent: $agent, requested: (now | todate)}' > "$dir/$id.json"
-  if ! send "{\"event\":\"open\",\"id\":\"$id\"}"; then
-    rm -f "$dir/$id.json"
-    echo "localhost: not running inside GhosttyEXTREME, so no session could be opened." >&2
-    return 1
+  if [ -n "$reuse" ]; then
+    id="$reuse"
+    # The app rewrites this as soon as the session runs again.
+    printf '{"id":"%s","state":"restarting"}\n' "$id" > "$dir/$id.status.json"
+    send "{\"event\":\"restart\",\"id\":\"$id\"}" || { echo "localhost: not running inside GhosttyEXTREME" >&2; return 1; }
+    echo "Restarting localhost session $id in its tab."
+  else
+    id="lh-$(date +%s)-$RANDOM"
+    jq -n --arg id "$id" --arg cwd "$PWD" --arg command "$cmd" --arg log "${log:-$dir/$id.log}" --arg agent "$agent" \
+      '{id: $id, cwd: $cwd, command: $command, log: $log, agent: $agent, requested: (now | todate)}' > "$dir/$id.json"
+    if ! send "{\"event\":\"open\",\"id\":\"$id\"}"; then
+      rm -f "$dir/$id.json"
+      echo "localhost: not running inside GhosttyEXTREME, so no session could be opened." >&2
+      return 1
+    fi
   fi
 
   # Wait for the app to open the tab and the server to start listening.
@@ -234,6 +254,12 @@ start() {
       rm -f "$dir/$id.json"
       echo "localhost: GhosttyEXTREME didn't open a session (is this terminal in GhosttyEXTREME?)." >&2
       return 1
+    fi
+    if [ "$state" = "restarting" ] && [ $waited -ge 20 ]; then
+      # The app no longer has that session (its tab is gone): open a new one.
+      rm -f "$dir/$id.status.json"
+      start ${log:+--log "$log"} ${agent:+--agent "$agent"} -- "$cmd"
+      return
     fi
     sleep 0.25
     waited=$((waited + 1))
