@@ -27,3 +27,4 @@ glad.zip
 vgcore.*
 
 __pycache__/
+*.profraw

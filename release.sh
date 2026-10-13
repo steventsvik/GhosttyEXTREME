@@ -148,6 +148,7 @@ pass "no home-folder paths in the app"
 ICONS=$(cd $APP/Contents/Resources && ls *.icns(N) | grep -vx Tellurion.icns | xargs)
 [[ -z $ICONS ]] || fail "the app contains other icons: $ICONS"
 pass "only Tellurion's icon in the app"
+[[ -z $(find $APP -name "*.profraw" | head -1) ]] || fail "the app contains a profiling file (*.profraw)"
 # Signed inside out with the hardened runtime and a secure timestamp, as notarization requires:
 # Sparkle's helpers, the Dock plugin, then the app with its entitlements. The same certificate
 # every release, so macOS keeps users' permissions (notifications, folders) across updates.
