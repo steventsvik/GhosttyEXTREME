@@ -114,9 +114,10 @@ ZIG_GLOBAL_CACHE_DIR=/private/tmp/gx-zig-global ZIG_LOCAL_CACHE_DIR=/private/tmp
   $ZIG build -Doptimize=ReleaseFast -Dxcframework-target=native -Demit-macos-app=false > $OUT/zig.log 2>&1 \
   || { tail -20 $OUT/zig.log; fail "core build failed (log: $OUT/zig.log)"; }
 pass "core library"
-# Xcode never removes resources a previous build put in the app (an old icon, say), so the
-# release starts from an empty app bundle.
-rm -rf macos/build/ReleaseLocal/Ghostty.app
+# Xcode never removes resources a previous build put in the app (an old icon, say), not even
+# from its compiled asset catalog, so the release starts from an empty app bundle and catalog.
+rm -rf macos/build/ReleaseLocal/Ghostty.app \
+  ~/Library/Developer/Xcode/DerivedData/Ghostty-*/Build/Intermediates.noindex/Ghostty.build/ReleaseLocal/Ghostty.build/assetcatalog_output(N)
 (cd macos && xcodebuild -project Ghostty.xcodeproj -scheme Ghostty -configuration ReleaseLocal \
   SYMROOT="$PWD/build" ARCHS=arm64 ONLY_ACTIVE_ARCH=YES build > $OUT/xcode.log 2>&1) \
   || { grep -E "error:" $OUT/xcode.log | head -10; fail "app build failed (log: $OUT/xcode.log)"; }
