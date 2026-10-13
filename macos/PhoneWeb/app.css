@@ -78,6 +78,7 @@ input:focus, textarea:focus { border-color: var(--bronze); }
 .badge { display: inline-block; font-size: 11px; font-weight: 600; border-radius: 6px; padding: 1px 6px; margin-right: 6px; }
 .empty { padding: 48px 24px; text-align: center; color: var(--muted); }
 
+.dot { background: var(--dim); }
 .dot.working { background: var(--core); box-shadow: 0 0 8px var(--core); animation: pulse 1.6s steps(4) infinite; }
 .dot.permission, .dot.input { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
 .dot.done { background: var(--live); }
@@ -87,6 +88,19 @@ input:focus, textarea:focus { border-color: var(--bronze); }
 .badge.failed { background: #3a1a16; color: var(--danger); }
 @keyframes pulse { 50% { opacity: .45; } }
 @media (prefers-reduced-motion: reduce) { .dot.working { animation: none; } }
+
+/* Tab strip and the "another agent needs you" banner */
+#term { z-index: 2; background: var(--ink); box-shadow: -12px 0 24px rgba(0, 0, 0, .45); }
+.strip { display: flex; gap: 6px; padding: 7px 10px; overflow-x: auto; background: var(--panel); border-bottom: 1px solid var(--line); flex: none; scrollbar-width: none; }
+.strip::-webkit-scrollbar { display: none; }
+.chip { flex: none; display: flex; align-items: center; gap: 6px; max-width: 46vw; height: 30px; padding: 0 11px; border-radius: 15px; background: var(--raised); border: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+.chip .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.chip-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip.active { border-color: var(--bronze); color: var(--text); background: #221c13; }
+.banner { display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 12px; background: #1d170d; border-bottom: 1px solid #4d3a17; color: var(--warn); font-size: 13px; font-weight: 600; text-align: left; flex: none; }
+.banner .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.banner-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.banner .chev { color: var(--warn); font-size: 18px; }
 
 /* Terminal */
 .screen-wrap { flex: 1; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; background: var(--term-bg, #000); position: relative; }

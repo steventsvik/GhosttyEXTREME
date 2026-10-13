@@ -26,8 +26,37 @@ const state = {
 
 // MARK: Pages
 
+// On the Home Screen there's no browser back gesture, so the page gives you its own.
+const standalone = navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const easing = "cubic-bezier(.2, .8, .2, 1)";
+
 function show(page) {
   for (const id of ["pair", "home", "term"]) $(id).hidden = id !== page;
+}
+
+/// Slides the tab view in over the list ("in") or away to the right ("out"), from
+/// wherever a swipe left it (0 = fully shown, 1 = fully off to the right).
+function slide(direction, from = direction === "in" ? 1 : 0) {
+  const view = $("term");
+  const list = $("home");
+  const to = direction === "in" ? 0 : 1;
+  const finish = () => {
+    view.style.transform = list.style.transform = list.style.opacity = "";
+    if (direction === "in") list.hidden = true;
+    else view.hidden = true;
+  };
+  if (reduceMotion) { finish(); return; }
+  view.hidden = list.hidden = false;
+  const duration = 320 * Math.max(0.35, Math.abs(to - from));
+  const listAt = (p) => ({ transform: `translateX(${(p - 1) * 28}%)`, opacity: 0.55 + 0.45 * p });
+  view.animate([{ transform: `translateX(${from * 100}%)` }, { transform: `translateX(${to * 100}%)` }],
+    { duration, easing, fill: "forwards" }).finished.then(() => {
+    view.getAnimations().forEach((a) => a.cancel());
+    list.getAnimations().forEach((a) => a.cancel());
+    finish();
+  });
+  list.animate([listAt(from), listAt(to)], { duration, easing, fill: "forwards" });
 }
 
 function route() {
@@ -39,8 +68,12 @@ function route() {
     return;
   }
   if (!state.token) { showPairing(""); return; }
+  const tab = hash.get("tab");
+  history.replaceState(null, "", location.pathname);
   showHome();
   connect();
+  // Reloaded while in a tab: go back to it, with the list behind it.
+  if (tab) openTab(tab, { animate: false });
 }
 
 // MARK: Pairing
@@ -167,9 +200,10 @@ function receive(message) {
     case "tabs":
       state.tabs = message.tabs || [];
       renderTabs();
-      if (state.watching) renderTermHeader();
+      if (state.watching) { renderTermHeader(); renderStrip(); }
       break;
     case "screen":
+      screens.set(message.id, message);
       if (message.id === state.watching) drawScreen(message);
       break;
     case "error":
@@ -202,6 +236,19 @@ function showHome() {
   $("mac-name").textContent = state.mac;
   show("home");
   renderTabs();
+}
+
+/// The tabs in the list's order: the ones that need you, then each project's.
+function orderedTabs() {
+  const needs = state.tabs.filter((t) => attention.has(t.activity));
+  const groups = new Map();
+  for (const tab of state.tabs) {
+    if (attention.has(tab.activity)) continue;
+    const key = tab.project || "Other";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(tab);
+  }
+  return { needs, groups, all: [...needs, ...[...groups.values()].flat()] };
 }
 
 function tabName(tab) {
@@ -252,17 +299,10 @@ function renderTabs() {
     list.append(el("div", "empty", state.connected ? "No terminal tabs are open on your Mac." : "Connecting to your Mac…"));
     return;
   }
-  const needs = state.tabs.filter((t) => attention.has(t.activity));
+  const { needs, groups } = orderedTabs();
   if (needs.length) {
     list.append(el("div", "group attention", "Needs you"));
     for (const tab of needs) list.append(tabRow(tab));
-  }
-  const groups = new Map();
-  for (const tab of state.tabs) {
-    if (attention.has(tab.activity)) continue;
-    const key = tab.project || "Other";
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(tab);
   }
   for (const [project, tabs] of groups) {
     list.append(el("div", "group", project));
@@ -287,6 +327,12 @@ $("forget-btn").addEventListener("click", () => {
 
 let term = null;
 let lastScreen = null;
+/// The last screen seen of each tab, so going back to one shows it at once.
+const screens = new Map();
+/// Unsent text, per tab.
+const drafts = new Map();
+/// Set when the page itself asked to go back, so the list slides back in.
+let animateNextPop = false;
 let charRatio = 0.6;
 
 function measureFont() {
@@ -326,17 +372,104 @@ function currentTab() {
   return state.tabs.find((t) => t.id === state.watching);
 }
 
-function openTab(id) {
+/// Points the view at a tab: shows its last known screen straight away, then live.
+function watch(id) {
+  if (state.watching) drafts.set(state.watching, input.value);
   state.watching = id;
   lastScreen = null;
-  show("term");
   makeTerm();
   term.reset();
   showCursor();
   $("screen-wrap").querySelector(".gone")?.remove();
+  input.value = drafts.get(id) || "";
+  autosize();
+  setCtrl(false);
+  const cached = screens.get(id);
+  if (cached) drawScreen(cached);
   renderTermHeader();
+  renderStrip(true);
   applyZoom();
   send({ t: "watch", id });
+}
+
+/// From the list: slides the tab in, and puts it in the history so Back returns.
+function openTab(id, { animate = true } = {}) {
+  watch(id);
+  history.pushState({ tab: id }, "", "#tab=" + encodeURIComponent(id));
+  show("term");
+  if (animate) slide("in");
+}
+
+/// Another tab, from the strip, the banner or a swipe on the title. Back still goes to the list.
+function switchTab(id, direction = 0) {
+  if (id === state.watching) return;
+  watch(id);
+  history.replaceState({ tab: id }, "", "#tab=" + encodeURIComponent(id));
+  if (!reduceMotion) {
+    $("screen-wrap").animate([{ transform: `translateX(${direction * 40}px)`, opacity: 0.35 }, { transform: "none", opacity: 1 }],
+      { duration: 220, easing });
+  }
+}
+
+function closeTab(animate) {
+  if (state.watching) drafts.set(state.watching, input.value);
+  send({ t: "unwatch" });
+  input.blur();
+  showHome();
+  if (animate) {
+    $("term").hidden = false;
+    slide("out");
+  }
+}
+
+function goBack() {
+  if (history.state && history.state.tab) {
+    animateNextPop = true;
+    history.back();
+  } else {
+    closeTab(true);
+  }
+}
+
+window.addEventListener("popstate", (event) => {
+  const animate = animateNextPop;
+  animateNextPop = false;
+  const tab = event.state && event.state.tab;
+  if (tab) {
+    // Forward again.
+    if ($("term").hidden) { watch(tab); show("term"); }
+  } else if (state.watching) {
+    // Safari's own swipe has already animated; the page's back button hasn't.
+    closeTab(animate);
+  }
+});
+
+function renderStrip(scroll) {
+  const strip = $("strip");
+  const { all } = orderedTabs();
+  strip.hidden = all.length < 2;
+  strip.replaceChildren();
+  for (const tab of all) {
+    const chip = el("button", "chip" + (tab.id === state.watching ? " active" : ""));
+    chip.type = "button";
+    chip.append(el("span", "dot " + (tab.activity || "")), el("span", "chip-name", tab.project && tab.agentName ? tab.agentName.split(" ")[0] + " · " + tab.project : tabName(tab)));
+    chip.addEventListener("click", () => switchTab(tab.id, all.indexOf(tab) > all.findIndex((t) => t.id === state.watching) ? 1 : -1));
+    strip.append(chip);
+  }
+  if (scroll) strip.querySelector(".active")?.scrollIntoView({ inline: "center", block: "nearest" });
+  renderBanner();
+}
+
+/// Another agent needs you while you're in this tab.
+function renderBanner() {
+  const other = state.tabs.find((t) => t.id !== state.watching && attention.has(t.activity));
+  const banner = $("banner");
+  banner.hidden = !other;
+  if (!other) return;
+  banner.replaceChildren(el("span", "dot " + other.activity),
+    el("span", "banner-text", `${other.agentName || "Agent"} ${other.activity === "permission" ? "needs permission" : "is waiting for you"} · ${tabName(other)}`),
+    el("span", "chev", "›"));
+  banner.onclick = () => switchTab(other.id, 1);
 }
 
 function renderTermHeader() {
@@ -355,10 +488,73 @@ function renderTermHeader() {
   if (needs) $("choices-label").textContent = activityText[tab.activity];
 }
 
-$("back-btn").addEventListener("click", () => {
-  send({ t: "unwatch" });
-  showHome();
-});
+$("back-btn").addEventListener("click", goBack);
+
+// Swipe the title left or right for the next or previous tab.
+{
+  let start = null;
+  const bar = $("term").querySelector(".bar");
+  bar.addEventListener("touchstart", (e) => { const t = e.touches[0]; start = { x: t.clientX, y: t.clientY }; }, { passive: true });
+  bar.addEventListener("touchend", (e) => {
+    if (!start) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x, dy = t.clientY - start.y;
+    start = null;
+    if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx) * 0.6) return;
+    const { all } = orderedTabs();
+    const index = all.findIndex((tab) => tab.id === state.watching);
+    const next = all[index + (dx < 0 ? 1 : -1)];
+    if (next) switchTab(next.id, dx < 0 ? 1 : -1);
+  });
+}
+
+// On the Home Screen: drag from the left edge to go back, like a native app.
+{
+  let drag = null;
+  const view = $("term");
+  view.addEventListener("touchstart", (e) => {
+    if (!standalone || e.touches.length !== 1 || e.touches[0].clientX > 24) return;
+    drag = { x: e.touches[0].clientX, y: e.touches[0].clientY, dx: 0, time: performance.now(), active: false };
+  }, { passive: true });
+  view.addEventListener("touchmove", (e) => {
+    if (!drag) return;
+    const t = e.touches[0];
+    drag.dx = Math.max(0, t.clientX - drag.x);
+    if (!drag.active) {
+      if (Math.abs(t.clientY - drag.y) > drag.dx) { drag = null; return; }
+      if (drag.dx < 8) return;
+      drag.active = true;
+      $("home").hidden = false;
+      renderTabs();
+    }
+    e.preventDefault();
+    const p = drag.dx / innerWidth;
+    view.style.transform = `translateX(${drag.dx}px)`;
+    $("home").style.transform = `translateX(${(p - 1) * 28}%)`;
+    $("home").style.opacity = String(0.55 + 0.45 * p);
+  }, { passive: false });
+  const end = () => {
+    if (!drag || !drag.active) { drag = null; return; }
+    const p = drag.dx / innerWidth;
+    const fast = drag.dx / (performance.now() - drag.time) > 0.5;
+    drag = null;
+    view.style.transform = "";
+    if (p > 0.35 || fast) {
+      slide("out", p);
+      if (state.watching) drafts.set(state.watching, input.value);
+      send({ t: "unwatch" });
+      input.blur();
+      state.watching = null;
+      renderTabs();
+      // The slide already ran; the history entry just follows.
+      if (history.state && history.state.tab) history.back();
+    } else {
+      slide("in", p);
+    }
+  };
+  view.addEventListener("touchend", end);
+  view.addEventListener("touchcancel", end);
+}
 
 function drawScreen(screen) {
   if (!term) return;
@@ -480,4 +676,4 @@ document.fonts.load('12px "JetBrains Mono"').catch(() => {}).finally(() => {
   measureFont();
   route();
 });
-window.addEventListener("hashchange", route);
+window.addEventListener("hashchange", () => { if (location.hash.includes("pair=")) route(); });
