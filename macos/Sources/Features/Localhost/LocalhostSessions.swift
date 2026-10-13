@@ -25,6 +25,9 @@ struct LocalhostSession: Identifiable, Equatable {
     let created: Date
     var state: State = .starting
     var ports: [Int] = []
+    /// The port it went live on (the lowest then): its address. Other ports come and go,
+    /// like a dev server's internal ones.
+    var mainPort: Int?
     var runnerPID: Int32?
     var liveSince: Date?
     var cpu: Double = 0
@@ -32,8 +35,14 @@ struct LocalhostSession: Identifiable, Equatable {
 
     var project: LocalhostProject { LocalhostProject(folder: cwd) }
     var framework: LocalhostFramework { LocalhostFramework.detect(command: command, cwd: cwd) }
-    var url: URL? { ports.first.map { URL(string: "http://localhost:\($0)")! } }
+    var url: URL? {
+        let port = mainPort == nil ? ports.first : ports.first { $0 == mainPort }
+        return port.map { URL(string: "http://localhost:\($0)")! }
+    }
     var isRunning: Bool { state == .starting || state == .live }
+    /// It was live, but its port isn't listening any more while its processes keep running
+    /// (e.g. Next's server crashed and the `next dev` above it didn't exit).
+    var isQuiet: Bool { state == .starting && liveSince != nil }
 }
 
 /// A listening dev server that isn't in a localhost session (started in a normal tab, by an
@@ -214,6 +223,8 @@ final class LocalhostSessions: ObservableObject {
     private var polling = false
     private let queue = DispatchQueue(label: "com.steventsvik.ghostty-extreme.localhost", qos: .utility)
     private var toastDismiss: DispatchWorkItem?
+    /// Polls in a row that a live session wasn't listening, by id.
+    private var quietPolls: [String: Int] = [:]
     /// Set while the manager window is open, so other servers are scanned too.
     var scanOthers = false {
         didSet { if scanOthers { poll() } else { others = [] } }
@@ -285,6 +296,7 @@ final class LocalhostSessions: ObservableObject {
                 $0.runnerPID = event.pid
                 $0.state = .starting
                 $0.ports = []
+                $0.mainPort = nil
                 $0.liveSince = nil
             }
             // Adopt the tab if the session was opened before (e.g. restart after "shell here").
@@ -464,6 +476,7 @@ final class LocalhostSessions: ObservableObject {
         let controller = controller(for: session)
         sessions.removeAll { $0.id == session.id }
         tabs.removeValue(forKey: session.id)
+        quietPolls.removeValue(forKey: session.id)
         try? FileManager.default.removeItem(at: Self.directory.appendingPathComponent("\(session.id).status.json"))
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             controller?.closeTabImmediately()
@@ -513,9 +526,9 @@ final class LocalhostSessions: ObservableObject {
         guard session != before else { return }
         sessions[index] = session
         writeStatus(session)
-        if before.state != .live, session.state == .live { announce(session) }
+        if before.state != .live, session.state == .live, before.liveSince == nil { announce(session) }
         if let controller = controller(for: session) {
-            let port = session.ports.first.map { ":\($0)" } ?? ""
+            let port = session.url?.port.map { ":\($0)" } ?? ""
             controller.titleOverride = "localhost\(port) · \(session.project.name)"
         }
     }
@@ -534,7 +547,7 @@ final class LocalhostSessions: ObservableObject {
     private func writeStatus(_ session: LocalhostSession) {
         var status: [String: Any] = ["id": session.id, "ports": session.ports]
         switch session.state {
-        case .starting: status["state"] = "starting"
+        case .starting: status["state"] = session.isQuiet ? "quiet" : "starting"
         case .live: status["state"] = "live"
         case .stopped(let code):
             status["state"] = "exited"
@@ -569,7 +582,11 @@ final class LocalhostSessions: ObservableObject {
         // Drop sessions whose tab was closed some other way.
         let closed = sessions.filter { tabs[$0.id]?.value == nil }
         if !closed.isEmpty {
-            for session in closed { stop(session) }
+            for session in closed {
+                stop(session)
+                quietPolls.removeValue(forKey: session.id)
+                try? FileManager.default.removeItem(at: Self.directory.appendingPathComponent("\(session.id).status.json"))
+            }
             sessions.removeAll { session in closed.contains { $0.id == session.id } }
         }
         if sessions.isEmpty && !scanOthers {
@@ -600,13 +617,22 @@ final class LocalhostSessions: ObservableObject {
             DispatchQueue.main.async {
                 self.polling = false
                 for (id, result) in results {
+                    // A live server whose port stays closed for a few polls in a row (not just
+                    // a dev server's quick reload) isn't live any more.
+                    let main = self.sessions.first { $0.id == id }?.mainPort
+                    let closed = main.map { !result.ports.contains($0) } ?? false
+                    let quiet = closed ? (self.quietPolls[id] ?? 0) + 1 : 0
+                    self.quietPolls[id] = quiet
                     self.update(id) { session in
                         session.ports = result.ports
                         session.cpu = result.cpu
                         session.memoryMB = result.mem
-                        if !result.ports.isEmpty, session.state == .starting {
+                        if session.state == .starting, let first = result.ports.first, !closed {
                             session.state = .live
+                            session.mainPort = session.mainPort ?? first
                             session.liveSince = Date()
+                        } else if quiet >= 3, session.state == .live {
+                            session.state = .starting
                         }
                     }
                 }
@@ -744,7 +770,7 @@ extension LocalhostSession {
 
     var statusLabel: String {
         switch state {
-        case .starting: return "Starting"
+        case .starting: return isQuiet ? "Not listening" : "Starting"
         case .live: return "Live"
         case .stopped(let code): return Self.isCleanExit(code) ? "Stopped" : "Crashed · exit \(code)"
         case .detached: return "Stopped"
@@ -753,7 +779,7 @@ extension LocalhostSession {
 
     var statusColor: Color {
         switch state {
-        case .starting: return Extreme.warn
+        case .starting: return isQuiet ? Extreme.danger : Extreme.warn
         case .live: return Extreme.live
         case .stopped(let code): return Self.isCleanExit(code) ? Extreme.muted : Extreme.danger
         case .detached: return Extreme.muted

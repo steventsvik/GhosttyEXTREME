@@ -49,11 +49,11 @@ struct LocalhostURLPill: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: "globe").font(.system(size: large ? 12 : 10, weight: .semibold))
-                if let port = session.ports.first {
+                if let port = session.url?.port {
                     Text("localhost").foregroundColor(.primary.opacity(0.75))
                         + Text(verbatim: ":\(port)").foregroundColor(.primary).bold()
                 } else {
-                    Text(session.state == .starting ? "starting…" : "not listening")
+                    Text(session.state == .starting && !session.isQuiet ? "starting…" : "not listening")
                         .foregroundColor(.secondary)
                 }
                 if session.url != nil {
@@ -228,7 +228,7 @@ struct LocalhostTabCard: View {
 
                 HStack(spacing: 6) {
                     LocalhostURLPill(session: session)
-                    ForEach(session.ports.dropFirst().prefix(2), id: \.self) { port in
+                    ForEach(session.ports.filter { $0 != session.url?.port }.prefix(2), id: \.self) { port in
                         Text(verbatim: ":\(port)")
                             .font(.system(size: 10.5, design: .monospaced))
                             .foregroundColor(.secondary)

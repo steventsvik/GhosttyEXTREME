@@ -70,6 +70,9 @@ final class UsageMonitor: ObservableObject {
 
     // MARK: Claude
 
+    /// The last report of each Claude window, by key (read and written on `queue`).
+    private static var lastClaudeWindows: [String: UsageWindow] = [:]
+
     private static func claude() -> UsageEntry? {
         let path = NSHomeDirectory() + "/.claude/ghostty-extreme/claude-usage.json"
         guard let data = FileManager.default.contents(atPath: path),
@@ -83,8 +86,22 @@ final class UsageMonitor: ObservableObject {
             return UsageWindow(label: label, usedPercent: used,
                                resetsAt: (w["resets_at"] as? Double).map { Date(timeIntervalSince1970: $0) })
         }
-        let windows = [window("five_hour", "5h"), window("seven_day", "Week"), window("spend_limit", "Spend")]
-            .compactMap { $0 }
+        // Claude Code leaves a window out of its report while none is running (e.g. between
+        // 5-hour windows), and the status line script saves each report whole. The 5h and
+        // Week rows stay put: the last numbers seen until they reset, then unused.
+        let now = Date()
+        var windows: [UsageWindow] = []
+        for (key, label) in [("five_hour", "5h"), ("seven_day", "Week")] {
+            if let current = window(key, label) {
+                lastClaudeWindows[key] = current
+                windows.append(current)
+            } else if let last = lastClaudeWindows[key], let resetsAt = last.resetsAt, resetsAt > now {
+                windows.append(last)
+            } else {
+                windows.append(UsageWindow(label: label, usedPercent: 0, resetsAt: nil))
+            }
+        }
+        if let spend = window("spend_limit", "Spend") { windows.append(spend) }
         let updated = (json["updated"] as? Double).map { Date(timeIntervalSince1970: $0) }
         return UsageEntry(id: "claude", name: "Claude", detail: "Claude Code", shortDetail: "Code", agent: .claude,
                           windows: windows, updated: updated)
