@@ -38,8 +38,7 @@ from.
 Everything Ghostty does still works, and your Ghostty config works as-is. This fork tracks
 official Ghostty releases and adds its features on top.
 
-> **Tellurion was called GhosttyEXTREME.** It was renamed at the Ghostty project's request:
-> "Ghostty" and the ghost icon are its trademarks. Same app, same features; if you have
+> **Tellurion was called GhosttyEXTREME.** Same app, same features; if you have
 > GhosttyEXTREME installed, Check for Updates… brings you to Tellurion.
 
 > [!NOTE]

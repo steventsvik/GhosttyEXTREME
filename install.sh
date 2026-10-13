@@ -24,9 +24,11 @@ die() { printf 'Tellurion: %s\n' "$*" >&2; exit 1; }
 major=$(sw_vers -productVersion | cut -d. -f1)
 [ "$major" -ge 13 ] || die "macOS 13 or newer is needed (this Mac has $(sw_vers -productVersion))."
 
-if pgrep -qf "$DEST/Contents/MacOS/" || pgrep -qf "$OLD/Contents/MacOS/"; then
-  die "Tellurion is running. Quit it (⌘Q), then run this again."
-fi
+for running in "$DEST" "$OLD"; do
+  if pgrep -qf "$running/Contents/MacOS/"; then
+    die "$(basename "$running" .app) is running. Quit it (⌘Q), then run this again."
+  fi
+done
 
 work=$(mktemp -d /tmp/ghostty-extreme-install.XXXXXX)
 trap 'rm -rf "$work"' EXIT

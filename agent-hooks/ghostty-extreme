@@ -1,3 +1,5 @@
 #!/bin/bash
 # The command's name before the rename to Tellurion. Kept so existing scripts and habits keep working.
-exec "$(dirname "$0")/tellurion" "$@"
+# Follows a symlink (one in ~/bin, say) back to the folder that holds `tellurion`.
+self=$(readlink -f "$0" 2>/dev/null || echo "$0")
+exec "$(dirname "$self")/tellurion" "$@"

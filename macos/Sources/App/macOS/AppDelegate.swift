@@ -886,7 +886,7 @@ class AppDelegate: NSObject,
             DistributedNotificationCenter.default()
                 .postNotificationName(.ghosttyIconDidChange, object: nil, userInfo: nil, deliverImmediately: true)
         }
-        // Tellurion: with the default icon, show the bundle's own (carbon) icon
+        // Tellurion: with the default icon, show the bundle's own icon
         // file while running, rather than a possibly stale cached copy.
         if case .official = config.macosIcon,
            let name = Bundle.main.object(forInfoDictionaryKey: "CFBundleIconFile") as? String,
