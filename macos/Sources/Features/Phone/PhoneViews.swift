@@ -88,6 +88,11 @@ private struct PhoneSetupView: View {
 
     private enum StepState { case done, current, later }
 
+    @State private var showSetup = false
+
+    /// Tailscale is ready for phone access: the window leads with pairing and phones.
+    private func ready(_ s: TailscaleStatus) -> Bool { s.state == .running && s.magicDNS && s.httpsEnabled }
+
     var body: some View {
         let status = monitor.status
         VStack(alignment: .leading, spacing: 0) {
@@ -99,32 +104,13 @@ private struct PhoneSetupView: View {
             Rectangle().fill(Extreme.line).frame(height: 1)
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    step(1, "Install Tailscale", state: installState(status),
-                         detail: "Free for personal use. It connects your Mac and phone privately, on Wi-Fi or cellular.") {
-                        Button(ToolPath.find("brew") == nil ? "Download…" : "Install with Homebrew") { monitor.install() }
-                            .buttonStyle(ExtremeButtonStyle(prominent: true))
-                    }
-                    step(2, "Turn it on and sign in", state: connectState(status), detail: connectDetail(status)) {
-                        if status.state == .appNotRunning {
-                            Button("Open Tailscale") { monitor.openApp() }.buttonStyle(ExtremeButtonStyle(prominent: true))
-                        } else {
-                            Button(status.state == .needsLogin ? "Sign in…" : "Turn on") { monitor.connect() }
-                                .buttonStyle(ExtremeButtonStyle(prominent: true))
-                                .disabled(monitor.busy)
-                        }
-                    }
-                    step(3, "Turn on HTTPS for your tailnet", state: httpsState(status),
-                         detail: "One switch on Tailscale's DNS page: MagicDNS and HTTPS Certificates. The phone app needs it to install to your home screen and notify you. This page notices when it's on.") {
-                        Button("Open DNS settings…") { monitor.openHTTPSSettings() }.buttonStyle(ExtremeButtonStyle(prominent: true))
-                    }
-                    step(4, "Add your phone", state: phoneState(status),
-                         detail: "Install Tailscale on your phone and sign in with the same account.") {
-                        HStack(alignment: .center, spacing: 14) {
-                            QRCodeView(text: "https://tailscale.com/download", size: 104)
-                            Text("Scan with your phone's camera")
-                                .font(Extreme.font(11))
-                                .foregroundColor(Extreme.muted)
-                        }
+                    if ready(status) {
+                        access
+                        devices(status)
+                        setupSummary(status)
+                    } else {
+                        checklist(status)
+                        if status.state == .running { devices(status) }
                     }
                     if let error = monitor.error {
                         Text(error)
@@ -132,8 +118,6 @@ private struct PhoneSetupView: View {
                             .foregroundColor(Extreme.danger)
                             .textSelection(.enabled)
                     }
-                    if status.state == .running { devices(status) }
-                    if status.state == .running, status.magicDNS, status.httpsEnabled { access }
                     Text("GhosttyEXTREME only uses Tailscale inside your own tailnet. It never turns on Funnel, which would put your terminal on the public internet.")
                         .font(Extreme.font(10.5))
                         .foregroundColor(Extreme.dim)
@@ -143,6 +127,68 @@ private struct PhoneSetupView: View {
             }
         }
         .frame(minWidth: 480, minHeight: 480)
+        .onAppear(perform: pairIfFirstPhone)
+        .onChange(of: server.servePort) { _ in pairIfFirstPhone() }
+    }
+
+    /// No phone paired yet: have the code ready, since that's what the window is for.
+    private func pairIfFirstPhone() {
+        guard server.running, server.url != nil, phones.devices.isEmpty, phones.pairingCode == nil else { return }
+        phones.newPairingCode()
+    }
+
+    private func checklist(_ status: TailscaleStatus) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            step(1, "Install Tailscale", state: installState(status),
+                 detail: "Free for personal use. It connects your Mac and phone privately, on Wi-Fi or cellular.") {
+                Button(ToolPath.find("brew") == nil ? "Download…" : "Install with Homebrew") { monitor.install() }
+                    .buttonStyle(ExtremeButtonStyle(prominent: true))
+            }
+            step(2, "Turn it on and sign in", state: connectState(status), detail: connectDetail(status)) {
+                if status.state == .appNotRunning {
+                    Button("Open Tailscale") { monitor.openApp() }.buttonStyle(ExtremeButtonStyle(prominent: true))
+                } else {
+                    Button(status.state == .needsLogin ? "Sign in…" : "Turn on") { monitor.connect() }
+                        .buttonStyle(ExtremeButtonStyle(prominent: true))
+                        .disabled(monitor.busy)
+                }
+            }
+            step(3, "Turn on HTTPS for your tailnet", state: httpsState(status),
+                 detail: "One switch on Tailscale's DNS page: MagicDNS and HTTPS Certificates. The phone app needs it to install to your home screen and notify you. This page notices when it's on.") {
+                Button("Open DNS settings…") { monitor.openHTTPSSettings() }.buttonStyle(ExtremeButtonStyle(prominent: true))
+            }
+            step(4, "Add your phone", state: phoneState(status),
+                 detail: "Install Tailscale on your phone and sign in with the same account.") {
+                HStack(alignment: .center, spacing: 14) {
+                    QRCodeView(text: "https://tailscale.com/download", size: 104)
+                    Text("Scan with your phone's camera")
+                        .font(Extreme.font(11))
+                        .foregroundColor(Extreme.muted)
+                }
+            }
+        }
+    }
+
+    /// The finished checklist, folded away.
+    private func setupSummary(_ status: TailscaleStatus) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button { withAnimation(.easeOut(duration: 0.15)) { showSetup.toggle() } } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill").foregroundColor(Extreme.live)
+                    Text("Tailscale is set up").font(Extreme.font(12, weight: .semibold)).foregroundColor(Extreme.text)
+                    if let login = status.loginName {
+                        Text(login).font(Extreme.font(11)).foregroundColor(Extreme.muted).lineLimit(1)
+                    }
+                    Spacer()
+                    Image(systemName: showSetup ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 10, weight: .semibold)).foregroundColor(Extreme.muted)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            if showSetup { checklist(status) }
+        }
+        .padding(.top, 8)
     }
 
     // MARK: Steps
@@ -249,18 +295,23 @@ private struct PhoneSetupView: View {
                     .buttonStyle(ExtremeButtonStyle(prominent: true))
                     .disabled(monitor.busy)
             } else {
-                HStack(spacing: 8) {
-                    Circle().fill(Extreme.live).frame(width: 7, height: 7)
-                    if let url = server.url {
-                        Text(url.absoluteString).font(Extreme.font(11.5, weight: .semibold)).foregroundColor(Extreme.text)
-                            .textSelection(.enabled)
-                    } else {
-                        Text(monitor.busy ? "Setting up Tailscale Serve…" : "On (waiting for Tailscale Serve)")
-                            .font(Extreme.font(11.5)).foregroundColor(Extreme.muted)
+                HStack(alignment: .center, spacing: 10) {
+                    Circle().fill(server.connected.isEmpty ? Extreme.gold : Extreme.live).frame(width: 9, height: 9)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(liveSummary).font(Extreme.font(13, weight: .semibold)).foregroundColor(Extreme.text)
+                        if let url = server.url {
+                            Text(url.absoluteString).font(Extreme.font(11)).foregroundColor(Extreme.muted)
+                                .textSelection(.enabled)
+                        } else {
+                            Text(monitor.busy ? "Setting up Tailscale Serve…" : "Waiting for Tailscale Serve")
+                                .font(Extreme.font(11)).foregroundColor(Extreme.muted)
+                        }
                     }
                     Spacer()
                     Button("Turn off") { server.turnOff() }
                 }
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Extreme.panel))
                 pairing
                 pairedList
             }
@@ -269,6 +320,14 @@ private struct PhoneSetupView: View {
             }
         }
         .padding(.top, 8)
+    }
+
+    private var liveSummary: String {
+        switch server.connected.count {
+        case 0: return "On · waiting for a phone"
+        case 1: return "Live · " + (phones.devices.first { server.connected[$0.id] != nil }?.name ?? "1 phone") + " connected"
+        default: return "Live · \(server.connected.count) phones connected"
+        }
     }
 
     @ViewBuilder
