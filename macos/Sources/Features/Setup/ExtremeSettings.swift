@@ -247,6 +247,7 @@ final class ExtremeSettings: ObservableObject {
             AgentToolWindows.close(id: EnvironmentWindow.windowID)
         case .phone:
             AgentToolWindows.close(id: PhoneSetup.windowID)
+            if PhoneServer.shared.running { PhoneServer.shared.turnOff() }
         case .races, .undo, .usage, .git, .sharedMemory:
             break
         }

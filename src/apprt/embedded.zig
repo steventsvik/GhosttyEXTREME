@@ -1726,6 +1726,71 @@ pub const CAPI = struct {
         return 0;
     }
 
+    /// GhosttyEXTREME: a snapshot of the active screen for mirroring it elsewhere (the
+    /// phone): every row of the active area as VT (text with its colors and styles, rows
+    /// separated by \r\n, trailing blank rows left out), the grid size, and the cursor.
+    const Mirror = extern struct {
+        text: ?[*:0]const u8,
+        text_len: usize,
+        cols: u16,
+        rows: u16,
+        cursor_x: u16,
+        cursor_y: u16,
+        cursor_visible: bool,
+        alternate: bool,
+        /// Default colors as 0xRRGGBB (palette colors in `text` are already RGB).
+        background: u32,
+        foreground: u32,
+    };
+
+    export fn ghostty_surface_read_mirror(surface: *Surface, result: *Mirror) bool {
+        const core_surface = &surface.core_surface;
+        core_surface.renderer_state.mutex.lock();
+        defer core_surface.renderer_state.mutex.unlock();
+
+        const t = &core_surface.io.terminal;
+        const screen = t.screens.active;
+        const pages = &screen.pages;
+        const tl = pages.getTopLeft(.active);
+        const br = pages.getBottomRight(.active) orelse return false;
+
+        var aw: std.Io.Writer.Allocating = .init(global.alloc);
+        defer aw.deinit();
+        var formatter: terminal.formatter.ScreenFormatter = .init(screen, .{
+            .emit = .vt,
+            .unwrap = false,
+            .trim = false,
+            .palette = &t.colors.palette.current,
+        });
+        formatter.content = .{ .selection = terminal.Selection.init(tl, br, false) };
+        formatter.format(&aw.writer) catch return false;
+
+        const text = global.alloc.dupeZ(u8, aw.written()) catch return false;
+        result.* = .{
+            .text = text.ptr,
+            .text_len = text.len,
+            .cols = @intCast(pages.cols),
+            .rows = @intCast(pages.rows),
+            .cursor_x = @intCast(screen.cursor.x),
+            .cursor_y = @intCast(screen.cursor.y),
+            .cursor_visible = t.modes.get(.cursor_visible),
+            .alternate = t.screens.active_key == .alternate,
+            .background = rgb(t.colors.background.get() orelse terminal.color.RGB{ .r = 0, .g = 0, .b = 0 }),
+            .foreground = rgb(t.colors.foreground.get() orelse terminal.color.RGB{ .r = 255, .g = 255, .b = 255 }),
+        };
+        return true;
+    }
+
+    fn rgb(c: terminal.color.RGB) u32 {
+        return (@as(u32, c.r) << 16) | (@as(u32, c.g) << 8) | c.b;
+    }
+
+    /// GhosttyEXTREME: frees a snapshot from ghostty_surface_read_mirror.
+    export fn ghostty_surface_free_mirror(result: *Mirror) void {
+        if (result.text) |ptr| global.alloc.free(ptr[0..result.text_len :0]);
+        result.text = null;
+    }
+
     /// GhosttyEXTREME: frees text from ghostty_surface_read_last_command.
     export fn ghostty_surface_free_last_command(command_text: *Text, output_text: *Text) void {
         command_text.deinit();

@@ -21,6 +21,13 @@ enum PhoneSetup {
 /// Bottom of the sidebar: one line saying whether the phone can reach this Mac.
 struct PhoneStatusChip: View {
     @ObservedObject private var monitor = TailscaleMonitor.shared
+    @ObservedObject private var server = PhoneServer.shared
+
+    private var summary: String {
+        guard server.running else { return monitor.status.summary }
+        let phones = server.connected.count
+        return phones == 0 ? "on · no phone connected" : phones == 1 ? "on · 1 phone connected" : "on · \(phones) phones connected"
+    }
 
     var body: some View {
         let status = monitor.status
@@ -30,9 +37,9 @@ struct PhoneStatusChip: View {
                 Text("Phone")
                     .font(Extreme.font(11.5, weight: .semibold))
                     .foregroundColor(Extreme.text)
-                Text(status.summary)
+                Text(summary)
                     .font(Extreme.font(10.5))
-                    .foregroundColor(status.isReady ? Extreme.muted : color(status))
+                    .foregroundColor(status.isReady || server.running ? Extreme.muted : color(status))
                     .lineLimit(1)
                 Spacer(minLength: 4)
                 Circle().fill(color(status)).frame(width: 6, height: 6)
@@ -47,7 +54,8 @@ struct PhoneStatusChip: View {
     }
 
     private func color(_ status: TailscaleStatus) -> Color {
-        if status.isReady { return Extreme.live }
+        if server.running, !server.connected.isEmpty { return Extreme.live }
+        if status.isReady || server.running { return Extreme.gold }
         switch status.state {
         case .notInstalled, .appNotRunning, .stopped: return Extreme.dim
         default: return Extreme.gold
@@ -59,6 +67,8 @@ struct PhoneStatusChip: View {
 
 private struct PhoneSetupView: View {
     @ObservedObject private var monitor = TailscaleMonitor.shared
+    @ObservedObject private var server = PhoneServer.shared
+    @ObservedObject private var phones = PhoneDevices.shared
 
     private enum StepState { case done, current, later }
 
@@ -107,6 +117,7 @@ private struct PhoneSetupView: View {
                             .textSelection(.enabled)
                     }
                     if status.state == .running { devices(status) }
+                    if status.state == .running, status.magicDNS, status.httpsEnabled { access }
                     Text("GhosttyEXTREME only uses Tailscale inside your own tailnet. It never turns on Funnel, which would put your terminal on the public internet.")
                         .font(Extreme.font(10.5))
                         .foregroundColor(Extreme.dim)
@@ -204,14 +215,87 @@ private struct PhoneSetupView: View {
                         .foregroundColor(phone.online ? Extreme.live : Extreme.dim)
                 }
             }
-            if s.isReady {
-                Text("Ready. Pairing your phone with GhosttyEXTREME comes next.")
-                    .font(Extreme.font(11))
-                    .foregroundColor(Extreme.muted)
-                    .padding(.top, 2)
-            }
         }
         .padding(.top, 6)
+    }
+
+    // MARK: Phone access
+
+    private var access: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ExtremeSectionLabel("Phone access")
+            if !server.running {
+                Text("Turn it on to use this Mac's terminal from your paired phones. Only devices signed in to your own Tailscale account can reach it, and each phone has to be paired here first.")
+                    .font(Extreme.font(11))
+                    .foregroundColor(Extreme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Turn on phone access") { server.turnOn() }
+                    .buttonStyle(ExtremeButtonStyle(prominent: true))
+                    .disabled(monitor.busy)
+            } else {
+                HStack(spacing: 8) {
+                    Circle().fill(Extreme.live).frame(width: 7, height: 7)
+                    if let url = server.url {
+                        Text(url.absoluteString).font(Extreme.font(11.5, weight: .semibold)).foregroundColor(Extreme.text)
+                            .textSelection(.enabled)
+                    } else {
+                        Text(monitor.busy ? "Setting up Tailscale Serve…" : "On (waiting for Tailscale Serve)")
+                            .font(Extreme.font(11.5)).foregroundColor(Extreme.muted)
+                    }
+                    Spacer()
+                    Button("Turn off") { server.turnOff() }
+                }
+                pairing
+                pairedList
+            }
+            if let error = server.error {
+                Text(error).font(Extreme.font(11)).foregroundColor(Extreme.danger).textSelection(.enabled)
+            }
+        }
+        .padding(.top, 8)
+    }
+
+    @ViewBuilder
+    private var pairing: some View {
+        if let code = phones.pairingCode, let url = server.url {
+            HStack(alignment: .center, spacing: 16) {
+                QRCodeView(text: url.absoluteString + "#pair=" + code, size: 150)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Scan with your phone's camera").font(Extreme.font(12.5, weight: .semibold)).foregroundColor(Extreme.text)
+                    Text("The code works once, for 10 minutes. Your phone has to be on Tailscale.")
+                        .font(Extreme.font(11)).foregroundColor(Extreme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button("Cancel") { phones.cancelPairing() }
+                }
+            }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Extreme.panel))
+        } else if server.url != nil {
+            Button(phones.devices.isEmpty ? "Pair a phone…" : "Pair another phone…") { phones.newPairingCode() }
+                .buttonStyle(ExtremeButtonStyle(prominent: phones.devices.isEmpty))
+        }
+    }
+
+    @ViewBuilder
+    private var pairedList: some View {
+        if !phones.devices.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(phones.devices) { device in
+                    let online = server.connected[device.id] != nil
+                    HStack(spacing: 8) {
+                        Image(systemName: "iphone").foregroundColor(online ? Extreme.live : Extreme.muted)
+                        Text(device.name).font(Extreme.font(12, weight: .semibold)).foregroundColor(Extreme.text)
+                        Text(online ? "connected" : device.lastSeen.map { "last used " + RelativeDateTimeFormatter().localizedString(for: $0, relativeTo: Date()) } ?? "")
+                            .font(Extreme.font(11)).foregroundColor(online ? Extreme.live : Extreme.dim)
+                        Spacer()
+                        Button("Remove") { phones.remove(device.id) }
+                    }
+                }
+                if phones.devices.count > 1 {
+                    Button("Remove all phones") { phones.removeAll() }
+                }
+            }
+        }
     }
 }
 

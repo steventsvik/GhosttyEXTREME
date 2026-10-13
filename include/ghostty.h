@@ -1141,6 +1141,24 @@ void ghostty_surface_free_last_command(ghostty_text_s*, ghostty_text_s*);
 // all drawn faint (a placeholder or suggestion), 2 = has normal text (typed by the user).
 int ghostty_surface_prompt_text_style(ghostty_surface_t, uint32_t);
 
+// GhosttyEXTREME: the active screen as VT (colors and styles; rows separated by \r\n,
+// trailing blank rows left out), with the grid size and cursor, for mirroring it on
+// another device. Free with ghostty_surface_free_mirror.
+typedef struct {
+  const char* text;
+  uintptr_t text_len;
+  uint16_t cols;
+  uint16_t rows;
+  uint16_t cursor_x;
+  uint16_t cursor_y;
+  bool cursor_visible;
+  bool alternate;
+  uint32_t background;  // 0xRRGGBB; palette colors in text are already RGB
+  uint32_t foreground;
+} ghostty_mirror_s;
+bool ghostty_surface_read_mirror(ghostty_surface_t, ghostty_mirror_s*);
+void ghostty_surface_free_mirror(ghostty_mirror_s*);
+
 #ifdef __APPLE__
 void ghostty_surface_set_display_id(ghostty_surface_t, uint32_t);
 void* ghostty_surface_quicklook_font(ghostty_surface_t);
