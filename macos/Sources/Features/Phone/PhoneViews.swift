@@ -16,50 +16,66 @@ enum PhoneSetup {
     }
 }
 
-// MARK: - Sidebar chip
+// MARK: - Corner badge
 
-/// Bottom of the sidebar: one line saying whether the phone can reach this Mac.
-struct PhoneStatusChip: View {
+/// Bottom right of the terminal: a small phone that says whether phone access is live.
+/// Dim when it's off, gold while it waits for a phone, green with a phone connected.
+/// Hovering names the state; clicking opens the Phone window.
+struct PhoneCornerBadge: View {
     @ObservedObject private var monitor = TailscaleMonitor.shared
     @ObservedObject private var server = PhoneServer.shared
+    @ObservedObject private var phones = PhoneDevices.shared
+    @State private var hovering = false
 
-    private var summary: String {
-        guard server.running else { return monitor.status.summary }
-        let phones = server.connected.count
-        return phones == 0 ? "on · no phone connected" : phones == 1 ? "on · 1 phone connected" : "on · \(phones) phones connected"
+    private var connectedNames: [String] {
+        phones.devices.filter { server.connected[$0.id] != nil }.map(\.name)
+    }
+
+    private var label: String {
+        guard server.running else {
+            return monitor.status.isReady ? "Phone access off" : "Phone · \(monitor.status.summary)"
+        }
+        if server.servePort == nil && !PhoneServer.devMode { return "Phone · starting" }
+        let names = connectedNames
+        switch names.count {
+        case 0: return "Phone · on, no phone connected"
+        case 1: return "Phone · live · \(names[0])"
+        default: return "Phone · live · \(names.count) phones"
+        }
+    }
+
+    private var color: Color {
+        guard server.running else { return Extreme.dim }
+        if server.error != nil { return Extreme.danger }
+        return server.connected.isEmpty ? Extreme.gold : Extreme.live
     }
 
     var body: some View {
-        let status = monitor.status
         Button(action: PhoneSetup.show) {
-            HStack(spacing: 7) {
-                PixelIconView(icon: .phone, color: color(status), pixel: 1.3)
-                Text("Phone")
-                    .font(Extreme.font(11.5, weight: .semibold))
-                    .foregroundColor(Extreme.text)
-                Text(summary)
-                    .font(Extreme.font(10.5))
-                    .foregroundColor(status.isReady || server.running ? Extreme.muted : color(status))
-                    .lineLimit(1)
-                Spacer(minLength: 4)
-                Circle().fill(color(status)).frame(width: 6, height: 6)
-                    .shadow(color: color(status).opacity(status.isReady ? 0.7 : 0), radius: 3)
+            HStack(spacing: 6) {
+                ZStack(alignment: .topTrailing) {
+                    PixelIconView(icon: .phone, color: server.running ? color : Extreme.muted, pixel: 1.2)
+                    Circle().fill(color).frame(width: 5, height: 5).offset(x: 3, y: -2)
+                }
+                if hovering {
+                    Text(label)
+                        .font(Extreme.font(11, weight: .medium))
+                        .foregroundColor(Extreme.text)
+                        .lineLimit(1)
+                        .fixedSize()
+                }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .contentShape(Rectangle())
+            .padding(.horizontal, hovering ? 9 : 6)
+            .frame(height: 22)
+            .background(Capsule().fill(Extreme.panel.opacity(hovering ? 0.96 : 0.75)))
+            .overlay(Capsule().stroke(hovering ? Extreme.lineStrong : Extreme.line, lineWidth: 1))
+            .opacity(hovering || server.running ? 1 : 0.7)
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .help("Use your terminal from your phone over Tailscale. Click to set up or see devices.")
-    }
-
-    private func color(_ status: TailscaleStatus) -> Color {
-        if server.running, !server.connected.isEmpty { return Extreme.live }
-        if status.isReady || server.running { return Extreme.gold }
-        switch status.state {
-        case .notInstalled, .appNotRunning, .stopped: return Extreme.dim
-        default: return Extreme.gold
-        }
+        .onHover { inside in withAnimation(.easeOut(duration: 0.12)) { hovering = inside } }
+        .help("Use this terminal from your phone. Click to set up, pair a phone or see who's connected.")
+        .accessibilityLabel(label)
     }
 }
 

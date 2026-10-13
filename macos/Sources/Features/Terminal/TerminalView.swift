@@ -117,28 +117,35 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                     }
                 }
 
-                // Show update information above all else.
-                if viewModel.updateOverlayIsVisible {
-                    UpdateOverlay()
-                }
+                // Bottom right: phone access, and update information above all else.
+                CornerOverlay(showUpdate: viewModel.updateOverlayIsVisible)
             }
             .frame(maxWidth: .greatestFiniteMagnitude, maxHeight: .greatestFiniteMagnitude)
         }
     }
 }
 
-private struct UpdateOverlay: View {
+private struct CornerOverlay: View {
+    let showUpdate: Bool
+    @ObservedObject private var settings = ExtremeSettings.shared
+
     var body: some View {
-        if let appDelegate = NSApp.delegate as? AppDelegate {
+        let phone = settings.isOn(.phone)
+        if phone || showUpdate {
             VStack {
                 Spacer()
 
-                HStack {
+                HStack(spacing: 8) {
                     Spacer()
-                    UpdatePill(model: appDelegate.updateViewModel)
-                        .padding(.bottom, 9)
-                        .padding(.trailing, 9)
+                    if phone {
+                        PhoneCornerBadge()
+                    }
+                    if showUpdate, let appDelegate = NSApp.delegate as? AppDelegate {
+                        UpdatePill(model: appDelegate.updateViewModel)
+                    }
                 }
+                .padding(.bottom, 9)
+                .padding(.trailing, 9)
             }
         }
     }

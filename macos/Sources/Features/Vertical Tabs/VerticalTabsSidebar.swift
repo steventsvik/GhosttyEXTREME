@@ -520,12 +520,6 @@ struct VerticalTabsSidebar: View {
                 HousekeepingChip().padding(.horizontal, 8).padding(.bottom, 6)
             }
 
-            // Whether the phone can reach this Mac.
-            if settings.isOn(.phone) {
-                Rectangle().fill(Extreme.line).frame(height: 1)
-                PhoneStatusChip()
-            }
-
             // Bottom left: live usage of the user's AI subscriptions.
             if settings.isOn(.usage) {
                 Rectangle().fill(Extreme.line).frame(height: 1)
