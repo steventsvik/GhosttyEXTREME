@@ -448,6 +448,8 @@ class AppDelegate: NSObject,
         // so remove them all now. In the future we may want to be
         // more selective and only remove surface-targeted notifications.
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+        // Tellurion: a copy updated from GhosttyEXTREME takes the new name.
+        RenameAfterRebrand.renameIfNeeded()
     }
 
     /// This is called when the application is already open and someone double-clicks the icon

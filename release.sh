@@ -114,6 +114,9 @@ ZIG_GLOBAL_CACHE_DIR=/private/tmp/gx-zig-global ZIG_LOCAL_CACHE_DIR=/private/tmp
   $ZIG build -Doptimize=ReleaseFast -Dxcframework-target=native -Demit-macos-app=false > $OUT/zig.log 2>&1 \
   || { tail -20 $OUT/zig.log; fail "core build failed (log: $OUT/zig.log)"; }
 pass "core library"
+# Xcode never removes resources a previous build put in the app (an old icon, say), so the
+# release starts from an empty app bundle.
+rm -rf macos/build/ReleaseLocal/Ghostty.app
 (cd macos && xcodebuild -project Ghostty.xcodeproj -scheme Ghostty -configuration ReleaseLocal \
   SYMROOT="$PWD/build" ARCHS=arm64 ONLY_ACTIVE_ARCH=YES build > $OUT/xcode.log 2>&1) \
   || { grep -E "error:" $OUT/xcode.log | head -10; fail "app build failed (log: $OUT/xcode.log)"; }
@@ -140,6 +143,10 @@ find $APP -type f -perm +111 -exec sh -c 'file "$1" | grep -q Mach-O && strip -S
 LEAKS=$(LC_ALL=C grep -rl -a "/Users/$USER" $APP | wc -l | xargs)
 [[ $LEAKS == 0 ]] || { LC_ALL=C grep -rl -a "/Users/$USER" $APP | head -5; fail "$LEAKS files in the app contain your home path"; }
 pass "no home-folder paths in the app"
+# Ghostty's icons are its trademark; the only icon file in the app is Tellurion's.
+ICONS=$(cd $APP/Contents/Resources && ls *.icns(N) | grep -vx Tellurion.icns | xargs)
+[[ -z $ICONS ]] || fail "the app contains other icons: $ICONS"
+pass "only Tellurion's icon in the app"
 # Signed inside out with the hardened runtime and a secure timestamp, as notarization requires:
 # Sparkle's helpers, the Dock plugin, then the app with its entitlements. The same certificate
 # every release, so macOS keeps users' permissions (notifications, folders) across updates.

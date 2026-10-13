@@ -17,6 +17,7 @@ extension UpdateDriver: SPUUpdaterDelegate {
     /// When `auto-update = check`, Sparkle will call the corresponding
     /// delegate method on the responsible driver instead.
     func updater(_ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem, immediateInstallationBlock immediateInstallHandler: @escaping () -> Void) -> Bool {
+        RenameAfterRebrand.updatePending = true
         viewModel.state = .installing(.init(
             isAutoUpdate: true,
             retryTerminatingApplication: immediateInstallHandler,
@@ -37,7 +38,13 @@ extension UpdateDriver: SPUUpdaterDelegate {
         }
     }
 
+    func updater(_ updater: SPUUpdater, willInstallUpdate item: SUAppcastItem) {
+        // Tellurion: the installer writes to this app's path, so don't rename it on quit.
+        RenameAfterRebrand.updatePending = true
+    }
+
     func updaterWillRelaunchApplication(_ updater: SPUUpdater) {
+        RenameAfterRebrand.updatePending = true
         // When the updater is relaunching the application we want to get macOS
         // to invalidate and re-encode all of our restorable state so that when
         // we relaunch it uses it.
