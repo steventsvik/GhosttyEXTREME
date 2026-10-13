@@ -1,0 +1,48 @@
+<!doctype html>
+<!-- Source of images/readme/banner.png. Rendered at 1280x400, scale 2. -->
+<html><head><meta charset="utf-8"><style>
+@font-face { font-family: "JetBrains Mono"; font-weight: 400; src: url(../../macos/PhoneWeb/fonts/jetbrains-mono-latin-400-normal.woff2); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 700; src: url(../../macos/PhoneWeb/fonts/jetbrains-mono-latin-700-normal.woff2); }
+html, body { margin: 0; background: transparent; }
+.banner { width: 1280px; height: 400px; box-sizing: border-box; border-radius: 22px; overflow: hidden; position: relative;
+  background: radial-gradient(ellipse at 30% 40%, #1c1810 0%, #0b0a08 60%), #0b0a08; border: 1px solid #2a261f;
+  display: flex; align-items: center; gap: 56px; padding: 0 64px 0 72px; font-family: "JetBrains Mono", monospace; color: #f2ebdd; }
+.banner::before { content: ""; position: absolute; inset: 0; opacity: .35;
+  background-image: linear-gradient(#2a261f 1px, transparent 1px), linear-gradient(90deg, #2a261f 1px, transparent 1px);
+  background-size: 32px 32px; -webkit-mask-image: radial-gradient(ellipse at 70% 50%, #000 0%, transparent 75%); }
+.icon { width: 176px; height: 176px; flex: none; position: relative; filter: drop-shadow(0 18px 30px rgba(0,0,0,.6)); }
+.main { flex: 1; position: relative; display: flex; flex-direction: column; gap: 18px; }
+h1 { margin: 0; font-size: 72px; font-weight: 700; letter-spacing: -.01em; line-height: 1; }
+h1 span { color: #deb86e; }
+.tag { margin: 0; font: 400 24px -apple-system, "SF Pro Text", system-ui, sans-serif; color: #a89e8c; }
+.chips { display: flex; flex-wrap: wrap; gap: 10px; max-width: 520px; margin-top: 6px; }
+.chip { font-size: 15px; padding: 6px 12px; border-radius: 6px; border: 1px solid #4a3c28; color: #deb86e; background: rgba(222,184,110,.06); }
+.chip.c { border-color: #22505a; color: #78dceb; background: rgba(120,220,235,.06); }
+.cards { width: 300px; flex: none; position: relative; display: flex; flex-direction: column; gap: 14px; }
+.card { border-radius: 10px; border: 1px solid #2a261f; background: rgba(23,20,15,.92); padding: 12px 14px; display: flex; flex-direction: column; gap: 7px; }
+.row { display: flex; align-items: center; gap: 9px; font: 600 15px -apple-system, system-ui, sans-serif; }
+.dot { width: 8px; height: 8px; border-radius: 50%; }
+.pill { margin-left: auto; font: 600 12px -apple-system, system-ui, sans-serif; padding: 2px 8px; border-radius: 4px; }
+.what { font-size: 12.5px; color: #a89e8c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar { height: 2px; background: linear-gradient(90deg, #78dceb, transparent); border-radius: 1px; width: 70%; }
+</style></head><body>
+<div class="banner">
+  <img class="icon" src="icon.svg" alt="">
+  <div class="main">
+    <h1>Tell<span>urion</span></h1>
+    <p class="tag">The macOS terminal built for coding agents.</p>
+    <div class="chips">
+      <span class="chip">Live agent status</span><span class="chip">Code map</span><span class="chip c">Backend view</span>
+      <span class="chip">Visual Fix</span><span class="chip c">Agent races</span><span class="chip">Change review</span>
+    </div>
+  </div>
+  <div class="cards">
+    <div class="card"><div class="row"><span class="dot" style="background:#78dceb"></span>Claude Code<span class="pill" style="background:#10262b;color:#78dceb">Working</span></div>
+      <div class="what">Edit: src/app/api/checkout/route.ts</div><div class="bar"></div></div>
+    <div class="card"><div class="row"><span class="dot" style="background:#e9a640"></span>Claude Code<span class="pill" style="background:#3a2c14;color:#e9a640">Needs you</span></div>
+      <div class="what">Bash: npx wrangler d1 migrations apply</div></div>
+    <div class="card"><div class="row"><span class="dot" style="background:#7fc98a"></span>Codex<span class="pill" style="background:#13281a;color:#7fc98a">Done</span></div>
+      <div class="what">Review the checkout flow · 3 files</div></div>
+  </div>
+</div>
+</body></html>

@@ -363,7 +363,7 @@ enum SkillInventory {
         }
         var request = URLRequest(url: url, timeoutInterval: 20)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        request.setValue("GhosttyEXTREME", forHTTPHeaderField: "User-Agent")
+        request.setValue("Tellurion", forHTTPHeaderField: "User-Agent")
         guard let (data, response) = try? await URLSession.shared.data(for: request),
               let http = response as? HTTPURLResponse else { return .failure(CheckError(message: "Offline")) }
         if http.statusCode == 403 || http.statusCode == 429 {

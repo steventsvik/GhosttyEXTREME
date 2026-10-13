@@ -3,7 +3,7 @@ import Foundation
 
 /// Reads an agent's input box off its screen, to know whether a message can be typed in.
 ///
-/// GhosttyEXTREME only ever types into an agent that's sitting at an empty input box. The
+/// Tellurion only ever types into an agent that's sitting at an empty input box. The
 /// hooks can say an agent is ready while it shows something else (Claude Code's "trust this
 /// folder?" question, a permission prompt, a menu), and typing into those would pick an
 /// option. So the box itself has to be on screen:

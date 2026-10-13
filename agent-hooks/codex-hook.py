@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Codex telemetry for GhosttyEXTREME. Never decides PermissionRequest hooks.
+"""Codex telemetry for Tellurion. Never decides PermissionRequest hooks.
 
 Keep rich tool data in private local JSONL; OSC notifications carry only identity and
 status, safely below the terminal's 255-byte body limit. Claude's adapter is independent.
@@ -167,7 +167,7 @@ def localhost_context(payload, event, home):
     # rewrite, not a PermissionRequest: retain all tool sandbox/escalation arguments.
     return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow",
         "updatedInput": updated, "additionalContext":
-        "The dev server command now opens a GhosttyEXTREME localhost session: a separate "
+        "The dev server command now opens a Tellurion localhost session: a separate "
         "terminal tab that keeps running after you finish. The command prints the URL and "
         "log commands. Do not start another copy. The usual tool approval flow still applies."}}
 

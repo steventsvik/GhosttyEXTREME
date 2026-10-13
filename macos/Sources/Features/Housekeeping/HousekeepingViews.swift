@@ -98,7 +98,7 @@ private struct HousekeepingView: View {
                 let stale = store.staleCount
                 if stale > 0 { chip("\(stale) stale", Extreme.warn) }
                 if store.reclaimable > 0 { chip("\(Housekeeping.bytes(store.reclaimable)) you could free", Extreme.warn) }
-                chip("GhosttyEXTREME: \(Int(store.selfUsage.cpu))% CPU · \(Housekeeping.bytes(store.selfUsage.memory))",
+                chip("Tellurion: \(Int(store.selfUsage.cpu))% CPU · \(Housekeeping.bytes(store.selfUsage.memory))",
                      store.selfUsage.cpu > 25 ? Extreme.danger : Extreme.muted)
                 Spacer()
                 if !ready.isEmpty {
@@ -290,13 +290,13 @@ private struct HousekeepingView: View {
     private func explanation(_ item: Housekeeping.Item) -> String {
         switch item.close {
         case .colimaStop(let profile):
-            return "Stops the Colima VM “\(profile)” and every container in it, freeing \(Housekeeping.bytes(item.reserved)). Start it again with `colima start\(profile == "default" ? "" : " -p \(profile)")` (a Docker session in GhosttyEXTREME starts it for you)."
+            return "Stops the Colima VM “\(profile)” and every container in it, freeing \(Housekeeping.bytes(item.reserved)). Start it again with `colima start\(profile == "default" ? "" : " -p \(profile)")` (a Docker session in Tellurion starts it for you)."
         case .dockerStop:
             return "Stops the container. Unless it was started with --rm, it's kept and can be started again."
         case .launchdStop(let label):
             return "Stops the login service \(label) until you next log in (it isn't removed)."
         case .terminate(let pids):
-            return "Sends a normal quit signal to \(pids.count) process\(pids.count == 1 ? "" : "es"), so it can shut down cleanly.\(item.inTerminal ? " It's running in a GhosttyEXTREME tab; the tab stays open." : "")"
+            return "Sends a normal quit signal to \(pids.count) process\(pids.count == 1 ? "" : "es"), so it can shut down cleanly.\(item.inTerminal ? " It's running in a Tellurion tab; the tab stays open." : "")"
         case .none:
             return ""
         }

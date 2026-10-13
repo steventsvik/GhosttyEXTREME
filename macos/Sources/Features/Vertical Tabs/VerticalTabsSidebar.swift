@@ -594,9 +594,9 @@ struct VerticalTabsSidebar: View {
             HStack(spacing: 9) {
                 LivingSigil(size: 30)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("GHOSTTY·EXTREME")
+                    Text("TELLURION")
                         .font(Extreme.font(11.5))
-                        .kerning(2.2)
+                        .kerning(3.6)
                         .foregroundColor(Extreme.gold)
                         .extremeGlint()
                     Text("Α Ι · ΣΥΣΤΗΜΑ")

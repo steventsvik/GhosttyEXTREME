@@ -12,7 +12,7 @@ class DockTilePlugin: NSObject, NSDockTilePlugIn {
     #if DEBUG
     private let ghosttyUserDefaults = UserDefaults(suiteName: "com.mitchellh.ghostty.debug")
     #else
-    // GhosttyEXTREME: read the defaults of the app this plugin belongs to, so a
+    // Tellurion: read the defaults of the app this plugin belongs to, so a
     // renamed build (different bundle ID) doesn't pick up official Ghostty's icon.
     private lazy var ghosttyUserDefaults = UserDefaults(
         suiteName: ghosttyAppURL.flatMap { Bundle(url: $0)?.bundleIdentifier } ?? "com.mitchellh.ghostty")
@@ -101,10 +101,9 @@ class DockTilePlugin: NSObject, NSDockTilePlugIn {
             }
 
             #if DEBUG
-            // Use the `Blueprint` icon to distinguish Debug from Release builds.
-            appIcon = pluginBundle.image(forResource: "BlueprintImage")!
+            appIcon = pluginBundle.image(forResource: "AppIconImage")!
             #else
-            // GhosttyEXTREME: use the bundle's own icon file directly. Asking
+            // Tellurion: use the bundle's own icon file directly. Asking
             // NSWorkspace for the composed icon can return a stale cached copy (the
             // stock blue icon) after the app is reinstalled.
             if let bundleIcon = ghosttyAppURL.flatMap(Self.bundleIconImage(for:)) {

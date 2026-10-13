@@ -2,13 +2,13 @@
 import AppKit
 import SwiftUI
 
-/// GhosttyEXTREME's own settings: which features are on, how much the chrome moves, the
+/// Tellurion's own settings: which features are on, how much the chrome moves, the
 /// sidebar, and agent setup. Ghostty's settings stay in its config file (⌘,).
 enum ExtremeSettingsWindow {
     static let windowID = "extreme-settings"
 
     static func show() {
-        AgentToolWindows.show(id: windowID, title: "GhosttyEXTREME Settings", size: NSSize(width: 620, height: 720)) {
+        AgentToolWindows.show(id: windowID, title: "Tellurion Settings", size: NSSize(width: 620, height: 720)) {
             ExtremeSettingsView()
         }
     }
@@ -24,7 +24,7 @@ private struct ExtremeSettingsView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                ExtremeWindowTitle(icon: nil, title: "Settings", subtitle: "GhosttyEXTREME's features and look", sigil: true)
+                ExtremeWindowTitle(icon: nil, title: "Settings", subtitle: "Tellurion's features and look", sigil: true)
                 Spacer()
             }
             .padding(.horizontal, 16).padding(.top, 30).padding(.bottom, 12)
@@ -163,13 +163,13 @@ struct FeatureToggleList: View {
     }
 }
 
-/// Takes GhosttyEXTREME's hooks back out of the agents' configs and ~/.zshrc.
+/// Takes Tellurion's hooks back out of the agents' configs and ~/.zshrc.
 enum HookRemoval {
     static func confirm() {
         let alert = NSAlert()
-        alert.messageText = "Remove GhosttyEXTREME's agent hooks?"
+        alert.messageText = "Remove Tellurion's agent hooks?"
         alert.informativeText = """
-        This takes GhosttyEXTREME's entries out of ~/.claude/settings.json, ~/.codex/hooks.json and \
+        This takes Tellurion's entries out of ~/.claude/settings.json, ~/.codex/hooks.json and \
         ~/.zshrc (each is backed up first). Your other hooks stay. The sidebar will no longer show \
         what agents are doing until you set it up again.
         """

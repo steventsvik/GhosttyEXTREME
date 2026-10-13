@@ -1,5 +1,5 @@
 #!/bin/bash
-# Runs a GhosttyEXTREME localhost session's server in its tab: shows what it is, keeps a
+# Runs a Tellurion localhost session's server in its tab: shows what it is, keeps a
 # log the agent can read, and offers restart when the server stops. The app opens this
 # (see `localhost start`); it reports the server starting and stopping with OSC 777.
 

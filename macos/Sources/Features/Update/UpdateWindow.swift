@@ -120,7 +120,7 @@ struct UpdateWindowView: View {
                     Button("Cancel") { checking.cancel() }
                 }
             case .notFound(let notFound):
-                message(title: "You're up to date", text: "GhosttyEXTREME \(currentVersion) is the latest version.", spinner: false) {
+                message(title: "You're up to date", text: "Tellurion \(currentVersion) is the latest version.", spinner: false) {
                     Button("OK") { model.state = .idle; notFound.acknowledgement() }
                         .buttonStyle(ExtremeButtonStyle(prominent: true))
                         .keyboardShortcut(.defaultAction)
@@ -158,7 +158,7 @@ struct UpdateWindowView: View {
     private func available(_ update: UpdateState.UpdateAvailable) -> some View {
         let version = update.appcastItem.displayVersionString
         return VStack(alignment: .leading, spacing: 18) {
-            header(title: "GhosttyEXTREME \(version)",
+            header(title: "Tellurion \(version)",
                    subtitle: currentVersion.isEmpty ? "A new version is ready" : "A new version is ready. You have \(currentVersion).")
             HStack(spacing: 8) {
                 if update.appcastItem.contentLength > 0 {
@@ -271,7 +271,7 @@ struct UpdateWindowView: View {
             Spacer(minLength: 0)
             ExtremeSigil(size: 64)
             VStack(spacing: 6) {
-                Text("\(titles[step]) GhosttyEXTREME \(version)")
+                Text("\(titles[step]) Tellurion \(version)")
                     .font(Extreme.font(17, weight: .semibold)).foregroundColor(Extreme.text)
                 Text("Your tabs, agents and servers reopen where they were.")
                     .font(Extreme.font(12, weight: .regular)).foregroundColor(Extreme.muted)

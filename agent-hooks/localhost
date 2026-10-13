@@ -1,5 +1,5 @@
 #!/bin/bash
-# GhosttyEXTREME localhost sessions: dev servers that run in their own terminal tab, so they
+# Tellurion localhost sessions: dev servers that run in their own terminal tab, so they
 # keep running after the agent (or terminal) that started them is gone.
 #
 #   localhost start [--log FILE] -- 'npm run dev'   open a session for a server in this folder
@@ -204,7 +204,7 @@ start() {
 
   # Already a session for this here? Point at it if it's serving; restart it in its tab if
   # it stopped, or stopped listening, instead of opening a second copy.
-  local f id state reuse=""
+  local f id state reuse="" join=""
   for f in "$dir"/*.status.json; do
     [ -f "$f" ] || continue
     id=$(basename "$f" .status.json)
@@ -212,18 +212,25 @@ start() {
     [ "$(jq -r .command "$dir/$id.json" 2>/dev/null)" = "$cmd" ] || continue
     state=$(jq -r .state "$f")
     if [ "$state" = "live" ] && listening "$id"; then
-      echo "✓ Already running in GhosttyEXTREME localhost session $id (a separate tab that keeps running)."
+      echo "✓ Already running in Tellurion localhost session $id (a separate tab that keeps running)."
       print_session "$id"
       return 0
     fi
-    case "$state" in live|quiet|exited) reuse="$id"; break ;; esac
+    case "$state" in
+      live|quiet|exited) reuse="$id"; break ;;
+      # Already on its way up (another start got there first): wait for it.
+      starting|restarting) join="$id"; break ;;
+    esac
   done
 
-  if [ -n "$reuse" ]; then
+  if [ -n "$join" ]; then
+    id="$join"
+    echo "Waiting for localhost session $id, which is already starting."
+  elif [ -n "$reuse" ]; then
     id="$reuse"
     # The app rewrites this as soon as the session runs again.
     printf '{"id":"%s","state":"restarting"}\n' "$id" > "$dir/$id.status.json"
-    send "{\"event\":\"restart\",\"id\":\"$id\"}" || { echo "localhost: not running inside GhosttyEXTREME" >&2; return 1; }
+    send "{\"event\":\"restart\",\"id\":\"$id\"}" || { echo "localhost: not running inside Tellurion" >&2; return 1; }
     echo "Restarting localhost session $id in its tab."
   else
     id="lh-$(date +%s)-$RANDOM"
@@ -231,7 +238,7 @@ start() {
       '{id: $id, cwd: $cwd, command: $command, log: $log, agent: $agent, requested: (now | todate)}' > "$dir/$id.json"
     if ! send "{\"event\":\"open\",\"id\":\"$id\"}"; then
       rm -f "$dir/$id.json"
-      echo "localhost: not running inside GhosttyEXTREME, so no session could be opened." >&2
+      echo "localhost: not running inside Tellurion, so no session could be opened." >&2
       return 1
     fi
   fi
@@ -242,7 +249,7 @@ start() {
     state=$(status_field "$id" .state)
     case "$state" in
       live)
-        echo "✓ Started \`$cmd\` in a GhosttyEXTREME localhost session: a separate terminal tab that keeps running after you're done."
+        echo "✓ Started \`$cmd\` in a Tellurion localhost session: a separate terminal tab that keeps running after you're done."
         print_session "$id"
         return 0 ;;
       exited)
@@ -252,7 +259,7 @@ start() {
     esac
     if [ -z "$state" ] && [ $waited -ge 20 ]; then
       rm -f "$dir/$id.json"
-      echo "localhost: GhosttyEXTREME didn't open a session (is this terminal in GhosttyEXTREME?)." >&2
+      echo "localhost: Tellurion didn't open a session (is this terminal in Tellurion?)." >&2
       return 1
     fi
     if [ "$state" = "restarting" ] && [ $waited -ge 20 ]; then
@@ -264,7 +271,7 @@ start() {
     sleep 0.25
     waited=$((waited + 1))
   done
-  echo "✓ Started \`$cmd\` in a GhosttyEXTREME localhost session (not listening on a port yet)."
+  echo "✓ Started \`$cmd\` in a Tellurion localhost session (not listening on a port yet)."
   print_session "$id"
 }
 
@@ -278,8 +285,8 @@ logs() {
 control() {
   local event="$1" id="$2"
   [ -f "$dir/$id.json" ] || { echo "No localhost session $id" >&2; return 1; }
-  send "{\"event\":\"$event\",\"id\":\"$id\"}" || { echo "localhost: not inside GhosttyEXTREME" >&2; return 1; }
-  echo "Asked GhosttyEXTREME to $event $id."
+  send "{\"event\":\"$event\",\"id\":\"$id\"}" || { echo "localhost: not inside Tellurion" >&2; return 1; }
+  echo "Asked Tellurion to $event $id."
 }
 
 list() {

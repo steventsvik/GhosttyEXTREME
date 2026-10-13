@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Live status from more coding agents, for GhosttyEXTREME's sidebar.
+"""Live status from more coding agents, for Tellurion's sidebar.
 
 Usage (from an agent's hooks): agent-event.py <agent> <hook event>
   agent: copilot | droid | kiro | gemini | antigravity | cursor | qwen | goose

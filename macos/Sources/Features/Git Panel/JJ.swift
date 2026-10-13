@@ -3,7 +3,7 @@ import Foundation
 
 /// Jujutsu (jj), the version control system that keeps every operation undoable. Most jj
 /// repositories keep a git repository beside `.jj` ("colocated"), so git still works in
-/// them; GhosttyEXTREME reads jj for what git can't tell (the change you're on, its
+/// them; Tellurion reads jj for what git can't tell (the change you're on, its
 /// bookmarks, the operation log) and shows jj's actions in the Git panel.
 enum JJ {
     /// The jj executable, if installed.

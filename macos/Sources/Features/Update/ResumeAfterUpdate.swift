@@ -1,7 +1,7 @@
 #if os(macOS)
 import AppKit
 
-/// Brings back what was running when GhosttyEXTREME restarts to install an update.
+/// Brings back what was running when Tellurion restarts to install an update.
 ///
 /// Right before the relaunch, every pane's Claude Code or Codex session and every localhost
 /// server is written to a small file, and macOS is told to keep the windows for this one

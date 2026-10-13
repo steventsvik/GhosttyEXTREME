@@ -1,4 +1,4 @@
-// GhosttyEXTREME code editor: a VS Code–style workbench around Monaco.
+// Tellurion code editor: a VS Code–style workbench around Monaco.
 // File access goes through the native `fs` message handler (EditorWebView.swift).
 'use strict';
 
@@ -483,7 +483,7 @@ function applyTheme(t) {
     '--fg': fg,
     '--fg-muted': mix(fg, bg, 0.35),
     '--fg-dim': mix(fg, bg, 0.55),
-    // GhosttyEXTREME: gold accent and bronze hairlines on the terminal's own background.
+    // Tellurion: gold accent and bronze hairlines on the terminal's own background.
     '--accent': '#deb86e',
     '--font-ui': '"JetBrains Mono", Menlo, monospace',
     '--modified': pick(11, 3),

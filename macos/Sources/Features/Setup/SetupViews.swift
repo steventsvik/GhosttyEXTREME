@@ -3,7 +3,7 @@ import AppKit
 import SwiftUI
 
 /// The Setup Check window: whether agent status is set up and working, with a fix for
-/// each problem. Also available as `ghostty-extreme doctor` in a terminal.
+/// each problem. Also available as `tellurion doctor` in a terminal.
 enum SetupCheckWindow {
     static func show() {
         AgentToolWindows.show(id: SetupChecks.windowID, title: "Setup Check", size: NSSize(width: 640, height: 640)) {
@@ -98,7 +98,7 @@ private struct SetupCheckView: View {
 
     private var footer: some View {
         HStack(spacing: 10) {
-            Text("In a terminal: ghostty-extreme doctor")
+            Text("In a terminal: tellurion doctor")
                 .font(Extreme.mono(11)).foregroundColor(Extreme.dim)
                 .textSelection(.enabled)
             Spacer()
@@ -111,7 +111,7 @@ private struct SetupCheckView: View {
     }
 
     private func copyReport() {
-        var lines = ["GhosttyEXTREME \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?") setup check"]
+        var lines = ["Tellurion \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?") setup check"]
         for section in SetupCheck.Section.allCases {
             let checks = store.checks.filter { $0.section == section }
             guard !checks.isEmpty else { continue }

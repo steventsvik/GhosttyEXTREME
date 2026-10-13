@@ -1,7 +1,7 @@
 #if os(macOS)
 import AppKit
 
-/// GhosttyEXTREME's setup work at launch, run once when the first window appears.
+/// Tellurion's setup work at launch, run once when the first window appears.
 enum ExtremeLaunch {
     private static var started = false
     private static var observer: NSObjectProtocol?

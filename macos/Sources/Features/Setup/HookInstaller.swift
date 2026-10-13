@@ -36,11 +36,12 @@ enum HookInstaller {
             ("opencode-plugin.js", hooksFolder),
             ("localhost", binFolder),
             ("localhost-run", binFolder),
+            ("tellurion", binFolder),
             ("ghostty-extreme", binFolder),
         ]
     }
 
-    private static let executables: Set<String> = ["agent-hook.sh", "agent-event.py", "localhost", "localhost-run", "ghostty-extreme"]
+    private static let executables: Set<String> = ["agent-hook.sh", "agent-event.py", "localhost", "localhost-run", "tellurion", "ghostty-extreme"]
 
     // MARK: Hook files
 
@@ -65,9 +66,9 @@ enum HookInstaller {
         return !anyInstalled ? .missing : anyDifferent ? .outdated : .current
     }
 
-    /// Copies the hooks and the `localhost` and `ghostty-extreme` commands out of the app.
+    /// Copies the hooks and the `localhost` and `tellurion` commands out of the app.
     static func installFiles() throws {
-        guard let bundled else { throw Failure(message: "This build of GhosttyEXTREME doesn't include the agent hooks.") }
+        guard let bundled else { throw Failure(message: "This build of Tellurion doesn't include the agent hooks.") }
         let fm = FileManager.default
         var folders = [hooksFolder, binFolder]
         // Agents may still run the pre-rebrand copy (Codex ties approvals to the exact path).

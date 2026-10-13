@@ -1065,7 +1065,7 @@ pub fn handleMessage(self: *Surface, msg: Message) !void {
             const title = std.mem.sliceTo(&notification.title, 0);
             const body = std.mem.sliceTo(&notification.body, 0);
 
-            // GhosttyEXTREME: agent status events (e.g. from Claude Code hooks) reuse
+            // Tellurion: agent status events (e.g. from Claude Code hooks) reuse
             // the OSC 777 notify sequence but are not user-facing notifications, so
             // they skip the notification setting and rate limits and go straight to
             // the app, which consumes them silently.

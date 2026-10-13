@@ -292,7 +292,7 @@ enum UpdateState: Equatable {
 
             // Check for semantic version (x.y.z)
             if let semver = Self.extractSemanticVersion(from: version) {
-                // GhosttyEXTREME: its own release notes, not official Ghostty's.
+                // Tellurion: its own release notes, not official Ghostty's.
                 if let url = URL(string: "https://github.com/steventsvik/GhosttyEXTREME/releases/tag/extreme-\(semver)") {
                     self = .tagged(url)
                     return

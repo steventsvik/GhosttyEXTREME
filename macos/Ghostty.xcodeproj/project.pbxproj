@@ -19,10 +19,10 @@
 		A53D0C952B53B4D800305CE6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A5B30538299BEAAB0047F10C /* Assets.xcassets */; };
 		A546F1142D7B68D7003B11A0 /* locale in Resources */ = {isa = PBXBuildFile; fileRef = A546F1132D7B68D7003B11A0 /* locale */; };
 		A553F4132E06EB1600257779 /* Ghostty.icon in Resources */ = {isa = PBXBuildFile; fileRef = A553F4122E06EB1600257779 /* Ghostty.icon */; };
-		A553F4142E06EB1600257779 /* Ghostty.icon in Resources */ = {isa = PBXBuildFile; fileRef = A553F4122E06EB1600257779 /* Ghostty.icon */; };
 		C0FFEE00000000000000B0B2 /* EditorWeb in Resources */ = {isa = PBXBuildFile; fileRef = C0FFEE00000000000000B0B1 /* EditorWeb */; };
+		C0FFEE00000000000000B0D2 /* PhoneWeb in Resources */ = {isa = PBXBuildFile; fileRef = C0FFEE00000000000000B0D1 /* PhoneWeb */; };
 		C0FFEE00000000000000B0C2 /* agent-hooks in Resources */ = {isa = PBXBuildFile; fileRef = C0FFEE00000000000000B0C1 /* agent-hooks */; };
-		C0FFEE00000000000000A0A2 /* GhosttyExtreme.icon in Resources */ = {isa = PBXBuildFile; fileRef = C0FFEE00000000000000A0A1 /* GhosttyExtreme.icon */; };
+		C0FFEE00000000000000A0A2 /* Tellurion.icon in Resources */ = {isa = PBXBuildFile; fileRef = C0FFEE00000000000000A0A1 /* Tellurion.icon */; };
 		A56B880B2A840447007A0E29 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A56B880A2A840447007A0E29 /* Carbon.framework */; };
 		A571AB1D2A206FCF00248498 /* GhosttyKit.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = A5D495A1299BEC7E00DD1313 /* GhosttyKit.xcframework */; };
 		A586167C2B7703CC009BDB1D /* fish in Resources */ = {isa = PBXBuildFile; fileRef = A586167B2B7703CC009BDB1D /* fish */; };
@@ -85,8 +85,9 @@
 		A54F45F32E1F047A0046BD5C /* GhosttyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GhosttyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A553F4122E06EB1600257779 /* Ghostty.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; name = Ghostty.icon; path = ../images/Ghostty.icon; sourceTree = SOURCE_ROOT; };
 		C0FFEE00000000000000B0B1 /* EditorWeb */ = {isa = PBXFileReference; lastKnownFileType = folder; path = EditorWeb; sourceTree = SOURCE_ROOT; };
+		C0FFEE00000000000000B0D1 /* PhoneWeb */ = {isa = PBXFileReference; lastKnownFileType = folder; path = PhoneWeb; sourceTree = SOURCE_ROOT; };
 		C0FFEE00000000000000B0C1 /* agent-hooks */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "agent-hooks"; path = "../agent-hooks"; sourceTree = SOURCE_ROOT; };
-		C0FFEE00000000000000A0A1 /* GhosttyExtreme.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; name = GhosttyExtreme.icon; path = ../images/GhosttyExtreme.icon; sourceTree = SOURCE_ROOT; };
+		C0FFEE00000000000000A0A1 /* Tellurion.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; name = Tellurion.icon; path = ../images/Tellurion.icon; sourceTree = SOURCE_ROOT; };
 		A56B880A2A840447007A0E29 /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = System/Library/Frameworks/Carbon.framework; sourceTree = SDKROOT; };
 		A571AB1C2A206FC600248498 /* Ghostty-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Ghostty-Info.plist"; sourceTree = "<group>"; };
 		A586167B2B7703CC009BDB1D /* fish */ = {isa = PBXFileReference; lastKnownFileType = folder; name = fish; path = "../zig-out/share/fish"; sourceTree = "<group>"; };
@@ -345,8 +346,9 @@
 				8F3A9B4B2FA6B88000A18D13 /* Ghostty.sdef */,
 				A5B30538299BEAAB0047F10C /* Assets.xcassets */,
 				A553F4122E06EB1600257779 /* Ghostty.icon */,
-				C0FFEE00000000000000A0A1 /* GhosttyExtreme.icon */,
+				C0FFEE00000000000000A0A1 /* Tellurion.icon */,
 				C0FFEE00000000000000B0B1 /* EditorWeb */,
+				C0FFEE00000000000000B0D1 /* PhoneWeb */,
 				C0FFEE00000000000000B0C1 /* agent-hooks */,
 				A5B3053D299BEAAB0047F10C /* Ghostty.entitlements */,
 				A51BFC282B30F26D00E92F16 /* GhosttyDebug.entitlements */,
@@ -578,9 +580,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				FC9ABA9C2D0F53F80020D4C8 /* bash-completion in Resources */,
-				A553F4142E06EB1600257779 /* Ghostty.icon in Resources */,
-				C0FFEE00000000000000A0A2 /* GhosttyExtreme.icon in Resources */,
+				C0FFEE00000000000000A0A2 /* Tellurion.icon in Resources */,
 				C0FFEE00000000000000B0B2 /* EditorWeb in Resources */,
+				C0FFEE00000000000000B0D2 /* PhoneWeb in Resources */,
 				C0FFEE00000000000000B0C2 /* agent-hooks in Resources */,
 				29C15B1D2CDC3B2900520DD4 /* bat in Resources */,
 				A586167C2B7703CC009BDB1D /* fish in Resources */,
@@ -745,7 +747,7 @@
 		3B39CAA32B33946300DABEB8 /* ReleaseLocal */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = GhosttyExtreme;
+				ASSETCATALOG_COMPILER_APPICON_NAME = Tellurion;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CLANG_ENABLE_MODULES = YES;
@@ -762,25 +764,25 @@
 				GCC_OPTIMIZATION_LEVEL = fast;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Ghostty-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "GhosttyEXTREME";
+				INFOPLIST_KEY_CFBundleDisplayName = Tellurion;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "A program running within Ghostty would like to use AppleScript.";
-				INFOPLIST_KEY_NSAudioCaptureUsageDescription = "A program running within Ghostty would like to access your system's audio.";
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "A program running within Ghostty would like to use Bluetooth.";
-				INFOPLIST_KEY_NSCalendarsUsageDescription = "A program running within Ghostty would like to access your Calendar.";
-				INFOPLIST_KEY_NSCameraUsageDescription = "A program running within Ghostty would like to use the camera.";
-				INFOPLIST_KEY_NSContactsUsageDescription = "A program running within Ghostty would like to access your Contacts.";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "A program running within Tellurion would like to use AppleScript.";
+				INFOPLIST_KEY_NSAudioCaptureUsageDescription = "A program running within Tellurion would like to access your system's audio.";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "A program running within Tellurion would like to use Bluetooth.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "A program running within Tellurion would like to access your Calendar.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "A program running within Tellurion would like to use the camera.";
+				INFOPLIST_KEY_NSContactsUsageDescription = "A program running within Tellurion would like to access your Contacts.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "A program running within Ghostty would like to access the local network.";
-				INFOPLIST_KEY_NSLocationTemporaryUsageDescriptionDictionary = "A program running within Ghostty would like to use your location temporarily.";
-				INFOPLIST_KEY_NSLocationUsageDescription = "A program running within Ghostty would like to access your location information.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "A program running within Tellurion would like to access the local network.";
+				INFOPLIST_KEY_NSLocationTemporaryUsageDescriptionDictionary = "A program running within Tellurion would like to use your location temporarily.";
+				INFOPLIST_KEY_NSLocationUsageDescription = "A program running within Tellurion would like to access your location information.";
 				INFOPLIST_KEY_NSMainNibFile = MainMenu;
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "A program running within Ghostty would like to use your microphone.";
-				INFOPLIST_KEY_NSMotionUsageDescription = "A program running within Ghostty would like to access motion data.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "A program running within Ghostty would like to access your Photo Library.";
-				INFOPLIST_KEY_NSRemindersUsageDescription = "A program running within Ghostty would like to access your reminders.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "A program running within Ghostty would like to use speech recognition.";
-				INFOPLIST_KEY_NSSystemAdministrationUsageDescription = "A program running within Ghostty requires elevated privileges.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "A program running within Tellurion would like to use your microphone.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "A program running within Tellurion would like to access motion data.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "A program running within Tellurion would like to access your Photo Library.";
+				INFOPLIST_KEY_NSRemindersUsageDescription = "A program running within Tellurion would like to access your reminders.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "A program running within Tellurion would like to use speech recognition.";
+				INFOPLIST_KEY_NSSystemAdministrationUsageDescription = "A program running within Tellurion requires elevated privileges.";
 				INFOPLIST_PREPROCESS = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -876,7 +878,7 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Ghostty Dock Tile Plugin";
+				INFOPLIST_KEY_CFBundleDisplayName = "Tellurion Dock Tile Plugin";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSPrincipalClass = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Bundles";
@@ -905,7 +907,7 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Ghostty Dock Tile Plugin";
+				INFOPLIST_KEY_CFBundleDisplayName = "Tellurion Dock Tile Plugin";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSPrincipalClass = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Bundles";
@@ -934,7 +936,7 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Ghostty Dock Tile Plugin";
+				INFOPLIST_KEY_CFBundleDisplayName = "Tellurion Dock Tile Plugin";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSPrincipalClass = "";
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Bundles";
@@ -1143,7 +1145,7 @@
 		A5B30541299BEAAB0047F10C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = GhosttyExtreme;
+				ASSETCATALOG_COMPILER_APPICON_NAME = Tellurion;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CLANG_ENABLE_MODULES = YES;
@@ -1160,24 +1162,24 @@
 				EXECUTABLE_NAME = ghostty;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Ghostty-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "GhosttyEXTREME[DEBUG]";
+				INFOPLIST_KEY_CFBundleDisplayName = "Tellurion[DEBUG]";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "A program running within Ghostty would like to use AppleScript.";
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "A program running within Ghostty would like to use Bluetooth.";
-				INFOPLIST_KEY_NSCalendarsUsageDescription = "A program running within Ghostty would like to access your Calendar.";
-				INFOPLIST_KEY_NSCameraUsageDescription = "A program running within Ghostty would like to use the camera.";
-				INFOPLIST_KEY_NSContactsUsageDescription = "A program running within Ghostty would like to access your Contacts.";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "A program running within Tellurion would like to use AppleScript.";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "A program running within Tellurion would like to use Bluetooth.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "A program running within Tellurion would like to access your Calendar.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "A program running within Tellurion would like to use the camera.";
+				INFOPLIST_KEY_NSContactsUsageDescription = "A program running within Tellurion would like to access your Contacts.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "A program running within Ghostty would like to access the local network.";
-				INFOPLIST_KEY_NSLocationTemporaryUsageDescriptionDictionary = "A program running within Ghostty would like to use your location temporarily.";
-				INFOPLIST_KEY_NSLocationUsageDescription = "A program running within Ghostty would like to access your location information.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "A program running within Tellurion would like to access the local network.";
+				INFOPLIST_KEY_NSLocationTemporaryUsageDescriptionDictionary = "A program running within Tellurion would like to use your location temporarily.";
+				INFOPLIST_KEY_NSLocationUsageDescription = "A program running within Tellurion would like to access your location information.";
 				INFOPLIST_KEY_NSMainNibFile = MainMenu;
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "A program running within Ghostty would like to use your microphone.";
-				INFOPLIST_KEY_NSMotionUsageDescription = "A program running within Ghostty would like to access motion data.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "A program running within Ghostty would like to access your Photo Library.";
-				INFOPLIST_KEY_NSRemindersUsageDescription = "A program running within Ghostty would like to access your reminders.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "A program running within Ghostty would like to use speech recognition.";
-				INFOPLIST_KEY_NSSystemAdministrationUsageDescription = "A program running within Ghostty requires elevated privileges.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "A program running within Tellurion would like to use your microphone.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "A program running within Tellurion would like to access motion data.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "A program running within Tellurion would like to access your Photo Library.";
+				INFOPLIST_KEY_NSRemindersUsageDescription = "A program running within Tellurion would like to access your reminders.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "A program running within Tellurion would like to use speech recognition.";
+				INFOPLIST_KEY_NSSystemAdministrationUsageDescription = "A program running within Tellurion requires elevated privileges.";
 				INFOPLIST_PREPROCESS = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1198,7 +1200,7 @@
 		A5B30542299BEAAB0047F10C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = GhosttyExtreme;
+				ASSETCATALOG_COMPILER_APPICON_NAME = Tellurion;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CLANG_ENABLE_MODULES = YES;
@@ -1215,24 +1217,24 @@
 				GCC_OPTIMIZATION_LEVEL = fast;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Ghostty-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = GhosttyEXTREME;
+				INFOPLIST_KEY_CFBundleDisplayName = Tellurion;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "A program running within Ghostty would like to use AppleScript.";
-				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "A program running within Ghostty would like to use Bluetooth.";
-				INFOPLIST_KEY_NSCalendarsUsageDescription = "A program running within Ghostty would like to access your Calendar.";
-				INFOPLIST_KEY_NSCameraUsageDescription = "A program running within Ghostty would like to use the camera.";
-				INFOPLIST_KEY_NSContactsUsageDescription = "A program running within Ghostty would like to access your Contacts.";
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "A program running within Tellurion would like to use AppleScript.";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "A program running within Tellurion would like to use Bluetooth.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "A program running within Tellurion would like to access your Calendar.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "A program running within Tellurion would like to use the camera.";
+				INFOPLIST_KEY_NSContactsUsageDescription = "A program running within Tellurion would like to access your Contacts.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "A program running within Ghostty would like to access the local network.";
-				INFOPLIST_KEY_NSLocationTemporaryUsageDescriptionDictionary = "A program running within Ghostty would like to use your location temporarily.";
-				INFOPLIST_KEY_NSLocationUsageDescription = "A program running within Ghostty would like to access your location information.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "A program running within Tellurion would like to access the local network.";
+				INFOPLIST_KEY_NSLocationTemporaryUsageDescriptionDictionary = "A program running within Tellurion would like to use your location temporarily.";
+				INFOPLIST_KEY_NSLocationUsageDescription = "A program running within Tellurion would like to access your location information.";
 				INFOPLIST_KEY_NSMainNibFile = MainMenu;
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "A program running within Ghostty would like to use your microphone.";
-				INFOPLIST_KEY_NSMotionUsageDescription = "A program running within Ghostty would like to access motion data.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "A program running within Ghostty would like to access your Photo Library.";
-				INFOPLIST_KEY_NSRemindersUsageDescription = "A program running within Ghostty would like to access your reminders.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "A program running within Ghostty would like to use speech recognition.";
-				INFOPLIST_KEY_NSSystemAdministrationUsageDescription = "A program running within Ghostty requires elevated privileges.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "A program running within Tellurion would like to use your microphone.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "A program running within Tellurion would like to access motion data.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "A program running within Tellurion would like to access your Photo Library.";
+				INFOPLIST_KEY_NSRemindersUsageDescription = "A program running within Tellurion would like to access your reminders.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "A program running within Tellurion would like to use speech recognition.";
+				INFOPLIST_KEY_NSSystemAdministrationUsageDescription = "A program running within Tellurion requires elevated privileges.";
 				INFOPLIST_PREPROCESS = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

@@ -443,7 +443,7 @@ final class Housekeeping: ObservableObject {
             history[item.id] = seen
             item.detail = "\(cpus) CPUs · \(Self.bytes(item.reserved)) memory reserved · \(containers.count) container\(containers.count == 1 ? "" : "s")"
             if profile == "default" && FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.ghostty-extreme/colima-started") {
-                item.reasons.append("Started by a GhosttyEXTREME Docker session")
+                item.reasons.append("Started by a Tellurion Docker session")
             }
             items.append(item)
             items += containers
@@ -478,9 +478,9 @@ final class Housekeeping: ObservableObject {
                  memory: 212_000_000, up: 26 * 3600, idle: 19 * 3600, source: "has a live connection", ports: [4321]),
             item("codex", .agent, "Codex", "atlas-api", "codex", folder: home + "atlas-api",
                  memory: 184_000_000, up: 3 * 3600, idle: 2 * 3600 + 900, source: "typed in its terminal", terminal: true),
-            item("next", .devServer, "Next.js dev server", "acme-shop · :3000 · in a GhosttyEXTREME tab", "next dev", folder: home + "acme-shop",
+            item("next", .devServer, "Next.js dev server", "acme-shop · :3000 · in a Tellurion tab", "next dev", folder: home + "acme-shop",
                  memory: 1_400_000_000, cpu: 3, up: 4 * 3600, idle: 60, source: "has a live connection", ports: [3000], terminal: true),
-            item("claude", .agent, "Claude Code", "acme-shop · in a GhosttyEXTREME tab", "claude", folder: home + "acme-shop",
+            item("claude", .agent, "Claude Code", "acme-shop · in a Tellurion tab", "claude", folder: home + "acme-shop",
                  memory: 512_000_000, cpu: 9, up: 3 * 3600, idle: 5, source: "agent transcript updated", terminal: true),
             item("svc", .service, "dev.acme.preview-tunnel", "", "cloudflared tunnel run acme-preview", folder: nil,
                  memory: 41_000_000, up: 6 * 86400, idle: 6 * 86400, source: "", close: .launchdStop("dev.acme.preview-tunnel")),
@@ -603,7 +603,7 @@ extension Housekeeping {
         var parts: [String] = []
         if let project = item.project { parts.append(project) }
         if !item.ports.isEmpty { parts.append(item.ports.prefix(3).map { ":\($0)" }.joined(separator: " ")) }
-        if item.inTerminal { parts.append("in a GhosttyEXTREME tab") }
+        if item.inTerminal { parts.append("in a Tellurion tab") }
         return parts.joined(separator: " · ")
     }
 

@@ -148,7 +148,7 @@ final class AgentRaces: ObservableObject {
                 }
                 // Commit the starting point so each agent's diff shows only its own work.
                 AgentTools.git(["add", "-A"], in: worktree)
-                AgentTools.git(["-c", "user.name=GhosttyEXTREME", "-c", "user.email=race@ghostty-extreme.local",
+                AgentTools.git(["-c", "user.name=Tellurion", "-c", "user.email=race@ghostty-extreme.local",
                                 "commit", "-q", "--no-verify", "--allow-empty", "-m", "Race baseline"], in: worktree)
                 let baseline = AgentTools.git(["rev-parse", "HEAD"], in: worktree).output
                     .trimmingCharacters(in: .whitespacesAndNewlines)

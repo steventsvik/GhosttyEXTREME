@@ -3,7 +3,7 @@ import Cocoa
 
 extension UpdateDriver: SPUUpdaterDelegate {
     func feedURLString(for updater: SPUUpdater) -> String? {
-        // GhosttyEXTREME: its own feed, published with every release and signed with its own
+        // Tellurion: its own feed, published with every release and signed with its own
         // key (SUPublicEDKey). Ghostty's feeds would offer official Ghostty, which would replace
         // this app. There's one channel; the `auto-update-channel` setting doesn't apply.
         // Test-only: `GHOSTTY_EXTREME_TEST_FEED=<url>` points a test copy at a local feed.
@@ -17,6 +17,7 @@ extension UpdateDriver: SPUUpdaterDelegate {
     /// When `auto-update = check`, Sparkle will call the corresponding
     /// delegate method on the responsible driver instead.
     func updater(_ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem, immediateInstallationBlock immediateInstallHandler: @escaping () -> Void) -> Bool {
+        RenameAfterRebrand.updatePending = true
         viewModel.state = .installing(.init(
             isAutoUpdate: true,
             retryTerminatingApplication: immediateInstallHandler,
@@ -32,18 +33,24 @@ extension UpdateDriver: SPUUpdaterDelegate {
     func updater(_ updater: SPUUpdater, mayPerform updateCheck: SPUUpdateCheck) throws {
         let isRelease = Bundle.main.infoDictionary?["GhosttyExtremeRelease"] as? Bool == true
         if !isRelease && updateCheck == .updatesInBackground {
-            throw NSError(domain: "GhosttyEXTREME", code: 1,
+            throw NSError(domain: "Tellurion", code: 1,
                           userInfo: [NSLocalizedDescriptionKey: "Local builds don't check for updates by themselves."])
         }
     }
 
+    func updater(_ updater: SPUUpdater, willInstallUpdate item: SUAppcastItem) {
+        // Tellurion: the installer writes to this app's path, so don't rename it on quit.
+        RenameAfterRebrand.updatePending = true
+    }
+
     func updaterWillRelaunchApplication(_ updater: SPUUpdater) {
+        RenameAfterRebrand.updatePending = true
         // When the updater is relaunching the application we want to get macOS
         // to invalidate and re-encode all of our restorable state so that when
         // we relaunch it uses it.
         NSApp.invalidateRestorableState()
         for window in NSApp.windows { window.invalidateRestorableState() }
-        // GhosttyEXTREME: keep the windows for this quit and remember what's running in them.
+        // Tellurion: keep the windows for this quit and remember what's running in them.
         ResumeAfterUpdate.prepare()
     }
 }

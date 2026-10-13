@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Tellurion mark: a T sealed in a hexagonal cell, with a cyan core on its stem. -->
+  <g stroke="#deb86e" fill="none">
+    <line x1="512" y1="248" x2="512" y2="276" stroke-width="10"/>
+    <line x1="512" y1="748" x2="512" y2="776" stroke-width="10"/>
+    <polygon points="512,288 705,400 705,624 512,736 319,624 319,400" stroke-width="16"/>
+    <polygon points="512,318 679,415 679,609 512,706 345,609 345,415" stroke="#5c5240" stroke-width="5"/>
+    <line x1="410" y1="410" x2="614" y2="410" stroke-width="24"/>
+    <line x1="410" y1="392" x2="410" y2="428" stroke-width="10"/>
+    <line x1="614" y1="392" x2="614" y2="428" stroke-width="10"/>
+    <line x1="512" y1="410" x2="512" y2="642" stroke-width="24"/>
+    <line x1="470" y1="642" x2="554" y2="642" stroke-width="14"/>
+  </g>
+  <circle cx="512" cy="508" r="56" fill="#78dceb" opacity=".18"/>
+  <polygon points="512,474 546,508 512,542 478,508" fill="#78dceb"/>
+</svg>

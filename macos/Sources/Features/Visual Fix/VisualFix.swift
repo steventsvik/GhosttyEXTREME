@@ -265,7 +265,7 @@ final class VisualFixSession: NSObject, ObservableObject {
         let here = [controller.focusedSurface].compactMap { $0 } + Array(controller.surfaceTree)
         let elsewhere = TerminalController.all.filter { $0 !== controller }.flatMap { Array($0.surfaceTree) }
         let agents = (here + elsewhere).filter(hasAgent)
-        // Without a known project (an app started outside GhosttyEXTREME), use this tab's agent.
+        // Without a known project (an app started outside Tellurion), use this tab's agent.
         guard let root = projectRoot.map(Self.canonical) else { return here.first(where: hasAgent) }
         return agents.first { surface in
             guard let pwd = surface.pwd.map(Self.canonical) else { return false }

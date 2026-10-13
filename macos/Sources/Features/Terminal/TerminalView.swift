@@ -117,28 +117,35 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                     }
                 }
 
-                // Show update information above all else.
-                if viewModel.updateOverlayIsVisible {
-                    UpdateOverlay()
-                }
+                // Bottom right: phone access, and update information above all else.
+                CornerOverlay(showUpdate: viewModel.updateOverlayIsVisible)
             }
             .frame(maxWidth: .greatestFiniteMagnitude, maxHeight: .greatestFiniteMagnitude)
         }
     }
 }
 
-private struct UpdateOverlay: View {
+private struct CornerOverlay: View {
+    let showUpdate: Bool
+    @ObservedObject private var settings = ExtremeSettings.shared
+
     var body: some View {
-        if let appDelegate = NSApp.delegate as? AppDelegate {
+        let phone = settings.isOn(.phone)
+        if phone || showUpdate {
             VStack {
                 Spacer()
 
-                HStack {
+                HStack(spacing: 8) {
                     Spacer()
-                    UpdatePill(model: appDelegate.updateViewModel)
-                        .padding(.bottom, 9)
-                        .padding(.trailing, 9)
+                    if phone {
+                        PhoneCornerBadge()
+                    }
+                    if showUpdate, let appDelegate = NSApp.delegate as? AppDelegate {
+                        UpdatePill(model: appDelegate.updateViewModel)
+                    }
                 }
+                .padding(.bottom, 9)
+                .padding(.trailing, 9)
             }
         }
     }
@@ -154,11 +161,11 @@ struct DebugBuildWarningView: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundColor(.yellow)
 
-            Text("You're running a debug build of Ghostty! Performance will be degraded.")
+            Text("You're running a debug build of Tellurion! Performance will be degraded.")
                 .padding(.all, 8)
                 .popover(isPresented: $isPopover, arrowEdge: .bottom) {
                     Text("""
-                    Debug builds of Ghostty are very slow and you may experience
+                    Debug builds of Tellurion are very slow and you may experience
                     performance problems. Debug builds are only recommended during
                     development.
                     """)
@@ -171,7 +178,7 @@ struct DebugBuildWarningView: View {
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Debug build warning")
-        .accessibilityValue("Debug builds of Ghostty are very slow and you may experience performance problems. Debug builds are only recommended during development.")
+        .accessibilityValue("Debug builds of Tellurion are very slow and you may experience performance problems. Debug builds are only recommended during development.")
         .accessibilityAddTraits(.isStaticText)
         .onTapGesture {
             isPopover = true

@@ -2,7 +2,7 @@
 import AppKit
 import Combine
 
-/// One of GhosttyEXTREME's optional features. Everything is on in a fresh install; Settings
+/// One of Tellurion's optional features. Everything is on in a fresh install; Settings
 /// and the welcome window turn them off. A feature that's off has no menu item, shortcut,
 /// button or palette entry, and does no background work.
 enum ExtremeFeature: String, CaseIterable, Identifiable {
@@ -23,6 +23,7 @@ enum ExtremeFeature: String, CaseIterable, Identifiable {
     case sharedMemory
     case skills
     case environment
+    case phone
 
     var id: String { rawValue }
 
@@ -45,6 +46,7 @@ enum ExtremeFeature: String, CaseIterable, Identifiable {
         case .sharedMemory: return "Shared memory"
         case .skills: return "Skills"
         case .environment: return "Environment"
+        case .phone: return "Phone"
         }
     }
 
@@ -67,6 +69,7 @@ enum ExtremeFeature: String, CaseIterable, Identifiable {
         case .sharedMemory: return "Codex sessions start with what Claude Code remembers about the project, and Claude Code sessions with what Codex remembers"
         case .skills: return "Every skill your agents have installed, with updates, and what's trending on skills.sh"
         case .environment: return "A folder's tool versions and variables (mise, direnv), your containers, and local models"
+        case .phone: return "Use your terminal from your phone over your own private Tailscale network"
         }
     }
 
@@ -85,7 +88,7 @@ enum ExtremeFeature: String, CaseIterable, Identifiable {
         case .memory: return "Y"
         case .skills: return "U"
         case .environment: return "N"
-        case .undo, .usage, .ports, .git, .sharedMemory: return nil
+        case .undo, .usage, .ports, .git, .sharedMemory, .phone: return nil
         }
     }
 
@@ -109,7 +112,7 @@ enum ExtremePreset: String, CaseIterable, Identifiable {
     var detail: String {
         switch self {
         case .everything: return "Every feature on"
-        case .essentials: return "Editor, Mission Control, review, undo, localhost, ports, git, memory, skills, environment and usage"
+        case .essentials: return "Editor, Mission Control, review, undo, localhost, ports, git, memory, skills, environment, usage and phone"
         case .sidebar: return "Vertical tabs with agent status, nothing else"
         }
     }
@@ -117,7 +120,7 @@ enum ExtremePreset: String, CaseIterable, Identifiable {
     var features: Set<ExtremeFeature> {
         switch self {
         case .everything: return Set(ExtremeFeature.allCases)
-        case .essentials: return [.editor, .missionControl, .localhost, .review, .undo, .usage, .ports, .git, .memory, .sharedMemory, .skills, .environment]
+        case .essentials: return [.editor, .missionControl, .localhost, .review, .undo, .usage, .ports, .git, .memory, .sharedMemory, .skills, .environment, .phone]
         case .sidebar: return []
         }
     }
@@ -140,7 +143,7 @@ enum ExtremeMotionLevel: String, CaseIterable, Identifiable {
     }
 }
 
-/// GhosttyEXTREME's own settings (Ghostty's are in its config file).
+/// Tellurion's own settings (Ghostty's are in its config file).
 final class ExtremeSettings: ObservableObject {
     static let shared = ExtremeSettings()
 
@@ -242,6 +245,9 @@ final class ExtremeSettings: ObservableObject {
             AgentToolWindows.close(id: SkillsWindow.windowID)
         case .environment:
             AgentToolWindows.close(id: EnvironmentWindow.windowID)
+        case .phone:
+            AgentToolWindows.close(id: PhoneSetup.windowID)
+            if PhoneServer.shared.running { PhoneServer.shared.turnOff() }
         case .races, .undo, .usage, .git, .sharedMemory:
             break
         }

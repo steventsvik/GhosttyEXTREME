@@ -118,7 +118,7 @@ final class VerticalTabsAgents {
             // Unknown or malformed custom event: swallow it rather than show raw JSON.
             return true
         }
-        // `ghostty-extreme doctor`'s test event: proves the hooks reach the app, changes nothing.
+        // `tellurion doctor`'s test event: proves the hooks reach the app, changes nothing.
         if event.event == "check" {
             SetupChecks.shared.liveCheckArrived()
             return true

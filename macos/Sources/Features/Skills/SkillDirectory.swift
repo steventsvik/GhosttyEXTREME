@@ -149,7 +149,7 @@ enum SkillDirectory {
     private static func request(_ url: URL) -> URLRequest {
         var request = URLRequest(url: url, timeoutInterval: 20)
         // The site redirects clients it doesn't recognize to a bare page.
-        request.setValue("Mozilla/5.0 (Macintosh) GhosttyEXTREME", forHTTPHeaderField: "User-Agent")
+        request.setValue("Mozilla/5.0 (Macintosh) Tellurion", forHTTPHeaderField: "User-Agent")
         return request
     }
 

@@ -22,7 +22,7 @@ class AppDelegate: NSObject,
     @IBOutlet private var menuServices: NSMenu?
     @IBOutlet private var menuCheckForUpdates: NSMenuItem?
     @IBOutlet private var menuOpenConfig: NSMenuItem?
-    /// GhosttyEXTREME's Settings item; it takes the `open_config` shortcut (⌘,) when present.
+    /// Tellurion's Settings item; it takes the `open_config` shortcut (⌘,) when present.
     private weak var menuExtremeSettings: NSMenuItem?
     @IBOutlet private var menuReloadConfig: NSMenuItem?
     @IBOutlet private var menuSecureInput: NSMenuItem?
@@ -211,6 +211,9 @@ class AppDelegate: NSObject,
 
         // Store our start time
         applicationLaunchTime = ProcessInfo.processInfo.systemUptime
+
+        // Tellurion: phone access, if the user left it on (it doesn't need a window).
+        PhoneServer.shared.startIfEnabled()
 
         // Check if secure input was enabled when we last quit.
         if UserDefaults.ghostty.bool(forKey: "SecureInput") != SecureInput.shared.enabled {
@@ -426,9 +429,9 @@ class AppDelegate: NSObject,
 
         // We have some visible window. Show an app-wide modal to confirm quitting.
         let alert = NSAlert()
-        alert.messageText = "Quit Ghostty?"
+        alert.messageText = "Quit Tellurion?"
         alert.informativeText = "All terminal sessions will be terminated."
-        alert.addButton(withTitle: "Close Ghostty")
+        alert.addButton(withTitle: "Close Tellurion")
         alert.addButton(withTitle: "Cancel")
         alert.alertStyle = .warning
         switch alert.runModal() {
@@ -445,6 +448,8 @@ class AppDelegate: NSObject,
         // so remove them all now. In the future we may want to be
         // more selective and only remove surface-targeted notifications.
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+        // Tellurion: a copy updated from GhosttyEXTREME takes the new name.
+        RenameAfterRebrand.renameIfNeeded()
     }
 
     /// This is called when the application is already open and someone double-clicks the icon
@@ -519,7 +524,7 @@ class AppDelegate: NSObject,
             // may want to show this as a sheet on the focused window (especially if we're
             // opening a tab). I'm not sure.
             let alert = NSAlert()
-            alert.messageText = "Allow Ghostty to execute \"\(filename)\"?"
+            alert.messageText = "Allow Tellurion to execute \"\(filename)\"?"
             alert.addButton(withTitle: "Allow")
             alert.addButton(withTitle: "Cancel")
             alert.alertStyle = .warning
@@ -761,7 +766,7 @@ class AppDelegate: NSObject,
         let bellCount = NSApp.windows
             .compactMap { $0.windowController as? BaseTerminalController }
             .reduce(0) { $0 + ($1.bell ? 1 : 0) }
-        // GhosttyEXTREME: coding agents waiting for permission or an answer count too.
+        // Tellurion: coding agents waiting for permission or an answer count too.
         let count = (ghostty.config.bellFeatures.contains(.attention) ? bellCount : 0) + AgentAlerts.shared.waitingCount
         let label = count > 0 ? (count > 99 ? "99+" : String(count)) : nil
         NSApp.dockTile.badgeLabel = label
@@ -786,7 +791,7 @@ class AppDelegate: NSObject,
         // explicitly false (NO), auto-updates are disabled. Otherwise, we use the behavior
         // defined by our "auto-update" configuration (if set) or fall back to Sparkle
         // user-based defaults.
-        // GhosttyEXTREME: only release builds (stamped by release.sh) check by themselves. A
+        // Tellurion: only release builds (stamped by release.sh) check by themselves. A
         // local build is version 0.1, so every release looks like an update to it.
         // Local builds are kept from checking in UpdateDriver (`mayPerform`) rather than here:
         // the setting below is saved, and local builds share the release's bundle id, so
@@ -881,7 +886,7 @@ class AppDelegate: NSObject,
             DistributedNotificationCenter.default()
                 .postNotificationName(.ghosttyIconDidChange, object: nil, userInfo: nil, deliverImmediately: true)
         }
-        // GhosttyEXTREME: with the default icon, show the bundle's own (carbon) icon
+        // Tellurion: with the default icon, show the bundle's own icon
         // file while running, rather than a possibly stale cached copy.
         if case .official = config.macosIcon,
            let name = Bundle.main.object(forInfoDictionaryKey: "CFBundleIconFile") as? String,
@@ -981,7 +986,7 @@ class AppDelegate: NSObject,
 
     // MARK: - IB Actions
 
-    /// Gives the `open_config` shortcut to GhosttyEXTREME's Settings item.
+    /// Gives the `open_config` shortcut to Tellurion's Settings item.
     func adoptSettingsMenuItem(_ item: NSMenuItem) {
         menuExtremeSettings = item
         syncMenuShortcuts(ghostty.config)
@@ -1199,7 +1204,7 @@ extension AppDelegate {
 
         syncMenuShortcut(config, action: "check_for_updates", menuItem: self.menuCheckForUpdates)
         if let settings = menuExtremeSettings {
-            // ⌘, opens GhosttyEXTREME's settings; "Edit Config File…" keeps no shortcut.
+            // ⌘, opens Tellurion's settings; "Edit Config File…" keeps no shortcut.
             syncMenuShortcut(config, action: "open_config", menuItem: settings)
             menuOpenConfig?.keyEquivalent = ""
             menuOpenConfig?.keyEquivalentModifierMask = []
