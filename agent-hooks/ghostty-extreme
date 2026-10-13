@@ -1,7 +1,9 @@
 #!/bin/bash
 # GhosttyEXTREME from the command line.
 #
-#   ghostty-extreme doctor    check the agent status setup and send a live test event
+#   ghostty-extreme doctor          check the agent status setup and send a live test event
+#   ghostty-extreme phone [status]  can your phone reach this Mac? (Tailscale), in one line
+#   ghostty-extreme phone setup     walk through the Tailscale steps, asking before each one
 #
 # Installed to ~/.ghostty-extreme/bin/ by the app (Setup Check, or the welcome window).
 # Paste `ghostty-extreme doctor` output into GitHub issues: it contains no personal data
@@ -171,14 +173,120 @@ doctor() {
   [ "$problems" -eq 0 ]
 }
 
+# --- Phone (Tailscale) -------------------------------------------------------------
+# Never turns on `tailscale funnel`: the phone reaches this Mac only inside your tailnet.
+
+# Tailscale.app's own binary acts as the CLI only with this set (as its `tailscale` link does).
+export TAILSCALE_BE_CLI=1
+
+ts_bin() {
+  command -v tailscale 2>/dev/null && return
+  local app=/Applications/Tailscale.app/Contents/MacOS/Tailscale
+  [ -x "$app" ] && echo "$app"
+}
+
+# Prints one of: not-installed app-off stopped needs-login starting https-off no-phone ready,
+# then (for ready/no-phone) this Mac's name and the online phone's name.
+phone_state() {
+  local ts json state
+  ts=$(ts_bin) || { echo "not-installed"; return; }
+  [ -n "$ts" ] || { echo "not-installed"; return; }
+  json=$("$ts" status --json 2>/dev/null) && [ -n "$json" ] && jq empty <<<"$json" 2>/dev/null \
+    || { echo "app-off"; return; }
+  state=$(jq -r .BackendState <<<"$json")
+  case "$state" in
+    Running) ;;
+    Stopped) echo "stopped"; return ;;
+    NeedsLogin|NeedsMachineAuth) echo "needs-login"; return ;;
+    *) echo "starting"; return ;;
+  esac
+  local mac https magic phones online
+  mac=$(jq -r '.Self.DNSName // "" | rtrimstr(".")' <<<"$json")
+  magic=$(jq -r '.CurrentTailnet.MagicDNSEnabled // false' <<<"$json")
+  https=$(jq -r '(.CertDomains // []) | length' <<<"$json")
+  phones=$(jq -r '[.Peer // {} | .[] | select(.OS == "iOS" or .OS == "android")] | length' <<<"$json")
+  online=$(jq -r '[.Peer // {} | .[] | select((.OS == "iOS" or .OS == "android") and .Online)
+    | (if (.HostName // "") == "" or .HostName == "localhost" then (.DNSName | split(".")[0]) else .HostName end)] | first // ""' <<<"$json")
+  if [ "$magic" != true ] || [ "$https" = 0 ]; then echo "https-off $mac"; return; fi
+  [ "$phones" = 0 ] && { echo "no-phone $mac"; return; }
+  echo "ready $mac $online"
+}
+
+phone_status() {
+  local state mac online
+  read -r state mac online <<<"$(phone_state)"
+  case "$state" in
+    not-installed) printf '%s○%s Phone · Tailscale not installed   %sghostty-extreme phone setup%s\n' "$dim" "$reset" "$dim" "$reset" ;;
+    app-off|stopped) printf '%s○%s Phone · Tailscale off   %sghostty-extreme phone setup%s\n' "$dim" "$reset" "$dim" "$reset" ;;
+    needs-login) printf '%s●%s Phone · sign in to Tailscale   %sghostty-extreme phone setup%s\n' "$yellow" "$reset" "$dim" "$reset" ;;
+    starting) printf '%s●%s Phone · Tailscale connecting…\n' "$yellow" "$reset" ;;
+    https-off) printf '%s●%s Phone · turn on HTTPS for your tailnet   %sghostty-extreme phone setup%s\n' "$yellow" "$reset" "$dim" "$reset" ;;
+    no-phone) printf '%s●%s Phone · add your phone to your tailnet (%s)\n' "$yellow" "$reset" "$mac" ;;
+    ready)
+      if [ -n "$online" ]; then
+        printf '%s●%s Phone · ready · %s online · %s\n' "$green" "$reset" "$online" "$mac"
+      else
+        printf '%s●%s Phone · ready · phone offline · %s\n' "$green" "$reset" "$mac"
+      fi ;;
+  esac
+}
+
+ask() { local reply; printf '%s [Y/n] ' "$1"; read -r reply </dev/tty; [[ -z "$reply" || "$reply" =~ ^[Yy] ]]; }
+
+phone_setup() {
+  command -v jq >/dev/null || { echo "ghostty-extreme: jq is required (brew install jq)" >&2; return 1; }
+  local state mac online ts
+  local steps=0
+  while [ $steps -lt 8 ]; do
+    steps=$((steps + 1))
+    read -r state mac online <<<"$(phone_state)"
+    ts=$(ts_bin)
+    case "$state" in
+      not-installed)
+        if command -v brew >/dev/null && ask "Tailscale isn't installed. Install it with Homebrew (brew install --cask tailscale)?"; then
+          brew install --cask tailscale && open -a Tailscale && sleep 4 || return 1
+        else
+          echo "Get it from https://tailscale.com/download, then run this again."; return 1
+        fi ;;
+      app-off)
+        ask "Tailscale isn't running. Open it?" || return 1
+        open -a Tailscale; sleep 4 ;;
+      stopped|needs-login)
+        ask "Turn Tailscale on (tailscale up)? Signing in opens in your browser." || return 1
+        "$ts" up || return 1 ;;
+      starting) sleep 2 ;;
+      https-off)
+        echo "Turn on MagicDNS and HTTPS Certificates on Tailscale's DNS page:"
+        echo "  https://login.tailscale.com/admin/dns"
+        ask "Open it now?" && open "https://login.tailscale.com/admin/dns"
+        printf 'Waiting for HTTPS to be on (Ctrl-C to stop)'
+        while [ "$(phone_state | cut -d' ' -f1)" = https-off ]; do printf '.'; sleep 3; done
+        echo ;;
+      no-phone)
+        echo "Install Tailscale on your phone and sign in with the same account: https://tailscale.com/download"
+        printf 'Waiting for your phone to join (Ctrl-C to stop)'
+        while [ "$(phone_state | cut -d' ' -f1)" = no-phone ]; do printf '.'; sleep 3; done
+        echo ;;
+      ready) phone_status; return 0 ;;
+    esac
+  done
+  phone_status
+}
+
 case "${1:-doctor}" in
   doctor) doctor ;;
+  phone)
+    case "${2:-status}" in
+      status) phone_status ;;
+      setup) phone_setup ;;
+      *) printf 'Usage: ghostty-extreme phone [status|setup]\n' >&2; exit 2 ;;
+    esac ;;
   -h|--help|help)
-    sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'
     ;;
   *)
     printf 'Unknown command: %s\n' "$1" >&2
-    sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//' >&2
+    sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//' >&2
     exit 2
     ;;
 esac

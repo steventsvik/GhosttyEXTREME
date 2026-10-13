@@ -4,6 +4,13 @@ What changed in each GhosttyEXTREME release. Work in progress collects under
 **Unreleased**; at release time that heading becomes the version number, and
 `./release.sh` uses the section as the release notes.
 
+## Unreleased
+
+- **Phone setup, step one: Tailscale.** A small **Phone** line at the bottom of the sidebar says whether your phone can reach this Mac over your own private Tailscale network: off, sign in, turn on HTTPS, add your phone, or ready with your phone's name. Clicking it opens a short checklist with one button per step (install with Homebrew, turn on and sign in, open Tailscale's DNS settings for HTTPS, a QR code to get Tailscale on your phone), which ticks itself off as you go. Nothing changes until you press a button, and GhosttyEXTREME never turns on Tailscale Funnel. From a terminal: `ghostty-extreme phone` prints the same status in one line, and `ghostty-extreme phone setup` walks through the steps, asking before each one. Using the terminal from the phone comes next. The Phone switch in Settings hides it.
+- **Fixed:** a localhost session stayed **Live** after its dev server crashed when the process above it kept running (Next.js's `next dev` does), and its address moved to one of that process's internal ports. It now says **Not listening** after a few seconds, and an agent starting the same server again restarts that session in its tab instead of being told it's already running.
+- **Fixed:** opening Visual Fix from a dev server's own tab (Fix on its card, or ⌃⌘V there) put the panel in the server's tab. It now opens in the tab of the agent working on that project.
+- **Fixed:** Claude's **5h** usage row disappeared between 5-hour windows, when Claude Code leaves that window out of its report. The 5h and Week rows now stay, keeping the last numbers until they reset.
+
 ## 1.5.8
 
 - **jj (Jujutsu) support.** In a jj repository the sidebar shows the change you're on (or its nearest bookmark), and the Git panel shows jj instead of branches and stashes: the working-copy change with Describe, Commit, New change and Squash; the changes around it (edit one, start a new change on top, abandon); bookmarks with Fetch and Push; and the operation log, where Undo last or Restore reverses any jj command, an agent's included. Undo a Turn remembers jj's state when each turn starts, so if the agent also ran jj commands, **Restore with jj** puts jj's history back along with the files. Works with jj repositories that keep a git repository beside them (the default) and ones that don't. Pull request status and Create… work from the bookmark.
