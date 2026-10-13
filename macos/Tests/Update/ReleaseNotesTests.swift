@@ -12,7 +12,8 @@ struct ReleaseNotesTests {
 
         #expect(notes != nil)
         if case .tagged(let url) = notes {
-            #expect(url.absoluteString == "https://ghostty.org/docs/install/release-notes/1-2-3")
+            // GhosttyEXTREME links to its own releases.
+            #expect(url.absoluteString == "https://github.com/steventsvik/GhosttyEXTREME/releases/tag/extreme-1.2.3")
             #expect(notes?.label == "View Release Notes")
         } else {
             Issue.record("Expected tagged case")
@@ -109,8 +110,12 @@ struct ReleaseNotesTests {
             currentCommit: nil
         )
 
-        // Should not match pattern
-        #expect(notes == nil)
+        // GhosttyEXTREME has four-part versions (1.5.5.1), each with its own release.
+        if case .tagged(let url) = notes {
+            #expect(url.absoluteString == "https://github.com/steventsvik/GhosttyEXTREME/releases/tag/extreme-1.2.3.4")
+        } else {
+            Issue.record("Expected tagged case")
+        }
     }
 
     /// Test version string with git hash embedded

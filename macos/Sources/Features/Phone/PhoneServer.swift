@@ -34,7 +34,25 @@ final class PhoneServer: ObservableObject {
     private var clients: [ObjectIdentifier: Client] = [:]
     private var screenTimer: Timer?
     private var tabsTimer: Timer?
-    private var lastTabs = ""
+    /// Terminal windows that have closed. AppKit can keep a closed tab's window (and its
+    /// terminal) around for a while; the phone shouldn't see it.
+    private let closedWindows = NSHashTable<NSWindow>.weakObjects()
+    private var closeObserver: NSObjectProtocol?
+
+    private init() {
+        closeObserver = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: nil,
+                                                               queue: .main) { [weak self] note in
+            if let window = note.object as? NSWindow { self?.closedWindows.add(window) }
+        }
+    }
+
+    /// Terminal tabs that are open now.
+    private var openControllers: [TerminalController] {
+        TerminalController.all.filter { controller in
+            guard let window = controller.window else { return false }
+            return !closedWindows.contains(window)
+        }
+    }
 
     static var isEnabled: Bool { UserDefaults.standard.bool(forKey: enabledKey) }
 
@@ -56,6 +74,12 @@ final class PhoneServer: ObservableObject {
             if let code = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_PHONE_DEV_CODE"], !code.isEmpty {
                 PhoneDevices.shared.useTestPairingCode(code)
             }
+            return
+        }
+        // Test copies only: GHOSTTY_EXTREME_PHONE_TEST=on|off presses Turn on / Turn off at launch.
+        if Bundle.main.bundleIdentifier == "com.steventsvik.ghostty-extreme.test",
+           let test = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_PHONE_TEST"] {
+            if test == "on" { turnOn() } else if test == "off" { turnOff() }
             return
         }
         guard Self.isEnabled else { return }
@@ -171,6 +195,7 @@ final class PhoneServer: ObservableObject {
         /// The surface it's watching.
         var watching: UUID?
         var lastScreen = ""
+        var lastTabs = ""
         init(socket: PhoneSocket) { self.socket = socket }
     }
 
@@ -226,7 +251,8 @@ final class PhoneServer: ObservableObject {
             PhoneDevices.shared.touch(device.id)
             client.socket.send(Self.json(["t": "hello", "mac": Host.current().localizedName ?? "Mac", "device": device.name,
                                           "version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""]))
-            client.socket.send(tabsMessage())
+            client.lastTabs = tabsMessage()
+            client.socket.send(client.lastTabs)
             updateTimers()
             return
         }
@@ -260,7 +286,7 @@ final class PhoneServer: ObservableObject {
 
     private func surface(_ id: Any?) -> Ghostty.SurfaceView? {
         guard let text = id as? String, let uuid = UUID(uuidString: text) else { return nil }
-        for controller in TerminalController.all {
+        for controller in openControllers {
             if let match = controller.surfaceTree.first(where: { $0.id == uuid }) { return match }
         }
         return nil
@@ -269,7 +295,7 @@ final class PhoneServer: ObservableObject {
     private func tabsMessage() -> String {
         var tabs: [[String: Any]] = []
         let key = NSApp.keyWindow?.windowController as? TerminalController
-        for controller in TerminalController.all {
+        for controller in openControllers {
             let server = LocalhostSessions.shared.session(for: controller)
             for surface in controller.surfaceTree {
                 var tab: [String: Any] = [
@@ -327,15 +353,15 @@ final class PhoneServer: ObservableObject {
         } else if !authed {
             tabsTimer?.invalidate()
             tabsTimer = nil
-            lastTabs = ""
         }
     }
 
     private func pushTabs() {
         let message = tabsMessage()
-        guard message != lastTabs else { return }
-        lastTabs = message
-        for client in clients.values where client.device != nil { client.socket.send(message) }
+        for client in clients.values where client.device != nil && client.lastTabs != message {
+            client.lastTabs = message
+            client.socket.send(message)
+        }
     }
 
     private func pushScreens() {
@@ -396,8 +422,10 @@ final class PhoneServer: ObservableObject {
         model.sendKeyEvent(.init(key: key, action: .release, mods: mods, unshiftedCodepoint: codepoint))
     }
 
+    /// Sorted keys, so the same content always gives the same text (messages are only sent
+    /// when the text changed).
     private static func json(_ object: [String: Any]) -> String {
-        guard let data = try? JSONSerialization.data(withJSONObject: object) else { return "{}" }
+        guard let data = try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]) else { return "{}" }
         return String(decoding: data, as: UTF8.self)
     }
 }

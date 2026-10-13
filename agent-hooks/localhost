@@ -204,7 +204,7 @@ start() {
 
   # Already a session for this here? Point at it if it's serving; restart it in its tab if
   # it stopped, or stopped listening, instead of opening a second copy.
-  local f id state reuse=""
+  local f id state reuse="" join=""
   for f in "$dir"/*.status.json; do
     [ -f "$f" ] || continue
     id=$(basename "$f" .status.json)
@@ -216,10 +216,17 @@ start() {
       print_session "$id"
       return 0
     fi
-    case "$state" in live|quiet|exited) reuse="$id"; break ;; esac
+    case "$state" in
+      live|quiet|exited) reuse="$id"; break ;;
+      # Already on its way up (another start got there first): wait for it.
+      starting|restarting) join="$id"; break ;;
+    esac
   done
 
-  if [ -n "$reuse" ]; then
+  if [ -n "$join" ]; then
+    id="$join"
+    echo "Waiting for localhost session $id, which is already starting."
+  elif [ -n "$reuse" ]; then
     id="$reuse"
     # The app rewrites this as soon as the session runs again.
     printf '{"id":"%s","state":"restarting"}\n' "$id" > "$dir/$id.status.json"

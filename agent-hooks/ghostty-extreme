@@ -189,6 +189,7 @@ ts_bin() {
 # then (for ready/no-phone) this Mac's name and the online phone's name.
 phone_state() {
   local ts json state
+  command -v jq >/dev/null || { echo "no-jq"; return; }
   ts=$(ts_bin) || { echo "not-installed"; return; }
   [ -n "$ts" ] || { echo "not-installed"; return; }
   json=$("$ts" status --json 2>/dev/null) && [ -n "$json" ] && jq empty <<<"$json" 2>/dev/null \
@@ -216,6 +217,7 @@ phone_status() {
   local state mac online
   read -r state mac online <<<"$(phone_state)"
   case "$state" in
+    no-jq) printf '%s!%s Phone · needs jq to read Tailscale'"'"'s status   %sbrew install jq%s\n' "$yellow" "$reset" "$dim" "$reset" ;;
     not-installed) printf '%s○%s Phone · Tailscale not installed   %sghostty-extreme phone setup%s\n' "$dim" "$reset" "$dim" "$reset" ;;
     app-off|stopped) printf '%s○%s Phone · Tailscale off   %sghostty-extreme phone setup%s\n' "$dim" "$reset" "$dim" "$reset" ;;
     needs-login) printf '%s●%s Phone · sign in to Tailscale   %sghostty-extreme phone setup%s\n' "$yellow" "$reset" "$dim" "$reset" ;;
@@ -231,7 +233,13 @@ phone_status() {
   esac
 }
 
-ask() { local reply; printf '%s [Y/n] ' "$1"; read -r reply </dev/tty; [[ -z "$reply" || "$reply" =~ ^[Yy] ]]; }
+# Enter means yes; no terminal or end of input means no.
+ask() {
+  local reply
+  printf '%s [Y/n] ' "$1"
+  { read -r reply </dev/tty; } 2>/dev/null || { echo; return 1; }
+  [[ -z "$reply" || "$reply" =~ ^[Yy] ]]
+}
 
 phone_setup() {
   command -v jq >/dev/null || { echo "ghostty-extreme: jq is required (brew install jq)" >&2; return 1; }

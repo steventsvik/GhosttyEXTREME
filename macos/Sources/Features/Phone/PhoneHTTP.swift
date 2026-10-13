@@ -85,6 +85,10 @@ final class PhoneHTTPServer {
                 if buffer.count > Self.maxHeader { connection.cancel() } else { self.readRequest(connection, buffer: buffer) }
                 return
             }
+            guard end.lowerBound - buffer.startIndex <= Self.maxHeader else {
+                self.send(.text("Headers too large", status: 431), on: connection)
+                return
+            }
             guard var request = Self.parseHead(buffer[..<end.lowerBound]) else { connection.cancel(); return }
             let length = Int(request.headers["content-length"] ?? "0") ?? 0
             guard length <= Self.maxBody else { self.send(.text("Too large", status: 413), on: connection); return }
@@ -164,6 +168,7 @@ final class PhoneHTTPServer {
         case 405: return "Method Not Allowed"
         case 413: return "Payload Too Large"
         case 429: return "Too Many Requests"
+        case 431: return "Request Header Fields Too Large"
         default: return "Error"
         }
     }
