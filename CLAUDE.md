@@ -42,7 +42,8 @@ New Swift files are picked up automatically (synchronized folders); no project e
 
 The maintainer runs Tellurion all day with live agent sessions.
 
-- Never quit, restart or replace `/Applications/GhosttyEXTREME.app` while it's running.
+- Never quit, restart or replace `/Applications/Tellurion.app` (named `GhosttyEXTREME.app`
+  until its first quit after updating to 1.5.9) while it's running.
   Installing happens only after they say they've quit it.
 - Test with a copy: change its bundle id to `com.steventsvik.ghostty-extreme.test` and
   ad-hoc sign it. Launch it with a clean environment:
