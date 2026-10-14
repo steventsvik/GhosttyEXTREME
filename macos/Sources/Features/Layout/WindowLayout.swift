@@ -157,7 +157,8 @@ struct ColumnResizeHandle: View {
                         }
                     }
                     .gesture(
-                        DragGesture(minimumDistance: 1)
+                        // Measured in the window, not the handle, which moves as the column resizes.
+                        DragGesture(minimumDistance: 1, coordinateSpace: .global)
                             .onChanged { value in
                                 let start = startWidth ?? width
                                 startWidth = start

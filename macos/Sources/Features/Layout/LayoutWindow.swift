@@ -88,7 +88,9 @@ private struct LayoutMap: View {
                                     grab = value.startLocation.x - slot.center
                                     withAnimation(.easeOut(duration: 0.12)) { dragging = box }
                                 }
-                                dragX = value.location.x - grab
+                                // Kept inside the map.
+                                dragX = min(max(value.location.x - grab, inset + slot.width / 2),
+                                            geometry.size.width - inset - slot.width / 2)
                                 reorder(box, width: geometry.size.width)
                             }
                             .onEnded { _ in
