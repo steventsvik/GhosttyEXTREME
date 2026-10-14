@@ -247,7 +247,7 @@ struct AgentBadge: View {
 /// 9×9 pixel icons for the chrome.
 enum PixelIcon: String {
     case plus, globe, inbox, grid, condense, expand, close, restart, stop, play, eye, chevronDown, chevronRight, pin, bolt, more, branch, chart, code,
-         target, desktop, tablet, phone, memory, skills, environment
+         target, desktop, tablet, phone, memory, skills, environment, layout
 
     var rows: [String] {
         switch self {
@@ -277,6 +277,7 @@ enum PixelIcon: String {
         case .skills: return ["....o....", "...ooo...", "ooooooooo", ".ooooooo.", "..ooooo..", ".ooo.ooo.", ".oo...oo.", "o.......o", "........."]
         case .environment: return ["..ooooo..", ".o.....o.", "ooooooooo", "o.......o", "ooooooooo", "o.......o", "ooooooooo", ".o.....o.", "..ooooo.."]
         case .bolt: return ["....oo...", "...oo....", "..oo.....", ".ooooo...", "...oo....", "..oo.....", ".oo......", "oo.......", "........."]
+        case .layout: return ["ooooooooo", "o.o...o.o", "o.o...o.o", "o.o...o.o", "o.o...o.o", "o.o...o.o", "o.o...o.o", "o.o...o.o", "ooooooooo"]
         }
     }
 }
@@ -311,6 +312,7 @@ extension PixelIcon {
         case .memory: return "brain"
         case .skills: return "puzzlepiece.extension"
         case .environment: return "shippingbox"
+        case .layout: return "rectangle.split.3x1"
         }
     }
 }

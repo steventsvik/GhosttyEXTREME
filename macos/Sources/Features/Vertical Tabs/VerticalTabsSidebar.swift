@@ -3,7 +3,8 @@ import AppKit
 import Combine
 import SwiftUI
 
-/// Places the vertical tabs sidebar to the left of the terminal content.
+/// Places the vertical tabs sidebar, the terminal content and the side panels in the
+/// order the Layout window sets (by default the sidebar on the left).
 struct VerticalTabsLayout<Content: View>: View {
     let controller: TerminalController
     @ObservedObject var ghostty: Ghostty.App
@@ -21,6 +22,9 @@ struct VerticalTabsLayout<Content: View>: View {
     @AppStorage(AgentAurora.enabledKey) private var aurora = false
     @AppStorage(VerticalTabs.visibleKey) private var visible: Bool = true
     @AppStorage(VerticalTabs.widthKey) private var width: Double = VerticalTabs.defaultWidth
+    @ObservedObject private var layout = WindowLayout.shared
+    /// Where the sidebar is, so the hover card opens beside it on the terminal's side.
+    @State private var sidebarFrame: CGRect = .zero
     private let content: Content
 
     init(controller: TerminalController, ghostty: Ghostty.App, @ViewBuilder content: () -> Content) {
@@ -62,12 +66,52 @@ struct VerticalTabsLayout<Content: View>: View {
 
     private func layout(maxEditorWidth: CGFloat, maxVisualFixWidth: CGFloat) -> some View {
         HStack(spacing: 0) {
+            ForEach(layout.order) { box in
+                part(box, maxEditorWidth: maxEditorWidth, maxVisualFixWidth: maxVisualFixWidth)
+            }
+        }
+        .coordinateSpace(name: verticalTabsSpace)
+        .overlay {
             if visible && ghostty.readiness == .ready {
+                VerticalTabsOverlayLayer(
+                    state: overlay,
+                    palette: VerticalTabsPalette(config: ghostty.config),
+                    sidebarFrame: sidebarFrame,
+                    sidebarOnLeft: layout.isLeftOfTerminal(.tabs))
+            }
+        }
+        .onChange(of: visible) { _ in overlay.dismissAll() }
+        .onAppear {
+            VerticalTabsMenu.shared.installIfNeeded()
+            ExtremeLaunch.start()
+            ReviewInbox.start()
+            TurnCheckpoints.start()
+            VerticalTabsTestSupport.openTestTabsIfRequested(from: controller)
+        }
+    }
+
+    @ViewBuilder
+    private func part(_ box: LayoutBox, maxEditorWidth: CGFloat, maxVisualFixWidth: CGFloat) -> some View {
+        switch box {
+        case .tabs:
+            if visible && ghostty.readiness == .ready {
+                // The handle is on the side facing the terminal.
+                let left = layout.isLeftOfTerminal(.tabs)
+                let handle = ColumnResizeHandle(color: Extreme.line, width: $width,
+                                                range: VerticalTabs.widthRange, onTrailingEdge: left)
+                if !left { handle }
                 VerticalTabsSidebar(model: model, owner: controller, config: ghostty.config)
                     .frame(width: width)
                     .environmentObject(overlay)
-                VerticalTabsResizeHandle(width: $width)
+                    .background(
+                        GeometryReader { geometry in
+                            Color.clear
+                                .onAppear { sidebarFrame = geometry.frame(in: .named(verticalTabsSpace)) }
+                                .onChange(of: geometry.frame(in: .named(verticalTabsSpace))) { sidebarFrame = $0 }
+                        })
+                if left { handle }
             }
+        case .terminal:
             // A Hermes tab shows Hermes's own app over its (hidden, idle) terminal.
             ZStack {
                 content
@@ -85,34 +129,20 @@ struct VerticalTabsLayout<Content: View>: View {
                 TerminalFrameOverlay(controller: controller)
                 NewTabSplash()
             }
+        case .editor:
             // Each tab has its own editor.
             if editorPanel.isVisible(controller) {
                 EditorPanelColumn(controller: controller, maxWidth: maxEditorWidth)
             }
+        case .visualFix:
             // Point at the running app and have the agent change it.
             if visualFix.isVisible(controller) {
                 VisualFixColumn(controller: controller, maxWidth: maxVisualFixWidth)
             }
+        case .history:
             if commandBlocks.isVisible(controller) {
                 CommandBlocksColumn(controller: controller)
             }
-        }
-        .coordinateSpace(name: verticalTabsSpace)
-        .overlay {
-            if visible && ghostty.readiness == .ready {
-                VerticalTabsOverlayLayer(
-                    state: overlay,
-                    palette: VerticalTabsPalette(config: ghostty.config),
-                    sidebarWidth: width)
-            }
-        }
-        .onChange(of: visible) { _ in overlay.dismissAll() }
-        .onAppear {
-            VerticalTabsMenu.shared.installIfNeeded()
-            ExtremeLaunch.start()
-            ReviewInbox.start()
-            TurnCheckpoints.start()
-            VerticalTabsTestSupport.openTestTabsIfRequested(from: controller)
         }
     }
 }
@@ -122,8 +152,8 @@ struct VerticalTabsLayout<Content: View>: View {
 enum VerticalTabsTestSupport {
     private static var didOpen = false
 
-    /// `GHOSTTY_EXTREME_TEST_OVERLAY=hover|menu|git`: the selected row opens its hover card,
-    /// ⋮ menu or Git panel shortly after launch.
+    /// `GHOSTTY_EXTREME_TEST_OVERLAY=hover|menu|git|tools`: the selected row opens its hover
+    /// card, ⋮ menu or Git panel, or the header opens Tools, shortly after launch.
     static let overlayMode = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_OVERLAY"]
     static let showOverlay = Notification.Name("com.steventsvik.ghostty-extreme.testShowOverlay")
 
@@ -384,45 +414,6 @@ enum VerticalTabsTestSupport {
     }
 }
 
-/// A thin draggable divider that resizes the sidebar.
-private struct VerticalTabsResizeHandle: View {
-    @Binding var width: Double
-    @State private var startWidth: Double?
-    @State private var cursorPushed = false
-
-    var body: some View {
-        Rectangle()
-            .fill(Extreme.line)
-            .frame(width: 1)
-            .overlay(
-                Color.clear
-                    .frame(width: 8)
-                    .contentShape(Rectangle())
-                    .onHover { inside in
-                        // Keep push/pop balanced so the cursor stack never leaks.
-                        if inside, !cursorPushed {
-                            NSCursor.resizeLeftRight.push()
-                            cursorPushed = true
-                        } else if !inside, cursorPushed {
-                            NSCursor.pop()
-                            cursorPushed = false
-                        }
-                    }
-                    .gesture(
-                        DragGesture(minimumDistance: 1)
-                            .onChanged { value in
-                                let start = startWidth ?? width
-                                startWidth = start
-                                let proposed = start + value.translation.width
-                                width = min(max(proposed, VerticalTabs.widthRange.lowerBound),
-                                            VerticalTabs.widthRange.upperBound)
-                            }
-                            .onEnded { _ in startWidth = nil }
-                    )
-            )
-    }
-}
-
 /// Which tab groups are collapsed. Shared so every window's sidebar agrees.
 final class VerticalTabsCollapse: ObservableObject {
     static let shared = VerticalTabsCollapse()
@@ -606,11 +597,13 @@ struct VerticalTabsSidebar: View {
                 }
                 Spacer(minLength: 0)
             }
-            // Every tool when they fit; in a narrow sidebar the less used ones move to a menu.
+            // As many tool icons as fit; the Tools button lists all of them.
             ViewThatFits(in: .horizontal) {
                 toolRow(.none)
                 toolRow(.some)
                 toolRow(.most)
+                toolRow(.least)
+                toolRow(.all)
             }
         }
         .padding(.horizontal, 12)
@@ -618,48 +611,27 @@ struct VerticalTabsSidebar: View {
         .padding(.bottom, 10)
     }
 
-    /// How many tools go in the "more" menu.
-    private enum Overflow { case none, some, most }
+    /// How many tool icons a narrow sidebar leaves out (they're still under Tools).
+    private enum Overflow: Int { case none, some, most, least, all }
 
     private func toolRow(_ overflow: Overflow) -> some View {
-        let menu = overflow != .none
-        return HStack(spacing: menu ? 4 : 6) {
+        HStack(spacing: overflow == .none ? 6 : 4) {
             NewSessionMenu(owner: owner, compact: true)
             Spacer(minLength: 0)
-            if settings.isOn(.editor) { EditorHeaderButton(owner: owner) }
-            if !menu {
-                ExtremeIconButton(icon: condensed ? .expand : .condense,
-                                  help: condensed ? "Expand view" : "Condense view") { condensed.toggle() }
-            }
-            if settings.isOn(.localhost) { LocalhostHeaderButton() }
-            if settings.isOn(.review) { ReviewHeaderButton() }
-            if !menu, settings.isOn(.activity) {
+            if overflow != .all, settings.isOn(.editor) { EditorHeaderButton(owner: owner) }
+            if overflow.rawValue < Overflow.least.rawValue, settings.isOn(.localhost) { LocalhostHeaderButton() }
+            if overflow.rawValue < Overflow.least.rawValue, settings.isOn(.review) { ReviewHeaderButton() }
+            if overflow == .none, settings.isOn(.activity) {
                 ExtremeIconButton(icon: .chart, help: "Agent activity and usage graphs (⌃⌘A)", action: ActivityDashboard.toggle)
             }
-            if overflow != .most, settings.isOn(.skills) {
+            if overflow.rawValue < Overflow.most.rawValue, settings.isOn(.skills) {
                 ExtremeIconButton(icon: .skills, help: "Skills: what your agents have installed, updates, and what's trending (⌃⌘U)") {
                     SkillsWindow.show(folder: owner.focusedSurface?.pwd)
                 }
             }
-            if settings.isOn(.missionControl) { MissionControlButton() }
-            if menu { moreMenu(skills: overflow == .most) }
+            if overflow != .all, settings.isOn(.missionControl) { MissionControlButton() }
+            ToolsButton(owner: owner, condensed: $condensed)
         }
-    }
-
-    /// The tools that don't fit in a narrow sidebar.
-    private func moreMenu(skills: Bool) -> some View {
-        Menu {
-            Button(condensed ? "Expand View" : "Condense View") { condensed.toggle() }
-            if settings.isOn(.activity) { Button("Agent Activity") { ActivityDashboard.toggle() } }
-            if skills, settings.isOn(.skills) { Button("Skills") { SkillsWindow.show(folder: owner.focusedSurface?.pwd) } }
-            if settings.isOn(.environment) { Button("Environment") { EnvironmentWindow.show(folder: owner.focusedSurface?.pwd) } }
-        } label: {
-            PixelIconView(icon: .more, color: Extreme.text.opacity(0.8), pixel: 1.5)
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .frame(width: 22, height: 28)
-        .help("More tools")
     }
 }
 
