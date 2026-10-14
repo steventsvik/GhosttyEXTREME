@@ -47,7 +47,7 @@ final class UpdateNotes: ObservableObject {
             blocks = Self.parse(description)
             return
         }
-        guard let url = URL(string: "https://api.github.com/repos/steventsvik/GhosttyEXTREME/releases/tags/extreme-\(version)") else { return }
+        guard let url = URL(string: "https://api.github.com/repos/steventsvik/Tellurion/releases/tags/extreme-\(version)") else { return }
         loading = true
         Task {
             var body = ""

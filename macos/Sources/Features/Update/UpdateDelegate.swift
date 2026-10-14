@@ -8,7 +8,7 @@ extension UpdateDriver: SPUUpdaterDelegate {
         // this app. There's one channel; the `auto-update-channel` setting doesn't apply.
         // Test-only: `GHOSTTY_EXTREME_TEST_FEED=<url>` points a test copy at a local feed.
         ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_FEED"]
-            ?? "https://github.com/steventsvik/GhosttyEXTREME/releases/latest/download/appcast.xml"
+            ?? "https://github.com/steventsvik/Tellurion/releases/latest/download/appcast.xml"
     }
 
     /// Called when an update is scheduled to install silently,

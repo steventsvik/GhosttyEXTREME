@@ -3,7 +3,7 @@
 ## Reporting a vulnerability
 
 Please report security problems privately, not in a public issue: use
-[Report a vulnerability](https://github.com/steventsvik/GhosttyEXTREME/security/advisories/new)
+[Report a vulnerability](https://github.com/steventsvik/Tellurion/security/advisories/new)
 on the repository's Security tab. Include what you found, how to reproduce it, and which
 version you're on (Tellurion → About).
 

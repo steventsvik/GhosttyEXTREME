@@ -19,7 +19,7 @@ setopt pipefail
 
 MODE=${1:-}
 VERSION=${2:-}
-REPO=steventsvik/GhosttyEXTREME
+REPO=steventsvik/Tellurion
 # The update key's name in the keychain, the Developer ID certificate, and the notarytool
 # profile (saved with: xcrun notarytool store-credentials GhosttyEXTREME --apple-id … --team-id …).
 KEY_ACCOUNT=GhosttyEXTREME
