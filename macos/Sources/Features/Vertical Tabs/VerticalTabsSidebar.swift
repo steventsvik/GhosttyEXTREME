@@ -122,8 +122,8 @@ struct VerticalTabsLayout<Content: View>: View {
 enum VerticalTabsTestSupport {
     private static var didOpen = false
 
-    /// `GHOSTTY_EXTREME_TEST_OVERLAY=hover|menu|git`: the selected row opens its hover card,
-    /// ⋮ menu or Git panel shortly after launch.
+    /// `GHOSTTY_EXTREME_TEST_OVERLAY=hover|menu|git|tools`: the selected row opens its hover
+    /// card, ⋮ menu or Git panel, or the header opens Tools, shortly after launch.
     static let overlayMode = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_OVERLAY"]
     static let showOverlay = Notification.Name("com.steventsvik.ghostty-extreme.testShowOverlay")
 
@@ -611,6 +611,8 @@ struct VerticalTabsSidebar: View {
                 toolRow(.none)
                 toolRow(.some)
                 toolRow(.most)
+                toolRow(.least)
+                toolRow(.all)
             }
         }
         .padding(.horizontal, 12)
@@ -619,24 +621,24 @@ struct VerticalTabsSidebar: View {
     }
 
     /// How many tool icons a narrow sidebar leaves out (they're still under Tools).
-    private enum Overflow { case none, some, most }
+    private enum Overflow: Int { case none, some, most, least, all }
 
     private func toolRow(_ overflow: Overflow) -> some View {
         HStack(spacing: overflow == .none ? 6 : 4) {
             NewSessionMenu(owner: owner, compact: true)
             Spacer(minLength: 0)
-            if settings.isOn(.editor) { EditorHeaderButton(owner: owner) }
-            if settings.isOn(.localhost) { LocalhostHeaderButton() }
-            if settings.isOn(.review) { ReviewHeaderButton() }
+            if overflow != .all, settings.isOn(.editor) { EditorHeaderButton(owner: owner) }
+            if overflow.rawValue < Overflow.least.rawValue, settings.isOn(.localhost) { LocalhostHeaderButton() }
+            if overflow.rawValue < Overflow.least.rawValue, settings.isOn(.review) { ReviewHeaderButton() }
             if overflow == .none, settings.isOn(.activity) {
                 ExtremeIconButton(icon: .chart, help: "Agent activity and usage graphs (⌃⌘A)", action: ActivityDashboard.toggle)
             }
-            if overflow != .most, settings.isOn(.skills) {
+            if overflow.rawValue < Overflow.most.rawValue, settings.isOn(.skills) {
                 ExtremeIconButton(icon: .skills, help: "Skills: what your agents have installed, updates, and what's trending (⌃⌘U)") {
                     SkillsWindow.show(folder: owner.focusedSurface?.pwd)
                 }
             }
-            if settings.isOn(.missionControl) { MissionControlButton() }
+            if overflow != .all, settings.isOn(.missionControl) { MissionControlButton() }
             ToolsButton(owner: owner, condensed: $condensed)
         }
     }

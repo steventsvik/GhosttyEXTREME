@@ -13,14 +13,14 @@ struct ToolsButton: View {
         let shape = RoundedRectangle(cornerRadius: 7, style: .continuous)
         let lit = open || hovering
         Button { open.toggle() } label: {
-            HStack(spacing: 5) {
+            HStack(spacing: 3) {
                 Text("Tools").font(Extreme.font(11.5, weight: .semibold))
-                Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold))
+                Image(systemName: "chevron.down").font(.system(size: 7, weight: .bold))
                     .rotationEffect(.degrees(open ? 180 : 0))
             }
             .fixedSize()
             .foregroundColor(lit ? Extreme.gold : Extreme.text.opacity(0.85))
-            .padding(.horizontal, 9)
+            .padding(.horizontal, 7)
             .frame(minHeight: 28)
             .background(shape.fill(lit ? Extreme.raised : Extreme.panel))
             .overlay(shape.strokeBorder(lit ? Extreme.gold.opacity(0.55) : Extreme.line, lineWidth: 1))
@@ -30,6 +30,9 @@ struct ToolsButton: View {
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.15), value: lit)
         .help("Every tool, with its shortcut")
+        .onReceive(NotificationCenter.default.publisher(for: VerticalTabsTestSupport.showOverlay)) { _ in
+            if VerticalTabsTestSupport.overlayMode == "tools", owner.window?.isKeyWindow ?? false { open = true }
+        }
         .popover(isPresented: $open, arrowEdge: .bottom) {
             ToolsPanel(owner: owner, condensed: $condensed) { action in
                 open = false
@@ -64,7 +67,7 @@ private struct ToolsPanel: View {
                  _ action: @escaping () -> Void) {
             guard settings.isOn(feature) else { return }
             all.append(Tool(feature: feature, symbol: symbol, title: title, detail: detail,
-                            shortcut: feature.shortcut, action: action))
+                            shortcut: feature.shortcut.map { "⌃⌘" + $0 }, action: action))
         }
         if !hermes {
             add(.editor, PixelIcon.code.symbol, "Code editor", "Watch the agent edit, live") { EditorPanel.shared.toggle(from: owner) }
@@ -83,23 +86,38 @@ private struct ToolsPanel: View {
         return all
     }
 
+    /// The sidebar's own view and Settings, below the tools.
+    private var viewTools: [Tool] {
+        let condense = condensed
+        return [
+            Tool(feature: nil, symbol: (condense ? PixelIcon.expand : .condense).symbol,
+                 title: condense ? "Expand view" : "Condense view",
+                 detail: condense ? "Show agent details on each tab" : "One line per tab") { condensed.toggle() },
+            Tool(feature: nil, symbol: "gearshape", title: "Settings", detail: "Turn tools on or off",
+                 shortcut: "⌃⌘,", action: ExtremeSettingsWindow.show),
+        ]
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             ForEach(tools) { tool in
                 ToolsPanelRow(symbol: tool.symbol, title: tool.title, detail: tool.detail,
-                              shortcut: tool.shortcut.map { "⌃⌘" + $0 }) { run(tool.action) }
+                              shortcut: tool.shortcut) { run(tool.action) }
             }
             Rectangle().fill(Extreme.line).frame(height: 1).padding(.vertical, 4)
-            ToolsPanelRow(symbol: (condensed ? PixelIcon.expand : .condense).symbol,
-                          title: condensed ? "Expand view" : "Condense view",
-                          detail: condensed ? "Show agent details on each tab" : "One line per tab") {
-                run { condensed.toggle() }
+            ForEach(viewTools) { tool in
+                ToolsPanelRow(symbol: tool.symbol, title: tool.title, detail: tool.detail,
+                              shortcut: tool.shortcut) { run(tool.action) }
             }
-            ToolsPanelRow(symbol: "gearshape", title: "Settings", detail: "Turn tools on or off",
-                          shortcut: "⌃⌘,") { run(ExtremeSettingsWindow.show) }
         }
         .padding(6)
         .frame(width: 300)
+        .onAppear {
+            // `GHOSTTY_EXTREME_TEST_TOOL=<title>`: choose that tool once the panel is open.
+            guard let title = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_TOOL"],
+                  let tool = (tools + viewTools).first(where: { $0.title == title }) else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { run(tool.action) }
+        }
         .background(Extreme.panel)
         .environment(\.colorScheme, .dark)
     }
