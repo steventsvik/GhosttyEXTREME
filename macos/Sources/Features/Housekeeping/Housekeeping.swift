@@ -113,6 +113,11 @@ final class Housekeeping: ObservableObject {
 
     private let queue = DispatchQueue(label: "com.steventsvik.ghostty-extreme.housekeeping", qos: .utility)
     private var history: [String: Seen] = [:]
+    /// Test-only: sample items closed this run (see `refresh`).
+    private var closedSamples: Set<String> = []
+    private static var showsSample: Bool {
+        ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_BACKGROUND_SAMPLE"] == "1"
+    }
     private var timer: Timer?
     private var fastTimer: Timer?
     private var watchers = 0
@@ -160,8 +165,8 @@ final class Housekeeping: ObservableObject {
 
     func refresh() {
         // Test-only: representative sample data, for screenshots that shouldn't show this Mac.
-        if ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_BACKGROUND_SAMPLE"] == "1" {
-            items = Self.sample()
+        if Self.showsSample {
+            items = Self.sample().filter { !closedSamples.contains($0.id) }
             scannedAt = Date()
             selfUsage = (1.2, 162_000_000)
             return
@@ -497,6 +502,15 @@ final class Housekeeping: ObservableObject {
 
     /// Closes an item the polite way (SIGTERM, `colima stop`, `docker stop`), on a background queue.
     func close(_ item: Item, force: Bool = false, done: (() -> Void)? = nil) {
+        // Sample items aren't this Mac's: closing one only takes it off the list.
+        if Self.showsSample {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                self.closedSamples.insert(item.id)
+                self.refresh()
+                done?()
+            }
+            return
+        }
         queue.async { [self] in
             switch item.close {
             case .terminate(let pids):
