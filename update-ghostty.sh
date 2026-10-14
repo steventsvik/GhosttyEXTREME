@@ -58,11 +58,14 @@ if [[ ! -L macos/build ]]; then
 fi
 
 "$zig_bin" build -Doptimize=ReleaseFast -Dxcframework-target=native
-ditto macos/build/ReleaseLocal/Ghostty.app "/Applications/GhosttyEXTREME.app"
+# A copy installed before the rename keeps its old name until it next quits.
+app="/Applications/Tellurion.app"
+[[ ! -d "$app" && -d "/Applications/GhosttyEXTREME.app" ]] && app="/Applications/GhosttyEXTREME.app"
+ditto macos/build/ReleaseLocal/Ghostty.app "$app"
 # Sign with a stable identity (if one is set up) so macOS keeps the app's permissions
 # across updates; an ad-hoc signature changes with every build.
 if [[ -n "${GHOSTTY_EXTREME_SIGNING_IDENTITY:-}" ]]; then
-  codesign --force --deep --sign "$GHOSTTY_EXTREME_SIGNING_IDENTITY" "/Applications/GhosttyEXTREME.app"
+  codesign --force --deep --sign "$GHOSTTY_EXTREME_SIGNING_IDENTITY" "$app"
 fi
 ./agent-hooks/install.sh
 git push --force-with-lease origin custom
