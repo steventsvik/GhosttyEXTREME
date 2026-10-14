@@ -606,7 +606,7 @@ struct VerticalTabsSidebar: View {
                 }
                 Spacer(minLength: 0)
             }
-            // Every tool when they fit; in a narrow sidebar the less used ones move to a menu.
+            // As many tool icons as fit; the Tools button lists all of them.
             ViewThatFits(in: .horizontal) {
                 toolRow(.none)
                 toolRow(.some)
@@ -618,22 +618,17 @@ struct VerticalTabsSidebar: View {
         .padding(.bottom, 10)
     }
 
-    /// How many tools go in the "more" menu.
+    /// How many tool icons a narrow sidebar leaves out (they're still under Tools).
     private enum Overflow { case none, some, most }
 
     private func toolRow(_ overflow: Overflow) -> some View {
-        let menu = overflow != .none
-        return HStack(spacing: menu ? 4 : 6) {
+        HStack(spacing: overflow == .none ? 6 : 4) {
             NewSessionMenu(owner: owner, compact: true)
             Spacer(minLength: 0)
             if settings.isOn(.editor) { EditorHeaderButton(owner: owner) }
-            if !menu {
-                ExtremeIconButton(icon: condensed ? .expand : .condense,
-                                  help: condensed ? "Expand view" : "Condense view") { condensed.toggle() }
-            }
             if settings.isOn(.localhost) { LocalhostHeaderButton() }
             if settings.isOn(.review) { ReviewHeaderButton() }
-            if !menu, settings.isOn(.activity) {
+            if overflow == .none, settings.isOn(.activity) {
                 ExtremeIconButton(icon: .chart, help: "Agent activity and usage graphs (⌃⌘A)", action: ActivityDashboard.toggle)
             }
             if overflow != .most, settings.isOn(.skills) {
@@ -642,24 +637,8 @@ struct VerticalTabsSidebar: View {
                 }
             }
             if settings.isOn(.missionControl) { MissionControlButton() }
-            if menu { moreMenu(skills: overflow == .most) }
+            ToolsButton(owner: owner, condensed: $condensed)
         }
-    }
-
-    /// The tools that don't fit in a narrow sidebar.
-    private func moreMenu(skills: Bool) -> some View {
-        Menu {
-            Button(condensed ? "Expand View" : "Condense View") { condensed.toggle() }
-            if settings.isOn(.activity) { Button("Agent Activity") { ActivityDashboard.toggle() } }
-            if skills, settings.isOn(.skills) { Button("Skills") { SkillsWindow.show(folder: owner.focusedSurface?.pwd) } }
-            if settings.isOn(.environment) { Button("Environment") { EnvironmentWindow.show(folder: owner.focusedSurface?.pwd) } }
-        } label: {
-            PixelIconView(icon: .more, color: Extreme.text.opacity(0.8), pixel: 1.5)
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .frame(width: 22, height: 28)
-        .help("More tools")
     }
 }
 

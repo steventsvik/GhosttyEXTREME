@@ -4,6 +4,10 @@ What changed in each Tellurion (formerly GhosttyEXTREME) release. Work in progre
 **Unreleased**; at release time that heading becomes the version number, and
 `./release.sh` uses the section as the release notes.
 
+## Unreleased
+
+- **Tools, instead of the ⋯ button.** The sidebar's top bar now ends in a **Tools** button that lists every tool by name, with a line on what it's for and its ⌃⌘ shortcut: the code editor, Visual Fix, Mission Control, Review, Localhost, Agent activity, Skills, Project memory, Environment and Background processes, plus Condense view and Settings. The icons that fit stay in the bar. Environment, Project memory and Background processes now have a place in the sidebar (before, they were only in the command palette, Environment also in the ⋯ menu when the sidebar was narrow).
+
 ## 1.5.9
 
 - **GhosttyEXTREME is now Tellurion.** A new name and a new icon: a T sealed in the hexagon, with the same gold and cyan. Every feature, setting and shortcut stays the same, and so do your settings, permissions, paired phones and agent hooks. After the update, the app renames itself from GhosttyEXTREME.app to Tellurion.app the next time you quit it. Menus, windows and alerts say Tellurion, and the command-line tool is now `tellurion` (`tellurion doctor`, `tellurion phone`); `ghostty-extreme` still works. The alternate icons (`macos-icon = blueprint`, `xray` and the rest, and `custom-style`) now show the Tellurion icon; `macos-icon = custom` with your own image still works. Tellurion is still built on Ghostty and still reads your Ghostty config.
