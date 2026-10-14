@@ -4,7 +4,7 @@ What changed in each Tellurion (formerly GhosttyEXTREME) release. Work in progre
 **Unreleased**; at release time that heading becomes the version number, and
 `./release.sh` uses the section as the release notes.
 
-## Unreleased
+## 1.6.0
 
 - **Layout: arrange the window your way.** **Tools → Layout** (or **Layout…** in the command palette) shows your window as boxes: the tabs, the terminal, the code editor, Visual Fix and command history. Drag a box to a new spot and the others slide aside; let go and every window rearranges. Right-click a box to move it one spot. Four templates to start from: **Classic** (tabs, terminal, editor), **Editor first** (the editor between the tabs and the terminal), **Tabs on the right**, and **Mirrored**. **Reset** goes back to Classic. Each panel's resize handle is on the side facing the terminal, the tab hover card opens toward the terminal, and opening a panel (or showing the tabs) grows the window on that panel's side, so the terminal stays where it is.
 - **Easier-to-grab dividers.** The divider between the terminal and the tabs, the code editor or Visual Fix is a few points wider to grab.
