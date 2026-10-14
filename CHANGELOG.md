@@ -6,6 +6,7 @@ What changed in each Tellurion (formerly GhosttyEXTREME) release. Work in progre
 
 ## Unreleased
 
+- **Layout: arrange the window your way.** **Tools → Layout** (or **Layout…** in the command palette) shows your window as boxes: the tabs, the terminal, the code editor, Visual Fix and command history. Drag a box to a new spot and the others slide aside; let go and every window rearranges. Right-click a box to move it one spot. Four templates to start from: **Classic** (tabs, terminal, editor), **Editor first** (the editor between the tabs and the terminal), **Tabs on the right**, and **Mirrored**. **Reset** goes back to Classic. Each panel's resize handle is on the side facing the terminal, the tab hover card opens toward the terminal, and opening a panel (or showing the tabs) grows the window on that panel's side, so the terminal stays where it is.
 - **Tools, instead of the ⋯ button.** The sidebar's top bar now ends in a **Tools** button that lists every tool by name, with a line on what it's for and its ⌃⌘ shortcut: the code editor, Visual Fix, Mission Control, Review, Localhost, Agent activity, Skills, Project memory, Environment and Background processes, plus Condense view and Settings. The icons that fit stay in the bar. Environment, Project memory and Background processes now have a place in the sidebar (before, they were only in the command palette, Environment also in the ⋯ menu when the sidebar was narrow).
 
 ## 1.5.9

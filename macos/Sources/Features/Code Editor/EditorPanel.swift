@@ -378,18 +378,13 @@ final class EditorSession {
         let visible = screen.visibleFrame
         let extra = min(panel, visible.width - window.frame.width)
         guard extra > 0 else { return }
-        var frame = window.frame
-        frame.size.width += extra
-        if frame.maxX > visible.maxX { frame.origin.x = max(visible.minX, visible.maxX - frame.width) }
-        window.setFrame(frame, display: true, animate: true)
+        window.grow(by: extra, onLeft: WindowLayout.isLeftOfTerminal(.editor), animate: true)
         widenedBy = extra
     }
 
     private func narrow(_ window: NSWindow) {
         guard widenedBy > 0, !window.styleMask.contains(.fullScreen) else { widenedBy = 0; return }
-        var frame = window.frame
-        frame.size.width = max(frame.width - widenedBy, window.minSize.width)
-        window.setFrame(frame, display: true, animate: true)
+        window.grow(by: -widenedBy, onLeft: WindowLayout.isLeftOfTerminal(.editor), animate: true)
         widenedBy = 0
     }
 }
@@ -400,32 +395,18 @@ struct EditorPanelColumn: View {
     /// The most room the window has for the editor right now.
     var maxWidth: CGFloat = .infinity
     @AppStorage(EditorPanel.widthKey) private var width: Double = EditorPanel.defaultWidth
-    @State private var startWidth: Double?
-    @State private var cursorPushed = false
+    @ObservedObject private var layout = WindowLayout.shared
 
     var body: some View {
+        // The handle is on the side facing the terminal.
+        let left = layout.isLeftOfTerminal(.editor)
+        let handle = ColumnResizeHandle(color: Color.primary.opacity(0.1), width: $width,
+                                        range: 320...max(320, min(1600, Double(maxWidth))), onTrailingEdge: left)
         HStack(spacing: 0) {
-            Rectangle()
-                .fill(Color.primary.opacity(0.1))
-                .frame(width: 1)
-                .overlay(
-                    Color.clear
-                        .frame(width: 8)
-                        .contentShape(Rectangle())
-                        .onHover { inside in
-                            if inside, !cursorPushed { NSCursor.resizeLeftRight.push(); cursorPushed = true }
-                            else if !inside, cursorPushed { NSCursor.pop(); cursorPushed = false }
-                        }
-                        .gesture(
-                            DragGesture(minimumDistance: 1)
-                                .onChanged { value in
-                                    let start = startWidth ?? width
-                                    startWidth = start
-                                    width = min(max(start - value.translation.width, 320), min(1600, Double(maxWidth)))
-                                }
-                                .onEnded { _ in startWidth = nil }))
+            if !left { handle }
             EditorWebViewHost(webView: EditorPanel.shared.session(for: controller).webView)
                 .frame(width: min(CGFloat(width), maxWidth))
+            if left { handle }
         }
     }
 }

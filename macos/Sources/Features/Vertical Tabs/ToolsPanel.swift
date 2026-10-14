@@ -93,6 +93,8 @@ private struct ToolsPanel: View {
             Tool(feature: nil, symbol: (condense ? PixelIcon.expand : .condense).symbol,
                  title: condense ? "Expand view" : "Condense view",
                  detail: condense ? "Show agent details on each tab" : "One line per tab") { condensed.toggle() },
+            Tool(feature: nil, symbol: PixelIcon.layout.symbol, title: "Layout",
+                 detail: "Drag the tabs, terminal and editor into place", action: LayoutWindow.show),
             Tool(feature: nil, symbol: "gearshape", title: "Settings", detail: "Turn tools on or off",
                  shortcut: "⌃⌘,", action: ExtremeSettingsWindow.show),
         ]

@@ -3,7 +3,8 @@ import AppKit
 import Combine
 import SwiftUI
 
-/// Places the vertical tabs sidebar to the left of the terminal content.
+/// Places the vertical tabs sidebar, the terminal content and the side panels in the
+/// order the Layout window sets (by default the sidebar on the left).
 struct VerticalTabsLayout<Content: View>: View {
     let controller: TerminalController
     @ObservedObject var ghostty: Ghostty.App
@@ -21,6 +22,9 @@ struct VerticalTabsLayout<Content: View>: View {
     @AppStorage(AgentAurora.enabledKey) private var aurora = false
     @AppStorage(VerticalTabs.visibleKey) private var visible: Bool = true
     @AppStorage(VerticalTabs.widthKey) private var width: Double = VerticalTabs.defaultWidth
+    @ObservedObject private var layout = WindowLayout.shared
+    /// Where the sidebar is, so the hover card opens beside it on the terminal's side.
+    @State private var sidebarFrame: CGRect = .zero
     private let content: Content
 
     init(controller: TerminalController, ghostty: Ghostty.App, @ViewBuilder content: () -> Content) {
@@ -62,12 +66,52 @@ struct VerticalTabsLayout<Content: View>: View {
 
     private func layout(maxEditorWidth: CGFloat, maxVisualFixWidth: CGFloat) -> some View {
         HStack(spacing: 0) {
+            ForEach(layout.order) { box in
+                part(box, maxEditorWidth: maxEditorWidth, maxVisualFixWidth: maxVisualFixWidth)
+            }
+        }
+        .coordinateSpace(name: verticalTabsSpace)
+        .overlay {
             if visible && ghostty.readiness == .ready {
+                VerticalTabsOverlayLayer(
+                    state: overlay,
+                    palette: VerticalTabsPalette(config: ghostty.config),
+                    sidebarFrame: sidebarFrame,
+                    sidebarOnLeft: layout.isLeftOfTerminal(.tabs))
+            }
+        }
+        .onChange(of: visible) { _ in overlay.dismissAll() }
+        .onAppear {
+            VerticalTabsMenu.shared.installIfNeeded()
+            ExtremeLaunch.start()
+            ReviewInbox.start()
+            TurnCheckpoints.start()
+            VerticalTabsTestSupport.openTestTabsIfRequested(from: controller)
+        }
+    }
+
+    @ViewBuilder
+    private func part(_ box: LayoutBox, maxEditorWidth: CGFloat, maxVisualFixWidth: CGFloat) -> some View {
+        switch box {
+        case .tabs:
+            if visible && ghostty.readiness == .ready {
+                // The handle is on the side facing the terminal.
+                let left = layout.isLeftOfTerminal(.tabs)
+                let handle = ColumnResizeHandle(color: Extreme.line, width: $width,
+                                                range: VerticalTabs.widthRange, onTrailingEdge: left)
+                if !left { handle }
                 VerticalTabsSidebar(model: model, owner: controller, config: ghostty.config)
                     .frame(width: width)
                     .environmentObject(overlay)
-                VerticalTabsResizeHandle(width: $width)
+                    .background(
+                        GeometryReader { geometry in
+                            Color.clear
+                                .onAppear { sidebarFrame = geometry.frame(in: .named(verticalTabsSpace)) }
+                                .onChange(of: geometry.frame(in: .named(verticalTabsSpace))) { sidebarFrame = $0 }
+                        })
+                if left { handle }
             }
+        case .terminal:
             // A Hermes tab shows Hermes's own app over its (hidden, idle) terminal.
             ZStack {
                 content
@@ -85,34 +129,20 @@ struct VerticalTabsLayout<Content: View>: View {
                 TerminalFrameOverlay(controller: controller)
                 NewTabSplash()
             }
+        case .editor:
             // Each tab has its own editor.
             if editorPanel.isVisible(controller) {
                 EditorPanelColumn(controller: controller, maxWidth: maxEditorWidth)
             }
+        case .visualFix:
             // Point at the running app and have the agent change it.
             if visualFix.isVisible(controller) {
                 VisualFixColumn(controller: controller, maxWidth: maxVisualFixWidth)
             }
+        case .history:
             if commandBlocks.isVisible(controller) {
                 CommandBlocksColumn(controller: controller)
             }
-        }
-        .coordinateSpace(name: verticalTabsSpace)
-        .overlay {
-            if visible && ghostty.readiness == .ready {
-                VerticalTabsOverlayLayer(
-                    state: overlay,
-                    palette: VerticalTabsPalette(config: ghostty.config),
-                    sidebarWidth: width)
-            }
-        }
-        .onChange(of: visible) { _ in overlay.dismissAll() }
-        .onAppear {
-            VerticalTabsMenu.shared.installIfNeeded()
-            ExtremeLaunch.start()
-            ReviewInbox.start()
-            TurnCheckpoints.start()
-            VerticalTabsTestSupport.openTestTabsIfRequested(from: controller)
         }
     }
 }
@@ -381,45 +411,6 @@ enum VerticalTabsTestSupport {
                 controller.newTab(nil)
             }
         }
-    }
-}
-
-/// A thin draggable divider that resizes the sidebar.
-private struct VerticalTabsResizeHandle: View {
-    @Binding var width: Double
-    @State private var startWidth: Double?
-    @State private var cursorPushed = false
-
-    var body: some View {
-        Rectangle()
-            .fill(Extreme.line)
-            .frame(width: 1)
-            .overlay(
-                Color.clear
-                    .frame(width: 8)
-                    .contentShape(Rectangle())
-                    .onHover { inside in
-                        // Keep push/pop balanced so the cursor stack never leaks.
-                        if inside, !cursorPushed {
-                            NSCursor.resizeLeftRight.push()
-                            cursorPushed = true
-                        } else if !inside, cursorPushed {
-                            NSCursor.pop()
-                            cursorPushed = false
-                        }
-                    }
-                    .gesture(
-                        DragGesture(minimumDistance: 1)
-                            .onChanged { value in
-                                let start = startWidth ?? width
-                                startWidth = start
-                                let proposed = start + value.translation.width
-                                width = min(max(proposed, VerticalTabs.widthRange.lowerBound),
-                                            VerticalTabs.widthRange.upperBound)
-                            }
-                            .onEnded { _ in startWidth = nil }
-                    )
-            )
     }
 }
 

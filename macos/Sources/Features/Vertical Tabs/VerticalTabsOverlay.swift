@@ -70,7 +70,9 @@ final class VerticalTabsOverlayState: ObservableObject {
 struct VerticalTabsOverlayLayer: View {
     @ObservedObject var state: VerticalTabsOverlayState
     let palette: VerticalTabsPalette
-    let sidebarWidth: CGFloat
+    let sidebarFrame: CGRect
+    /// The hover card opens on the terminal's side of the sidebar.
+    let sidebarOnLeft: Bool
 
     var body: some View {
         GeometryReader { geometry in
@@ -105,10 +107,10 @@ struct VerticalTabsOverlayLayer: View {
                     VerticalTabsHoverCard(hover: hover, palette: palette)
                         .frame(width: 320)
                         .offset(
-                            x: sidebarWidth + 10,
+                            x: sidebarOnLeft ? sidebarFrame.maxX + 10 : max(8, sidebarFrame.minX - 330),
                             y: max(8, min(hover.frame.minY, geometry.size.height - 220)))
                         .allowsHitTesting(false)
-                        .transition(.opacity.combined(with: .move(edge: .leading)))
+                        .transition(.opacity.combined(with: .move(edge: sidebarOnLeft ? .leading : .trailing)))
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)

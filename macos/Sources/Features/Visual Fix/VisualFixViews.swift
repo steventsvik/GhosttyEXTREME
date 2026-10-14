@@ -8,34 +8,20 @@ struct VisualFixColumn: View {
     let controller: TerminalController
     var maxWidth: CGFloat = .infinity
     @AppStorage(VisualFixPanel.widthKey) private var width: Double = VisualFixPanel.defaultWidth
-    @State private var startWidth: Double?
-    @State private var cursorPushed = false
+    @ObservedObject private var layout = WindowLayout.shared
 
     var body: some View {
+        // The handle is on the side facing the terminal.
+        let left = layout.isLeftOfTerminal(.visualFix)
+        let handle = ColumnResizeHandle(color: Extreme.gold.opacity(0.35), width: $width,
+                                        range: 360...max(360, min(1800, Double(maxWidth))), onTrailingEdge: left)
         HStack(spacing: 0) {
-            Rectangle()
-                .fill(Extreme.gold.opacity(0.35))
-                .frame(width: 1)
-                .overlay(
-                    Color.clear
-                        .frame(width: 8)
-                        .contentShape(Rectangle())
-                        .onHover { inside in
-                            if inside, !cursorPushed { NSCursor.resizeLeftRight.push(); cursorPushed = true }
-                            else if !inside, cursorPushed { NSCursor.pop(); cursorPushed = false }
-                        }
-                        .gesture(
-                            DragGesture(minimumDistance: 1)
-                                .onChanged { value in
-                                    let start = startWidth ?? width
-                                    startWidth = start
-                                    width = min(max(start - value.translation.width, 360), min(1800, Double(maxWidth)))
-                                }
-                                .onEnded { _ in startWidth = nil }))
+            if !left { handle }
             VisualFixPanelView(session: VisualFixPanel.shared.session(for: controller), controller: controller)
                 .frame(width: min(CGFloat(width), maxWidth))
+            if left { handle }
         }
-        .transition(.move(edge: .trailing).combined(with: .opacity))
+        .transition(.move(edge: left ? .leading : .trailing).combined(with: .opacity))
     }
 }
 

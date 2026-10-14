@@ -56,19 +56,10 @@ enum VerticalTabs {
         resize(window, by: occupiedWidth)
     }
 
-    /// Grows (or shrinks) the window leftward so the terminal keeps its size and
-    /// position on screen when the sidebar appears or disappears.
+    /// Grows (or shrinks) the window on the sidebar's side so the terminal keeps its size
+    /// and position on screen when the sidebar appears or disappears.
     static func resize(_ window: NSWindow, by delta: CGFloat) {
-        guard !window.styleMask.contains(.fullScreen) else { return }
-        var frame = window.frame
-        frame.size.width = max(frame.size.width + delta, window.minSize.width)
-        frame.origin.x -= frame.size.width - window.frame.size.width
-        if let screen = window.screen ?? NSScreen.main {
-            let visible = screen.visibleFrame
-            if frame.minX < visible.minX { frame.origin.x = visible.minX }
-            if frame.width > visible.width { frame.size.width = visible.width }
-        }
-        window.setFrame(frame, display: true)
+        window.grow(by: delta, onLeft: WindowLayout.isLeftOfTerminal(.tabs), animate: false)
     }
 }
 

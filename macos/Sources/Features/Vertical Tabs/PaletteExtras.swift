@@ -174,6 +174,13 @@ enum PaletteExtras {
             VerticalTabsMenu.shared.toggle(nil)
         })
         options.append(CommandOption(
+            title: "Layout…",
+            description: "Arrange the window: drag the tabs, terminal, editor and panels into place",
+            leadingIcon: PixelIcon.layout.symbol
+        ) {
+            LayoutWindow.show()
+        })
+        options.append(CommandOption(
             title: "Tellurion Settings",
             description: "Features, animation and the sidebar",
             symbols: ["⌃", "⌘", ","],

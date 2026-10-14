@@ -628,18 +628,13 @@ final class VisualFixPanel: ObservableObject {
         let visible = screen.visibleFrame
         let extra = min(panel, visible.width - window.frame.width)
         guard extra > 0 else { return }
-        var frame = window.frame
-        frame.size.width += extra
-        if frame.maxX > visible.maxX { frame.origin.x = max(visible.minX, visible.maxX - frame.width) }
-        window.setFrame(frame, display: true, animate: true)
+        window.grow(by: extra, onLeft: WindowLayout.isLeftOfTerminal(.visualFix), animate: true)
         widened[id] = extra
     }
 
     private func narrow(_ window: NSWindow, id: ObjectIdentifier) {
         guard let extra = widened.removeValue(forKey: id), !window.styleMask.contains(.fullScreen) else { return }
-        var frame = window.frame
-        frame.size.width = max(frame.width - extra, window.minSize.width)
-        window.setFrame(frame, display: true, animate: true)
+        window.grow(by: -extra, onLeft: WindowLayout.isLeftOfTerminal(.visualFix), animate: true)
     }
 }
 #endif

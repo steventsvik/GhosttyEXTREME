@@ -121,10 +121,11 @@ struct CommandFailureChip: View {
 
 // MARK: - History column
 
-/// The right-hand column with the focused pane's recent commands as blocks.
+/// The column with the focused pane's recent commands as blocks.
 struct CommandBlocksColumn: View {
     let controller: TerminalController
     @ObservedObject private var store = CommandBlocks.shared
+    @ObservedObject private var layout = WindowLayout.shared
     @State private var failedOnly = false
     @State private var focused: Ghostty.SurfaceView?
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -151,7 +152,9 @@ struct CommandBlocksColumn: View {
         }
         .frame(width: 400)
         .background(Extreme.ink)
-        .overlay(alignment: .leading) { Rectangle().fill(Extreme.text.opacity(0.1)).frame(width: 1) }
+        .overlay(alignment: layout.isLeftOfTerminal(.history) ? .trailing : .leading) {
+            Rectangle().fill(Extreme.text.opacity(0.1)).frame(width: 1)
+        }
         .onReceive(timer) { _ in
             // Follow the focused pane as it changes.
             if focused !== controller.focusedSurface { focused = controller.focusedSurface }
