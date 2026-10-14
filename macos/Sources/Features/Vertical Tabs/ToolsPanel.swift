@@ -72,8 +72,14 @@ private struct ToolsPanel: View {
         if !hermes {
             add(.editor, PixelIcon.code.symbol, "Code editor", "Watch the agent edit, live") { EditorPanel.shared.toggle(from: owner) }
             add(.visualFix, PixelIcon.target.symbol, "Visual Fix", "Point at your app, have it changed") { VisualFixPanel.shared.toggle(owner) }
+            add(.commandHistory, "list.bullet.rectangle", "Command history", "Every command with its output") { CommandBlocksPanel.shared.toggle(owner) }
         }
+        all.append(Tool(feature: nil, symbol: PixelIcon.layout.symbol, title: "Layout",
+                        detail: "Move the tabs, terminal and panels around", action: LayoutWindow.show))
         add(.missionControl, PixelIcon.grid.symbol, "Mission Control", "Every agent as a live card", MissionControl.toggle)
+        if !hermes {
+            add(.races, "flag.checkered.2.crossed", "Agent races", "One task, several agents, keep the best") { AgentRaces.showSetup(from: owner) }
+        }
         add(.review, PixelIcon.inbox.symbol, "Review changes", "Each agent's finished work", ReviewInbox.toggle)
         add(.localhost, PixelIcon.globe.symbol, "Localhost", "Dev servers your agents started", LocalhostManager.toggle)
         add(.activity, PixelIcon.chart.symbol, "Agent activity", "Time, prompts, files and tokens", ActivityDashboard.toggle)
@@ -83,6 +89,7 @@ private struct ToolsPanel: View {
         }
         add(.environment, PixelIcon.environment.symbol, "Environment", "Tool versions, containers, models") { EnvironmentWindow.show(folder: pwd) }
         add(.background, "gauge.with.dots.needle.67percent", "Background processes", "Servers and agents left running", HousekeepingWindow.show)
+        add(.phone, PixelIcon.phone.symbol, "Phone", "Your terminal on your phone, paired devices", PhoneSetup.show)
         return all
     }
 
@@ -93,8 +100,6 @@ private struct ToolsPanel: View {
             Tool(feature: nil, symbol: (condense ? PixelIcon.expand : .condense).symbol,
                  title: condense ? "Expand view" : "Condense view",
                  detail: condense ? "Show agent details on each tab" : "One line per tab") { condensed.toggle() },
-            Tool(feature: nil, symbol: PixelIcon.layout.symbol, title: "Layout",
-                 detail: "Drag the tabs, terminal and editor into place", action: LayoutWindow.show),
             Tool(feature: nil, symbol: "gearshape", title: "Settings", detail: "Turn tools on or off",
                  shortcut: "⌃⌘,", action: ExtremeSettingsWindow.show),
         ]

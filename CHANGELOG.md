@@ -4,6 +4,10 @@ What changed in each Tellurion (formerly GhosttyEXTREME) release. Work in progre
 **Unreleased**; at release time that heading becomes the version number, and
 `./release.sh` uses the section as the release notes.
 
+## Unreleased
+
+- **More in Tools.** The Tools button now also lists **Phone** (pair a phone and see which devices can reach this Mac), **Command history** (⌃⌘B), **Agent races** (⌃⌘R), and **Layout**, which moved up from the bottom of the list to sit with the panels it arranges.
+
 ## 1.6.0
 
 - **Layout: arrange the window your way.** **Tools → Layout** (or **Layout…** in the command palette) shows your window as boxes: the tabs, the terminal, the code editor, Visual Fix and command history. Drag a box to a new spot and the others slide aside; let go and every window rearranges. Right-click a box to move it one spot. Four templates to start from: **Classic** (tabs, terminal, editor), **Editor first** (the editor between the tabs and the terminal), **Tabs on the right**, and **Mirrored**. **Reset** goes back to Classic. Each panel's resize handle is on the side facing the terminal, the tab hover card opens toward the terminal, and opening a panel (or showing the tabs) grows the window on that panel's side, so the terminal stays where it is.
