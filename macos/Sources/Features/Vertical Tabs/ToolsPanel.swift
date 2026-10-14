@@ -59,62 +59,85 @@ private struct ToolsPanel: View {
         var id: String { title }
     }
 
-    private var tools: [Tool] {
+    private struct Section: Identifiable {
+        let title: String
+        let tools: [Tool]
+        var id: String { title }
+    }
+
+    /// The tools in groups; a group whose tools are all off isn't shown.
+    private var sections: [Section] {
         let pwd = owner.focusedSurface?.pwd
         let hermes = HermesSessions.shared.isHermes(owner)
-        var all: [Tool] = []
+        var group: [Tool] = []
+        var all: [Section] = []
         func add(_ feature: ExtremeFeature, _ symbol: String, _ title: String, _ detail: String,
                  _ action: @escaping () -> Void) {
             guard settings.isOn(feature) else { return }
-            all.append(Tool(feature: feature, symbol: symbol, title: title, detail: detail,
-                            shortcut: feature.shortcut.map { "⌃⌘" + $0 }, action: action))
+            group.append(Tool(feature: feature, symbol: symbol, title: title, detail: detail,
+                              shortcut: feature.shortcut.map { "⌃⌘" + $0 }, action: action))
         }
+        func section(_ title: String) {
+            if !group.isEmpty { all.append(Section(title: title, tools: group)) }
+            group = []
+        }
+
         if !hermes {
             add(.editor, PixelIcon.code.symbol, "Code editor", "Watch the agent edit, live") { EditorPanel.shared.toggle(from: owner) }
             add(.visualFix, PixelIcon.target.symbol, "Visual Fix", "Point at your app, have it changed") { VisualFixPanel.shared.toggle(owner) }
             add(.commandHistory, "list.bullet.rectangle", "Command history", "Every command with its output") { CommandBlocksPanel.shared.toggle(owner) }
         }
-        all.append(Tool(feature: nil, symbol: PixelIcon.layout.symbol, title: "Layout",
-                        detail: "Move the tabs, terminal and panels around", action: LayoutWindow.show))
+        section("This tab")
+
         add(.missionControl, PixelIcon.grid.symbol, "Mission Control", "Every agent as a live card", MissionControl.toggle)
         if !hermes {
             add(.races, "flag.checkered.2.crossed", "Agent races", "One task, several agents, keep the best") { AgentRaces.showSetup(from: owner) }
         }
         add(.review, PixelIcon.inbox.symbol, "Review changes", "Each agent's finished work", ReviewInbox.toggle)
-        add(.localhost, PixelIcon.globe.symbol, "Localhost", "Dev servers your agents started", LocalhostManager.toggle)
         add(.activity, PixelIcon.chart.symbol, "Agent activity", "Time, prompts, files and tokens", ActivityDashboard.toggle)
+        section("Agents")
+
+        add(.localhost, PixelIcon.globe.symbol, "Localhost", "Dev servers your agents started", LocalhostManager.toggle)
         add(.skills, PixelIcon.skills.symbol, "Skills", "Installed skills, updates, trending") { SkillsWindow.show(folder: pwd) }
         if pwd != nil {
             add(.memory, PixelIcon.memory.symbol, "Project memory", "What your agents remember here") { MemoryWindow.show(folder: pwd) }
         }
         add(.environment, PixelIcon.environment.symbol, "Environment", "Tool versions, containers, models") { EnvironmentWindow.show(folder: pwd) }
+        section("Project")
+
         add(.background, "gauge.with.dots.needle.67percent", "Background processes", "Servers and agents left running", HousekeepingWindow.show)
         add(.phone, PixelIcon.phone.symbol, "Phone", "Your terminal on your phone, paired devices", PhoneSetup.show)
-        return all
-    }
+        section("This Mac")
 
-    /// The sidebar's own view and Settings, below the tools.
-    private var viewTools: [Tool] {
         let condense = condensed
-        return [
+        group = [
+            Tool(feature: nil, symbol: PixelIcon.layout.symbol, title: "Layout",
+                 detail: "Move the tabs, terminal and panels around", action: LayoutWindow.show),
             Tool(feature: nil, symbol: (condense ? PixelIcon.expand : .condense).symbol,
                  title: condense ? "Expand view" : "Condense view",
                  detail: condense ? "Show agent details on each tab" : "One line per tab") { condensed.toggle() },
             Tool(feature: nil, symbol: "gearshape", title: "Settings", detail: "Turn tools on or off",
                  shortcut: "⌃⌘,", action: ExtremeSettingsWindow.show),
         ]
+        section("View")
+        return all
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            ForEach(tools) { tool in
-                ToolsPanelRow(symbol: tool.symbol, title: tool.title, detail: tool.detail,
-                              shortcut: tool.shortcut) { run(tool.action) }
-            }
-            Rectangle().fill(Extreme.line).frame(height: 1).padding(.vertical, 4)
-            ForEach(viewTools) { tool in
-                ToolsPanelRow(symbol: tool.symbol, title: tool.title, detail: tool.detail,
-                              shortcut: tool.shortcut) { run(tool.action) }
+        let sections = sections
+        VStack(alignment: .leading, spacing: 1) {
+            ForEach(sections) { section in
+                Text(section.title.uppercased())
+                    .font(Extreme.font(9.5, weight: .semibold))
+                    .kerning(1.1)
+                    .foregroundColor(Extreme.muted)
+                    .padding(.horizontal, 8)
+                    .padding(.top, section.id == sections.first?.id ? 4 : 10)
+                    .padding(.bottom, 3)
+                ForEach(section.tools) { tool in
+                    ToolsPanelRow(symbol: tool.symbol, title: tool.title, detail: tool.detail,
+                                  shortcut: tool.shortcut) { run(tool.action) }
+                }
             }
         }
         .padding(6)
@@ -122,7 +145,7 @@ private struct ToolsPanel: View {
         .onAppear {
             // `GHOSTTY_EXTREME_TEST_TOOL=<title>`: choose that tool once the panel is open.
             guard let title = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_TOOL"],
-                  let tool = (tools + viewTools).first(where: { $0.title == title }) else { return }
+                  let tool = sections.flatMap(\.tools).first(where: { $0.title == title }) else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { run(tool.action) }
         }
         .background(Extreme.panel)
@@ -160,7 +183,7 @@ private struct ToolsPanelRow: View {
                 }
             }
             .padding(.horizontal, 6)
-            .padding(.vertical, 4)
+            .padding(.vertical, 3)
             .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(hovering ? Extreme.raised : .clear))
             .contentShape(Rectangle())
         }

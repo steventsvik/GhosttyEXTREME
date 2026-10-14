@@ -6,7 +6,7 @@ What changed in each Tellurion (formerly GhosttyEXTREME) release. Work in progre
 
 ## Unreleased
 
-- **More in Tools.** The Tools button now also lists **Phone** (pair a phone and see which devices can reach this Mac), **Command history** (⌃⌘B), **Agent races** (⌃⌘R), and **Layout**, which moved up from the bottom of the list to sit with the panels it arranges.
+- **More in Tools, in sections.** The Tools list is now grouped: **This tab** (code editor, Visual Fix, command history), **Agents** (Mission Control, agent races, review, activity), **Project** (localhost, skills, project memory, environment), **This Mac** (background processes, phone) and **View** (Layout, condense, settings). New in the list: **Phone** (pair a phone and see which devices can reach this Mac), **Command history** (⌃⌘B) and **Agent races** (⌃⌘R).
 
 ## 1.6.0
 
