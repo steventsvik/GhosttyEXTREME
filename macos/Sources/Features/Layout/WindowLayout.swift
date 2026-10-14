@@ -128,7 +128,9 @@ final class WindowLayout: ObservableObject {
     static func isLeftOfTerminal(_ box: LayoutBox) -> Bool { shared.isLeftOfTerminal(box) }
 }
 
-/// The 1pt line between a column and the terminal side, with an 8pt grab area.
+/// The 1pt line between a column and the terminal side. The terminal and the editor's web
+/// view take the mouse right up to their edges, so the handle also takes a few points of
+/// its own on the terminal side, where it can always be grabbed.
 struct ColumnResizeHandle: View {
     let color: Color
     @Binding var width: Double
@@ -142,9 +144,10 @@ struct ColumnResizeHandle: View {
         Rectangle()
             .fill(color)
             .frame(width: 1)
+            .frame(width: 5, alignment: onTrailingEdge ? .leading : .trailing)
             .overlay(
                 Color.clear
-                    .frame(width: 8)
+                    .frame(width: 10)
                     .contentShape(Rectangle())
                     .onHover { inside in
                         // Keep push/pop balanced so the cursor stack never leaks.
