@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/steventsvik/GhosttyEXTREME/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/steventsvik/GhosttyEXTREME?style=flat-square&color=deb86e&labelColor=17140f&label=release"></a>
+  <a href="https://github.com/steventsvik/Tellurion/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/steventsvik/Tellurion?style=flat-square&color=deb86e&labelColor=17140f&label=release"></a>
   <img alt="macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-deb86e?style=flat-square&labelColor=17140f&logo=apple&logoColor=deb86e">
   <img alt="Apple silicon" src="https://img.shields.io/badge/Apple%20silicon-arm64-deb86e?style=flat-square&labelColor=17140f">
   <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-deb86e?style=flat-square&labelColor=17140f"></a>
@@ -11,8 +11,8 @@
 </p>
 
 <p align="center">
-  <b><a href="https://github.com/steventsvik/GhosttyEXTREME/releases/latest">Download</a></b> ·
-  <b><a href="https://steventsvik.github.io/GhosttyEXTREME/">Website</a></b> ·
+  <b><a href="https://github.com/steventsvik/Tellurion/releases/latest">Download</a></b> ·
+  <b><a href="https://steventsvik.github.io/Tellurion/">Website</a></b> ·
   <a href="#watch-your-agents-work-live">Live agents</a> ·
   <a href="#features">Features</a> ·
   <a href="#how-it-compares">Compare</a> ·
@@ -45,7 +45,7 @@ official Ghostty releases and adds its features on top.
 > Unofficial fork. Not affiliated with or endorsed by the Ghostty project.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/steventsvik/GhosttyEXTREME/custom/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/steventsvik/Tellurion/custom/install.sh | bash
 ```
 
 <sub>Apple silicon, macOS 13 or newer. Free and open source (AGPL-3.0). No account, no telemetry.</sub>
@@ -589,10 +589,10 @@ on. Tellurion is macOS-only, Apple silicon only, and maintained by one person.
 Apple silicon Macs, macOS 13 or newer. In Terminal:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/steventsvik/GhosttyEXTREME/custom/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/steventsvik/Tellurion/custom/install.sh | bash
 ```
 
-It downloads the [latest release](https://github.com/steventsvik/GhosttyEXTREME/releases/latest),
+It downloads the [latest release](https://github.com/steventsvik/Tellurion/releases/latest),
 checks it against the release's SHA-256 checksums and puts **Tellurion.app** in
 `/Applications`. Then it opens: the welcome window connects Claude Code and Codex in one
 click and runs a live test.
@@ -607,7 +607,7 @@ updates signed by this project.
 <br>
 
 Download `Tellurion-<version>-macos-arm64.zip` from the
-[latest release](https://github.com/steventsvik/GhosttyEXTREME/releases/latest), unzip it and
+[latest release](https://github.com/steventsvik/Tellurion/releases/latest), unzip it and
 move **Tellurion.app** to `/Applications`. It's signed with a Developer ID and notarized by
 Apple, so it opens like any other download.
 
@@ -716,8 +716,8 @@ own settings.
 - `jq` for the agent hooks: `brew install jq`
 
 ```sh
-git clone https://github.com/steventsvik/GhosttyEXTREME.git
-cd GhosttyEXTREME
+git clone https://github.com/steventsvik/Tellurion.git
+cd Tellurion
 /opt/homebrew/opt/zig@0.15/bin/zig build -Doptimize=ReleaseFast -Dxcframework-target=native
 ditto macos/build/ReleaseLocal/Ghostty.app /Applications/Tellurion.app
 ```

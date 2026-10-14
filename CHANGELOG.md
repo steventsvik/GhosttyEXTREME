@@ -35,7 +35,7 @@ What changed in each Tellurion (formerly GhosttyEXTREME) release. Work in progre
 - **Localhost folds away.** Click the LOCALHOST heading in the sidebar to collapse its cards to one line, and again to bring them back. It remembers which way you left it.
 - **Notarized by Apple.** The app is now signed with a Developer ID certificate and notarized, so a downloaded zip opens with a double-click instead of macOS saying it can't check it for malicious software. No more clearing the quarantine by hand. Because the certificate changed, macOS may ask once more for permissions you'd already given (notifications, folders); updating from the app works as before.
 
-- **GhosttyEXTREME has a website**: [steventsvik.github.io/GhosttyEXTREME](https://steventsvik.github.io/GhosttyEXTREME/). Every feature on an interactive select screen with live previews and full details, the agent turn and the rest of the story told as scroll-driven scenes, a comparison table, and a download button that always points at the latest release. It lives in `docs/` and is served by GitHub Pages.
+- **GhosttyEXTREME has a website**: [steventsvik.github.io/Tellurion](https://steventsvik.github.io/Tellurion/). Every feature on an interactive select screen with live previews and full details, the agent turn and the rest of the story told as scroll-driven scenes, a comparison table, and a download button that always points at the latest release. It lives in `docs/` and is served by GitHub Pages.
 
 ## 1.5.5.1
 
@@ -70,9 +70,9 @@ What changed in each Tellurion (formerly GhosttyEXTREME) release. Work in progre
 
 ## 1.5.1
 
-- **Hand Off and Review Loop** always start from the pane you opened them from. A window still open from another pane used to come forward unchanged and hand off that pane's work ([#10](https://github.com/steventsvik/GhosttyEXTREME/issues/10)).
-- **Allow notifications** in Check Setup now says what to do and opens System Settings → Notifications when macOS doesn't show its prompt (Focus modes can hide it), instead of seeming to do nothing ([#11](https://github.com/steventsvik/GhosttyEXTREME/issues/11)).
-- **Ports, with VoiceOver**: pressing a port row now goes to its tab, like a click. It used to run the row's actions, which could open the browser and stop the server; Stop, Open in browser and Open in Visual Fix are separate named actions ([#12](https://github.com/steventsvik/GhosttyEXTREME/issues/12)).
+- **Hand Off and Review Loop** always start from the pane you opened them from. A window still open from another pane used to come forward unchanged and hand off that pane's work ([#10](https://github.com/steventsvik/Tellurion/issues/10)).
+- **Allow notifications** in Check Setup now says what to do and opens System Settings → Notifications when macOS doesn't show its prompt (Focus modes can hide it), instead of seeming to do nothing ([#11](https://github.com/steventsvik/Tellurion/issues/11)).
+- **Ports, with VoiceOver**: pressing a port row now goes to its tab, like a click. It used to run the row's actions, which could open the browser and stop the server; Stop, Open in browser and Open in Visual Fix are separate named actions ([#12](https://github.com/steventsvik/Tellurion/issues/12)).
 - Builds you make yourself no longer check for updates automatically (they'd always see the latest release as newer); Check for Updates… still works.
 
 ## 1.5.0
@@ -105,9 +105,9 @@ What changed in each Tellurion (formerly GhosttyEXTREME) release. Work in progre
 - Messages are only ever typed into an agent between turns, into an empty input box: never into a permission prompt, a menu or a dialog, and never over something you've started typing (greyed-out suggestions don't count). Until then they wait on the agent's card, where you can drop them.
 
 **Install and update**
-- **One-line install**: `curl -fsSL https://raw.githubusercontent.com/steventsvik/GhosttyEXTREME/custom/install.sh | bash` downloads the latest release, checks its checksum and puts it in /Applications, with no quarantine step.
+- **One-line install**: `curl -fsSL https://raw.githubusercontent.com/steventsvik/Tellurion/custom/install.sh | bash` downloads the latest release, checks its checksum and puts it in /Applications, with no quarantine step.
 - **Updates in the app**: GhosttyEXTREME now checks its own releases (GhosttyEXTREME → Check for Updates…, and automatically) and installs them. Updates are signed with this project's key and nothing else is accepted.
-- **Fixed**: Check for Updates… used official Ghostty's feed, which could offer plain Ghostty and replace GhosttyEXTREME ([#13](https://github.com/steventsvik/GhosttyEXTREME/issues/13)). Coming from 1.4.x, install this version once with the line above; later versions update in the app.
+- **Fixed**: Check for Updates… used official Ghostty's feed, which could offer plain Ghostty and replace GhosttyEXTREME ([#13](https://github.com/steventsvik/Tellurion/issues/13)). Coming from 1.4.x, install this version once with the line above; later versions update in the app.
 - Releases are signed with the same certificate every time, so macOS keeps your permissions (notifications, folder access) across updates.
 
 **Every shortcut at a glance**
@@ -139,6 +139,6 @@ What changed in each Tellurion (formerly GhosttyEXTREME) release. Work in progre
 
 Code map, Backend tab (Cloudflare, Supabase, Vercel), Background processes window,
 API value in Agent activity, a refined interface, much lower CPU, and events that only
-your own hooks can send. Full notes: [GhosttyEXTREME 1.4.0](https://github.com/steventsvik/GhosttyEXTREME/releases/tag/extreme-1.4.0).
+your own hooks can send. Full notes: [GhosttyEXTREME 1.4.0](https://github.com/steventsvik/Tellurion/releases/tag/extreme-1.4.0).
 
-Earlier releases: see [Releases](https://github.com/steventsvik/GhosttyEXTREME/releases).
+Earlier releases: see [Releases](https://github.com/steventsvik/Tellurion/releases).

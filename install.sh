@@ -1,7 +1,7 @@
 #!/bin/bash
 # Installs or updates Tellurion (formerly GhosttyEXTREME) from the latest release on GitHub:
 #
-#   curl -fsSL https://raw.githubusercontent.com/steventsvik/GhosttyEXTREME/custom/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/steventsvik/Tellurion/custom/install.sh | bash
 #
 # Downloads the app, checks it against the release's SHA-256 checksum, and puts it in
 # /Applications (keeping the old copy until the new one is in place). Downloaded this way,
@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-REPO=steventsvik/GhosttyEXTREME
+REPO=steventsvik/Tellurion
 DIR=${GHOSTTY_EXTREME_INSTALL_TO:-/Applications}
 DEST=$DIR/Tellurion.app
 # The app's name before the rebrand; an existing copy is replaced, not kept beside it.
