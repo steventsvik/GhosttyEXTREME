@@ -157,7 +157,7 @@ detail.
   graphs. Click the panel to switch between percentages and when each limit resets.
 
 <p align="center">
-  <img src="images/readme/sidebar.png" alt="The sidebar: three projects with their agents, a live localhost card for acme-shop, a '2 stale in the background' chip, and the usage meters for Claude and ChatGPT" width="40%">
+  <img src="images/readme/sidebar.png" alt="The sidebar: three projects with their agents, a live localhost card for acme-shop, the Visual Fix request it just finished, and the usage meters for Claude and ChatGPT" width="40%">
 </p>
 
 ### Mission Control
@@ -276,7 +276,7 @@ When an agent finishes working in a git repository, its changes land in an inbox
 ### Undo an agent's turn
 
 <p align="center">
-  <img src="images/readme/undo.png" alt="The restore dialog listing the four files an undo will change, with Cancel and Restore" width="100%">
+  <img src="images/readme/undo.png" alt="The restore dialog listing the file an undo will change, with Cancel and Restore" width="100%">
 </p>
 
 Every agent turn starts with a snapshot of your project. **Undo last turn** (or an earlier
@@ -439,7 +439,7 @@ their diffs side by side and apply the one you want.
 ### Background processes
 
 <p align="center">
-  <img src="images/readme/background.png" alt="The Background window: Supabase containers in a Colima VM and a localhost session, each with a staleness rating, when it was last used, its memory, and Stop or Close" width="100%">
+  <img src="images/readme/background.png" alt="The Background window: a Colima VM, a Postgres container, an idle Codex session and a log follower, each with a staleness rating, when it was last used, its memory, and Stop or Close" width="100%">
 </p>
 
 ⌃⌘K finds everything left running: dev servers, Colima VMs and containers, agent sessions,
