@@ -12,6 +12,8 @@ model's reasoning (hidden by default: a model that reasons first shows "Thinking
 import json
 import os
 import re
+import signal
+import subprocess
 import sys
 import time
 import urllib.error
@@ -154,6 +156,44 @@ def reply(model, messages, show_reasoning, thinks):
     return "".join(text)
 
 
+def unload_unless_shared(model):
+    """Frees the model's memory now, unless another chat on this Mac still uses it (Ollama
+    would otherwise keep it loaded for 10 minutes)."""
+    try:
+        # Other chats on the model (each also has a helper like this one, which counts too).
+        others = subprocess.run(["/usr/bin/pgrep", "-f", f"local-chat.py {re.escape(model)}$"], capture_output=True,
+                                text=True, timeout=2).stdout.split()
+        if any(int(pid) != os.getpid() for pid in others):
+            return
+        with post("/api/generate", {"model": model, "keep_alive": 0}, timeout=10) as response:
+            response.read()
+    except Exception:  # noqa: BLE001 - Ollama frees it on its own after 10 minutes anyway
+        pass
+
+
+def free_on_exit(model):
+    """Frees the model when this chat ends, however it ends: /exit, Ctrl-D, or its tab or
+    pane closed (which can kill the chat while it waits for input). A small helper, outside
+    the terminal, waits for the chat to be gone and then unloads the model."""
+    read_end, write_end = os.pipe()
+    if os.fork() != 0:
+        os.close(read_end)
+        return  # The chat keeps the write end open until it exits.
+    os.close(write_end)
+    os.setsid()  # Not hung up with the terminal.
+    signal.signal(signal.SIGHUP, signal.SIG_IGN)
+    devnull = os.open(os.devnull, os.O_RDWR)
+    for stream in (0, 1, 2):
+        os.dup2(devnull, stream)
+    try:
+        while os.read(read_end, 1):  # Returns empty once the chat is gone.
+            pass
+    except OSError:
+        pass
+    unload_unless_shared(model)
+    os._exit(0)
+
+
 def main():
     if len(sys.argv) < 2 or not sys.argv[1].strip():
         print("Usage: tellurion local <model>", file=sys.stderr)
@@ -166,6 +206,7 @@ def main():
         print(f"{RED}{problem}{RESET}", file=sys.stderr)
         return 1
     print(f"{GOLD}{BOLD}{model}{RESET}{DIM} · on this Mac, through Ollama · /think shows reasoning · /clear · /exit · Ctrl-C stops a reply{RESET}\n")
+    free_on_exit(model)
     report(model, "session_start")
     # Where the code editor finds this chat's live feed.
     if os.environ.get("GHOSTTY_EXTREME_AGENT_EVENTS") == "1":
@@ -180,6 +221,7 @@ def main():
     except ImportError:
         pass
     messages, show_reasoning, thinks = [], False, True
+
     try:
         while True:
             try:
