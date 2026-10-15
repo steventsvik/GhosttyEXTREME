@@ -159,6 +159,8 @@ final class EditorSession {
     }
     var hasWebView: Bool { loadedWebView != nil }
     private let feed = AgentFeed()
+    /// The tab's other agent panes, each with its own feed (see `followPeers`).
+    private var peers: [ObjectIdentifier: Peer] = [:]
     private let watcher = AgentChangeWatcher()
     private var lastStatus: [String: String]?
     private var lastCheckpoints: [UUID] = []
@@ -178,7 +180,12 @@ final class EditorSession {
     init(controller: TerminalController) {
         self.controller = controller
         // Following only runs while there's a web view (see `follow`), but never make one here.
-        feed.onItems = { [weak self] items, reset in self?.loadedWebView?.sendAgentItems(items, reset: reset) }
+        feed.onItems = { [weak self] items, reset in
+            guard let self else { return }
+            self.loadedWebView?.sendAgentItems(items, reset: reset)
+            // A reset clears the whole timeline: play the other agents' recent work again.
+            if reset { self.peers.values.forEach { $0.replay() } }
+        }
         watcher.onChange = { [weak self] change in
             guard let self else { return }
             self.loadedWebView?.sendAgentChange(change, live: self.agentIsActive)
@@ -264,6 +271,8 @@ final class EditorSession {
     private func stopFollowing() {
         isTracking = false
         feed.stop()
+        peers.values.forEach { $0.feed.stop() }
+        peers.removeAll()
         watcher.stop()
         lastStatus = nil
         foundTranscript = nil
@@ -271,6 +280,8 @@ final class EditorSession {
 
     func close() {
         feed.stop()
+        peers.values.forEach { $0.feed.stop() }
+        peers.removeAll()
         watcher.stop()
         loadedWebView?.close()
         loadedWebView = nil
@@ -281,11 +292,20 @@ final class EditorSession {
         follow()
     }
 
-    /// The pane to follow: the focused one, or else one with an agent in it.
+    /// The tab's agent panes in split order, at most four (Hermes shows its own app).
+    private var agentSurfaces: [Ghostty.SurfaceView] {
+        guard let controller else { return [] }
+        return Array(controller.surfaceTree.filter {
+            guard let info = VerticalTabsAgents.shared.info(for: $0) else { return false }
+            return info.kind != .hermes
+        }.prefix(4))
+    }
+
+    /// The main pane to follow: the first agent pane, so focusing another one doesn't
+    /// restart the timeline. With one agent that's the one; the others follow as peers.
     private var agentSurface: Ghostty.SurfaceView? {
         guard let controller else { return nil }
-        if let focused = controller.focusedSurface, VerticalTabsAgents.shared.info(for: focused) != nil { return focused }
-        return controller.surfaceTree.first { VerticalTabsAgents.shared.info(for: $0) != nil } ?? controller.focusedSurface
+        return agentSurfaces.first ?? controller.focusedSurface
     }
 
     /// The agent's transcript: the one its hooks reported, or else found on disk. Also moves
@@ -344,8 +364,8 @@ final class EditorSession {
         var status: [String: String]?
         if let info {
             status = [
-                "kind": info.kind.rawValue,
-                "name": info.kind.displayName,
+                "kind": info.localModel != nil ? "local" : info.kind.rawValue,
+                "name": info.name,
                 "activity": info.activity.label,
                 "badge": String(describing: info.activity.badge),
                 "task": info.task ?? "",
@@ -354,9 +374,80 @@ final class EditorSession {
             ]
         }
         sendCheckpoints(for: surface)
+        followPeers(main: surface)
         guard status != lastStatus else { return }
         lastStatus = status
         webView.sendAgentStatus(status)
+    }
+
+    /// Another agent in the same tab: its timeline joins the main one as its own lane, so the
+    /// map shows it as its own comet and the editor splits to show each agent's code side by
+    /// side, at equal size.
+    private final class Peer {
+        let feed = AgentFeed()
+        var name = ""
+        var kind = ""
+        private var path: String?
+        private var agentKind: VerticalTabAgentKind = .unknown
+
+        func follow(path: String, kind: VerticalTabAgentKind) {
+            self.path = path
+            agentKind = kind
+            feed.follow(path: path, kind: kind)
+        }
+
+        /// Sends its recent work again (after the main timeline was cleared).
+        func replay() {
+            guard let path else { return }
+            feed.stop()
+            feed.follow(path: path, kind: agentKind)
+        }
+    }
+
+    private func followPeers(main: Ghostty.SurfaceView) {
+        let others = agentSurfaces.filter { $0 !== main }
+        let keep = Set(others.map(ObjectIdentifier.init))
+        for (id, peer) in peers where !keep.contains(id) {
+            peer.feed.stop()
+            peers.removeValue(forKey: id)
+        }
+        for surface in others {
+            guard let info = VerticalTabsAgents.shared.info(for: surface), let path = info.transcriptPath else { continue }
+            let id = ObjectIdentifier(surface)
+            let peer = peers[id] ?? {
+                let peer = Peer()
+                peer.feed.onItems = { [weak self, weak peer] items, _ in
+                    guard let self, let peer else { return }
+                    // Its items are tagged so the page gives it its own lane, named and colored
+                    // after the agent; its sub-agents become lanes of their own under its name.
+                    let tagged: [AgentFeed.Item] = items.map { item in
+                        var item = item
+                        let sub = item["sub"] as? String
+                        item["sub"] = sub.map { "\(peer.name) · \($0)" } ?? peer.name
+                        item["peer"] = peer.name
+                        item["peerKind"] = peer.kind
+                        return item
+                    }
+                    // Never a reset: that would clear the main agent's timeline.
+                    self.loadedWebView?.sendAgentItems(tagged, reset: false)
+                }
+                peers[id] = peer
+                return peer
+            }()
+            peer.name = Self.peerName(info, among: others.compactMap { VerticalTabsAgents.shared.info(for: $0) }, main: main)
+            peer.kind = info.localModel != nil ? "local" : info.kind.rawValue
+            if peer.feed.path != path { peer.follow(path: path, kind: info.kind) }
+        }
+    }
+
+    /// The agent's name, numbered when two panes run the same one ("Claude Code 2").
+    private static func peerName(_ info: VerticalTabAgentInfo, among others: [VerticalTabAgentInfo],
+                                 main: Ghostty.SurfaceView) -> String {
+        let mainName = VerticalTabsAgents.shared.info(for: main)?.name
+        let same = others.filter { $0.name == info.name }
+        guard same.count > 1 || mainName == info.name else { return info.name }
+        let index = (same.firstIndex { $0.transcriptPath == info.transcriptPath } ?? 0) + (mainName == info.name ? 2 : 1)
+        return "\(info.name) \(index)"
     }
 
     /// Lets the timeline offer "Restore to before this" on each prompt that has a checkpoint.

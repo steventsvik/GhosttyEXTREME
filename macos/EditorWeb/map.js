@@ -376,12 +376,12 @@
 
   const LANE_COLOR_HEX = ['#f28cb1', '#b8a3f0', '#7fd6c2', '#7fb2e8', '#dcdcaa'];
 
-  function comet(key) {
+  function comet(key, color) {
     let c = comets.get(key);
     if (!c) {
       const root = nodes.get('');
       c = { key, x: root?.x || 0, y: root?.y || 0, target: null, trail: [], label: '', detail: '', last: Date.now(),
-            color: key === 'main' ? null : LANE_COLOR_HEX[comets.size % LANE_COLOR_HEX.length] };
+            color: key === 'main' ? null : color || LANE_COLOR_HEX[comets.size % LANE_COLOR_HEX.length] };
       comets.set(key, c);
     }
     return c;
@@ -400,7 +400,8 @@
       if (node && (action === 'edit' || action === 'write')) window.backend?.agentTouched(path, 'edit');
     }
     if (quiet) return;
-    const c = comet(key);
+    // Another agent in the tab flies in its own brand color.
+    const c = comet(key, item.peer && !item.sub.includes(' · ') ? window.peerColor?.(item.peerKind) : null);
     c.label = VERBS[action] || VERBS.other;
     c.detail = node ? node.name : (item.command?.split('\n')[0] || item.pattern || item.query || item.description || '');
     c.last = Date.now();
@@ -1464,7 +1465,7 @@
     const name = agent.status ? agentName() : 'your agent';
     empty.textContent = agent.status
       ? `Waiting for ${name} to move. Every file it reads or edits lights up here.`
-      : 'Run claude or codex in this terminal. Every file it reads or edits lights up here as a star.';
+      : 'Run an agent in this terminal. Every file it reads or edits lights up here as a star.';
   }
 
   // ---------- Hooks from app.js ----------
