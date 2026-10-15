@@ -10,7 +10,7 @@ enum LocalModelsWindow {
 
     static func show() {
         guard ExtremeSettings.isOn(.localModels) else { return }
-        AgentToolWindows.show(id: windowID, title: "Local Models", size: NSSize(width: 640, height: 560)) {
+        AgentToolWindows.show(id: windowID, title: "Local Models", size: NSSize(width: 680, height: 760)) {
             LocalModelsWindowView()
         }
     }
@@ -20,22 +20,6 @@ enum LocalModelsWindow {
         NSApp.orderedWindows.lazy.compactMap { $0.windowController as? TerminalController }.first
             ?? TerminalController.all.first
     }
-}
-
-/// Models worth starting with, smallest first.
-private struct SuggestedModel: Identifiable {
-    let name: String
-    let size: String
-    let bytes: Int64
-    let note: String
-    var id: String { name }
-
-    static let all = [
-        SuggestedModel(name: "qwen3:4b", size: "2.5 GB", bytes: 2_500_000_000, note: "Quick answers"),
-        SuggestedModel(name: "qwen3:8b", size: "5.2 GB", bytes: 5_200_000_000, note: "A good balance on 16 GB Macs"),
-        SuggestedModel(name: "gpt-oss:20b", size: "14 GB", bytes: 14_000_000_000, note: "OpenAI's open model; needs 24 GB or more"),
-        SuggestedModel(name: "qwen3-coder:30b", size: "19 GB", bytes: 19_000_000_000, note: "Best for code questions; needs 32 GB or more"),
-    ]
 }
 
 struct LocalModelsWindowView: View {
@@ -63,7 +47,7 @@ struct LocalModelsWindowView: View {
                         }
                     }
                     if case .running = models.ollama {
-                        suggestions(installed: Set(installed.map(\.name)))
+                        ModelCatalogView(installed: Set(installed.map(\.name)))
                     }
                     Text("Each chat runs through Ollama on this Mac: nothing leaves it, and it works offline. "
                          + "Small models answer faster but know less.")
@@ -96,30 +80,6 @@ struct LocalModelsWindowView: View {
                 Text(version.map { "running · \($0)" } ?? "running").font(Extreme.font(11)).foregroundColor(Extreme.muted)
             }
             Spacer()
-        }
-    }
-
-    private func suggestions(installed: Set<String>) -> some View {
-        let memory = Int64(ProcessInfo.processInfo.physicalMemory)
-        let list = SuggestedModel.all.filter { !installed.contains($0.name) }
-        return VStack(alignment: .leading, spacing: 4) {
-            if !list.isEmpty {
-                ExtremeSectionLabel("Download")
-                ForEach(list) { suggestion in
-                    // A model needs roughly its size again in memory, plus room for everything else.
-                    let fits = suggestion.bytes * 2 < memory
-                    HStack(spacing: 10) {
-                        Text(suggestion.name).font(Extreme.mono(12)).foregroundColor(fits ? Extreme.text : Extreme.dim)
-                        Text("\(suggestion.size) · \(suggestion.note)").font(Extreme.font(11)).foregroundColor(Extreme.dim)
-                            .lineLimit(1)
-                        Spacer(minLength: 8)
-                        Button("Download") { models.pull(suggestion.name) }
-                            .buttonStyle(ExtremeButtonStyle())
-                            .help(fits ? "ollama pull, in a new tab" : "Probably too big for this Mac's memory")
-                    }
-                    .padding(.vertical, 3)
-                }
-            }
         }
     }
 }
