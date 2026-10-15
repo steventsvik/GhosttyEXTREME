@@ -4,7 +4,8 @@
 #   tellurion doctor          check the agent status setup and send a live test event
 #   tellurion phone [status]  can your phone reach this Mac? (Tailscale), in one line
 #   tellurion phone setup     walk through the Tailscale steps, asking before each one
-#   tellurion local <model>   chat with a model on this Mac (Ollama), nothing leaves it
+#   tellurion local <model>   chat with a model on this Mac (Ollama, LM Studio, llama.cpp,
+#                             MLX or Apple's own); nothing leaves it
 #
 # Installed to ~/.ghostty-extreme/bin/ by the app (Setup Check, or the welcome window).
 # Paste `tellurion doctor` output into GitHub issues: it contains no personal data
@@ -285,10 +286,10 @@ phone_setup() {
 # A chat with a model on this Mac, through Ollama (nothing leaves the Mac).
 local_model() {
   if [ -z "${1:-}" ]; then
-    printf 'Usage: tellurion local <model>\n' >&2
+    printf 'Usage: tellurion local [--provider ollama|lmstudio|openai|apple] [--base URL] <model>\n' >&2
     return 2
   fi
-  exec python3 "$hooks/local-chat.py" "$1"
+  exec python3 "$hooks/local-chat.py" "$@"
 }
 
 case "${1:-doctor}" in
@@ -301,11 +302,11 @@ case "${1:-doctor}" in
       *) printf 'Usage: tellurion phone [status|setup]\n' >&2; exit 2 ;;
     esac ;;
   -h|--help|help)
-    sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
     ;;
   *)
     printf 'Unknown command: %s\n' "$1" >&2
-    sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//' >&2
+    sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//' >&2
     exit 2
     ;;
 esac

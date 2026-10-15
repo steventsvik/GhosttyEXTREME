@@ -22,9 +22,15 @@ struct LocalModelDropDelegate: DropDelegate {
         over = false
         guard let provider = info.itemProviders(for: [.tellurionLocalModel]).first else { return false }
         _ = provider.loadDataRepresentation(forTypeIdentifier: UTType.tellurionLocalModel.identifier) { [weak surface] data, _ in
-            guard let data, let model = String(bytes: data, encoding: .utf8), !model.isEmpty else { return }
+            guard let data, let dragged = String(bytes: data, encoding: .utf8), !dragged.isEmpty else { return }
             DispatchQueue.main.async {
                 guard let surface, let controller = surface.window?.windowController as? BaseTerminalController else { return }
+                // "<host>\t<name>", as the sidebar row wrote it.
+                let parts = dragged.split(separator: "\t", maxSplits: 1).map(String.init)
+                let host = parts.count == 2 ? LocalModel.Host(rawValue: parts[0]) ?? .ollama : .ollama
+                let name = parts.last ?? dragged
+                let model = LocalModelsModel.shared.models.first { $0.host == host && $0.name == name }
+                    ?? LocalModel(host: host, name: name, size: nil, detail: "", loaded: false, memory: nil, gpuShare: nil)
                 LocalModelSessions.open(model, below: surface, in: controller)
             }
         }

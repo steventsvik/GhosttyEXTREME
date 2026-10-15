@@ -39,7 +39,8 @@ struct LocalModelsWindowView: View {
                     if let error = models.error {
                         Text(error).font(Extreme.font(12)).foregroundColor(Extreme.danger)
                     }
-                    let installed = models.models.filter { $0.host == .ollama }
+                    // Every provider's models: Ollama, LM Studio, a llama.cpp or MLX server, Apple's.
+                    let installed = models.models
                     if !installed.isEmpty {
                         VStack(alignment: .leading, spacing: 4) {
                             ExtremeSectionLabel("On this Mac")
@@ -47,7 +48,7 @@ struct LocalModelsWindowView: View {
                         }
                     }
                     if case .running = models.ollama {
-                        ModelCatalogView(installed: Set(installed.map(\.name)))
+                        ModelCatalogView(installed: Set(installed.filter { $0.host == .ollama }.map(\.name)))
                     }
                     Text("Each chat runs through Ollama on this Mac: nothing leaves it, and it works offline. "
                          + "Small models answer faster but know less.")
@@ -96,17 +97,19 @@ private struct LocalModelWindowRow: View {
                     .padding(.horizontal, 5).padding(.vertical, 1)
                     .background(RoundedRectangle(cornerRadius: 3).fill(Extreme.live))
             }
-            Text(item.detail).font(Extreme.font(11)).foregroundColor(Extreme.dim).lineLimit(1)
+            // Which app serves it: the same model can be in Ollama and LM Studio.
+            Text(item.host == .ollama || item.host == .lmStudio ? "\(item.host.rawValue) · \(item.detail)" : item.detail)
+                .font(Extreme.font(11)).foregroundColor(Extreme.dim).lineLimit(1)
             Spacer(minLength: 8)
             if models.busy.contains(item.id) {
                 ProgressView().controlSize(.small)
             } else {
-                if item.loaded {
+                if item.loaded, item.host.canUnload {
                     Button("Unload") { models.unload(item) }.buttonStyle(ExtremeButtonStyle()).help("Free its memory now")
                 }
                 Button("Open") {
                     guard let owner = LocalModelsWindow.frontTerminal else { return }
-                    LocalModelSessions.open(item.name, from: owner)
+                    LocalModelSessions.open(item, from: owner)
                     owner.window?.makeKeyAndOrderFront(nil)
                 }
                 .buttonStyle(ExtremeButtonStyle(prominent: true))
@@ -125,7 +128,7 @@ struct LocalModelsSidebarSection: View {
     @AppStorage("LocalModelsSectionCollapsed") private var collapsed = false
 
     var body: some View {
-        let list = models.models.filter { $0.host == .ollama }
+        let list = models.models
         VStack(alignment: .leading, spacing: 4) {
             if !list.isEmpty {
                 Rectangle().fill(Extreme.line).frame(height: 1).padding(.bottom, 4)
@@ -187,7 +190,10 @@ private struct LocalModelSidebarRow: View {
                     .foregroundColor(Extreme.text)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                Text(item.loaded ? "Loaded" + (item.memory.map { " · " + Housekeeping.bytes($0) } ?? "") : item.detail)
+                // Always says which app serves it: the same model can be in Ollama and LM Studio.
+                Text(item.host == .ollama
+                     ? "Ollama · " + (item.loaded ? "Loaded" + (item.memory.map { " · " + Housekeeping.bytes($0) } ?? "") : item.detail)
+                     : item.host.rawValue + (item.loaded && item.host == .lmStudio ? " · Loaded" : ""))
                     .font(Extreme.font(9.5))
                     .foregroundColor(item.loaded ? Extreme.live.opacity(0.85) : Extreme.dim)
                     .lineLimit(1)
@@ -204,11 +210,11 @@ private struct LocalModelSidebarRow: View {
         .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(hovering ? Extreme.raised : .clear))
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
-        .onTapGesture { LocalModelSessions.open(item.name, from: owner) }
+        .onTapGesture { LocalModelSessions.open(item, from: owner) }
         .onDrag {
             // Only our own type, so the terminal never pastes it as text.
             let provider = NSItemProvider()
-            let name = item.name
+            let name = item.host.rawValue + "\t" + item.name
             provider.registerDataRepresentation(forTypeIdentifier: UTType.tellurionLocalModel.identifier, visibility: .ownProcess) { done in
                 done(Data(name.utf8), nil)
                 return nil

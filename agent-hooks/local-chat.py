@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
-"""Chat with a model on this Mac, through Ollama. Nothing leaves the Mac.
+"""Chat with a model on this Mac. Nothing leaves the Mac.
 
-Usage: local-chat.py <model>   (Tellurion runs it as `tellurion local <model>`)
+Usage: local-chat.py [--provider P] [--base URL] <model>
+       (Tellurion runs it as `tellurion local …`)
+  ollama (the default)  Ollama, at OLLAMA_HOST or 127.0.0.1:11434
+  lmstudio              LM Studio's server, 127.0.0.1:1234
+  openai                any OpenAI-compatible server at --base (llama.cpp's llama-server,
+                        MLX's mlx_lm.server: 127.0.0.1:8080)
+  apple                 Apple's on-device model, served by Tellurion itself (its address
+                        and key are in ~/.ghostty-extreme/apple-model.json)
 
 A plain chat in the terminal: type a message, the reply streams in. Inside Tellurion it
 also reports to the sidebar (working while it answers, done when it's finished), with the
@@ -37,7 +44,27 @@ def ollama_base():
     return f"{scheme}://{host}"
 
 
+PROVIDERS = {"ollama": "Ollama", "lmstudio": "LM Studio", "openai": "the model server", "apple": "Tellurion"}
+PROVIDER = "ollama"
 BASE = ollama_base()
+HEADERS = {"Content-Type": "application/json"}
+
+
+def configure(provider, base):
+    """Points the chat at its provider (see the usage above)."""
+    global PROVIDER, BASE
+    PROVIDER = provider
+    if provider == "lmstudio":
+        BASE = (base or "http://127.0.0.1:1234").rstrip("/")
+    elif provider == "openai":
+        BASE = (base or "http://127.0.0.1:8080").rstrip("/")
+    elif provider == "apple":
+        with open(os.path.join(os.path.expanduser("~"), ".ghostty-extreme", "apple-model.json")) as handle:
+            server = json.load(handle)
+        BASE = f"http://127.0.0.1:{int(server['port'])}"
+        HEADERS["Authorization"] = "Bearer " + server["token"]
+    elif base:
+        BASE = base.rstrip("/")
 
 
 def report(model, event, detail=""):
@@ -81,8 +108,7 @@ def record(kind, content):
 
 
 def post(path, payload, timeout=600):
-    request = urllib.request.Request(BASE + path, data=json.dumps(payload).encode(),
-                                     headers={"Content-Type": "application/json"})
+    request = urllib.request.Request(BASE + path, data=json.dumps(payload).encode(), headers=HEADERS)
     return urllib.request.urlopen(request, timeout=timeout)
 
 
@@ -93,12 +119,16 @@ def error_text(error):
         except ValueError:
             return str(error)
     if isinstance(error, urllib.error.URLError):
-        return f"Ollama isn't answering at {BASE}. Start Ollama, then try again."
+        if PROVIDER == "apple":
+            return "Tellurion isn't serving Apple's model right now. Open it again from Local models."
+        return f"{PROVIDERS[PROVIDER]} isn't answering at {BASE}. Start it, then try again."
     return str(error)
 
 
 def load(model):
     """Loads the model, so the first answer comes sooner. Returns an error, or None."""
+    if PROVIDER != "ollama":
+        return None  # The others load a model on its first request (or serve just one).
     try:
         with post("/api/generate", {"model": model, "keep_alive": "10m"}, timeout=300) as response:
             response.read()
@@ -112,6 +142,52 @@ class NoThinking(Exception):
 
 
 def reply(model, messages, show_reasoning, thinks):
+    if PROVIDER != "ollama":
+        return reply_openai(model, messages, show_reasoning)
+    return reply_ollama(model, messages, show_reasoning, thinks)
+
+
+def reply_openai(model, messages, show_reasoning):
+    """The same, from an OpenAI-compatible server: server-sent events, each with a piece of
+    the answer (or of the reasoning, which llama.cpp and LM Studio send separately)."""
+    payload = {"model": model, "messages": messages, "stream": True}
+    text, reasoning, in_thinking, started, last = [], [], False, time.time(), 0.0
+    with post("/v1/chat/completions", payload) as response:
+        for raw in response:
+            line = raw.decode("utf-8", "replace").strip()
+            if not line.startswith("data:"):
+                continue
+            data = line[5:].strip()
+            if data == "[DONE]":
+                break
+            chunk = json.loads(data)
+            if chunk.get("error"):
+                raise RuntimeError(chunk["error"].get("message") if isinstance(chunk["error"], dict) else chunk["error"])
+            delta = ((chunk.get("choices") or [{}])[0].get("delta") or {})
+            thought = delta.get("reasoning_content") or delta.get("reasoning")
+            if thought:
+                reasoning.append(thought)
+                if show_reasoning:
+                    if not in_thinking:
+                        sys.stdout.write(DIM)
+                    sys.stdout.write(thought)
+                elif time.time() - last > 0.5:
+                    last = time.time()
+                    sys.stdout.write(f"\r{DIM}Thinking… {int(last - started)}s{RESET}\033[K")
+                in_thinking = True
+            if delta.get("content"):
+                if in_thinking:
+                    sys.stdout.write(RESET + "\n\n" if show_reasoning else "\r\033[K")
+                    in_thinking = False
+                text.append(delta["content"])
+                sys.stdout.write(delta["content"])
+            sys.stdout.flush()
+    sys.stdout.write(RESET + "\n")
+    record("thinking", "".join(reasoning).strip())
+    return "".join(text)
+
+
+def reply_ollama(model, messages, show_reasoning, thinks):
     """Streams one answer to the terminal and returns its text. Models that reason first
     get a one-line "Thinking… 12s" while they do, or their full reasoning, dimmed."""
     payload = {"model": model, "messages": messages, "stream": True, "keep_alive": "10m"}
@@ -159,11 +235,18 @@ def reply(model, messages, show_reasoning, thinks):
 def unload_unless_shared(model):
     """Frees the model's memory now, unless another chat on this Mac still uses it (Ollama
     would otherwise keep it loaded for 10 minutes)."""
+    if PROVIDER not in ("ollama", "lmstudio"):
+        return  # A llama.cpp or MLX server holds its one model; Apple's model is the system's.
     try:
         # Other chats on the model (each also has a helper like this one, which counts too).
         others = subprocess.run(["/usr/bin/pgrep", "-f", f"local-chat.py {re.escape(model)}$"], capture_output=True,
                                 text=True, timeout=2).stdout.split()
         if any(int(pid) != os.getpid() for pid in others):
+            return
+        if PROVIDER == "lmstudio":
+            lms = next((path for path in (os.path.expanduser("~/.lmstudio/bin/lms"), os.path.expanduser("~/.cache/lm-studio/bin/lms"))
+                        if os.access(path, os.X_OK)), "lms")
+            subprocess.run([lms, "unload", model], capture_output=True, timeout=20)
             return
         with post("/api/generate", {"model": model, "keep_alive": 0}, timeout=10) as response:
             response.read()
@@ -195,17 +278,29 @@ def free_on_exit(model):
 
 
 def main():
-    if len(sys.argv) < 2 or not sys.argv[1].strip():
-        print("Usage: tellurion local <model>", file=sys.stderr)
+    args, provider, base = sys.argv[1:], "ollama", None
+    while len(args) > 1 and args[0] in ("--provider", "--base"):
+        if args[0] == "--provider":
+            provider = args[1]
+        else:
+            base = args[1]
+        args = args[2:]
+    if len(args) != 1 or not args[0].strip() or provider not in PROVIDERS:
+        print("Usage: tellurion local [--provider ollama|lmstudio|openai|apple] [--base URL] <model>", file=sys.stderr)
         return 2
-    model = sys.argv[1].strip()
+    model = args[0].strip()
+    try:
+        configure(provider, base)
+    except (OSError, ValueError, KeyError):
+        print(f"{RED}Tellurion isn't serving Apple's model right now. Open it again from Local models.{RESET}", file=sys.stderr)
+        return 1
     sys.stdout.write(f"\033]2;{model}\a")  # The tab's title.
     print(f"{DIM}Loading {model}…{RESET}", flush=True)
     problem = load(model)
     if problem:
         print(f"{RED}{problem}{RESET}", file=sys.stderr)
         return 1
-    print(f"{GOLD}{BOLD}{model}{RESET}{DIM} · on this Mac, through Ollama · /think shows reasoning · /clear · /exit · Ctrl-C stops a reply{RESET}\n")
+    print(f"{GOLD}{BOLD}{model}{RESET}{DIM} · on this Mac, through {PROVIDERS[PROVIDER] if PROVIDER != 'apple' else 'Apple Intelligence'} · /think shows reasoning · /clear · /exit · Ctrl-C stops a reply{RESET}\n")
     free_on_exit(model)
     report(model, "session_start")
     # Where the code editor finds this chat's live feed.
