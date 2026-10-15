@@ -303,13 +303,44 @@ local_model() {
     printf 'Claude Code isn'"'"'t installed (the claude command). Install it, then try again.\n' >&2
     return 1
   fi
+  # Load the model now (the first answer comes sooner) and read the context window Ollama
+  # gave it, so Claude Code summarizes before the window fills instead of assuming 200k.
+  printf 'Loading %s…\n' "$model"
+  local loaded window
+  loaded=$(curl -s -m 300 "$host/api/generate" -d "{\"model\": \"$model\", \"keep_alive\": \"10m\"}" 2>/dev/null)
+  case "$loaded" in
+    *'"error"'*)
+      printf '%s\n' "$loaded" | sed -n 's/.*"error":"\([^"]*\)".*/Ollama: \1/p' >&2
+      return 1 ;;
+    "")
+      printf 'Ollama isn'"'"'t answering at %s. Start Ollama, then try again.\n' "$host" >&2
+      return 1 ;;
+  esac
+  window=$(curl -s -m 5 "$host/api/ps" 2>/dev/null | python3 -c '
+import json, sys
+name = sys.argv[1]
+for m in json.load(sys.stdin).get("models", []):
+    if name in (m.get("name"), m.get("model")) and m.get("context_length"):
+        print(m["context_length"])
+        break
+' "$model" 2>/dev/null)
+  if [ -n "$window" ]; then
+    export CLAUDE_CODE_MAX_CONTEXT_TOKENS="$window"
+    if [ "$window" -lt 24000 ]; then
+      printf 'Ollama gives %s a %s-token window, smaller than Claude Code needs. Set "Context length" in Ollama'"'"'s settings to 32k or more.\n' "$model" "$window" >&2
+    fi
+  fi
   export TELLURION_LOCAL_MODEL="$model"
   export ANTHROPIC_BASE_URL="$host" ANTHROPIC_AUTH_TOKEN=ollama ANTHROPIC_API_KEY=""
   export ANTHROPIC_DEFAULT_OPUS_MODEL="$model" ANTHROPIC_DEFAULT_SONNET_MODEL="$model" ANTHROPIC_DEFAULT_HAIKU_MODEL="$model"
   export CLAUDE_CODE_SUBAGENT_MODEL="$model" CLAUDE_CODE_ATTRIBUTION_HEADER=0
   export DISABLE_ERROR_REPORTING=1 DISABLE_FEEDBACK_COMMAND=1 CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY=1
   export CLAUDE_CODE_AUTO_MODE_SERVER=0 CLAUDE_CODE_TOTAL_TOKENS_REMINDER=off ENABLE_CLAUDEAI_MCP_SERVERS=false
-  exec claude --model "$model" "$@"
+  # A local model reads Claude Code's whole prompt on every turn: leave out MCP servers'
+  # tool lists (often thousands of tokens), and Qwen 3's long thinking before each answer.
+  local extra=(--strict-mcp-config --mcp-config '{"mcpServers":{}}')
+  case "$model" in qwen3:*|qwen3-*) [[ $model == qwen3-coder* ]] || extra+=(--append-system-prompt "/no_think") ;; esac
+  exec claude --model "$model" "${extra[@]}" "$@"
 }
 
 case "${1:-doctor}" in
