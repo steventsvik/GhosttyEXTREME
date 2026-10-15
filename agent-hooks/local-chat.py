@@ -239,7 +239,7 @@ def unload_unless_shared(model):
         return  # A llama.cpp or MLX server holds its one model; Apple's model is the system's.
     try:
         # Other chats on the model (each also has a helper like this one, which counts too).
-        others = subprocess.run(["/usr/bin/pgrep", "-f", f"local-chat.py {re.escape(model)}$"], capture_output=True,
+        others = subprocess.run(["/usr/bin/pgrep", "-f", f"local-chat\\.py .*{re.escape(model)}$"], capture_output=True,
                                 text=True, timeout=2).stdout.split()
         if any(int(pid) != os.getpid() for pid in others):
             return
@@ -256,29 +256,33 @@ def unload_unless_shared(model):
 
 def free_on_exit(model):
     """Frees the model when this chat ends, however it ends: /exit, Ctrl-D, or its tab or
-    pane closed (which can kill the chat while it waits for input). A small helper, outside
-    the terminal, waits for the chat to be gone and then unloads the model."""
-    read_end, write_end = os.pipe()
-    if os.fork() != 0:
-        os.close(read_end)
-        return  # The chat keeps the write end open until it exits.
-    os.close(write_end)
-    os.setsid()  # Not hung up with the terminal.
-    signal.signal(signal.SIGHUP, signal.SIG_IGN)
-    devnull = os.open(os.devnull, os.O_RDWR)
-    for stream in (0, 1, 2):
-        os.dup2(devnull, stream)
+    pane closed (which can kill the chat while it waits for input). A small helper process,
+    outside the terminal's session, waits for the chat to be gone and then unloads the model."""
+    helper = [sys.executable, os.path.abspath(__file__), "--unload-when-done", "--provider", PROVIDER, "--base", BASE, model]
     try:
-        while os.read(read_end, 1):  # Returns empty once the chat is gone.
+        # The chat holds the helper's stdin open until it exits; the helper reads it to the end.
+        free_on_exit.helper = subprocess.Popen(helper, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                                               stderr=subprocess.DEVNULL, start_new_session=True)
+    except OSError:
+        pass
+
+
+def wait_then_unload(model):
+    """The helper's side: wait for the chat to end (its stdin closes), then unload."""
+    signal.signal(signal.SIGHUP, signal.SIG_IGN)
+    try:
+        while sys.stdin.buffer.read(1):
             pass
     except OSError:
         pass
     unload_unless_shared(model)
-    os._exit(0)
 
 
 def main():
     args, provider, base = sys.argv[1:], "ollama", None
+    helper = bool(args) and args[0] == "--unload-when-done"
+    if helper:
+        args = args[1:]
     while len(args) > 1 and args[0] in ("--provider", "--base"):
         if args[0] == "--provider":
             provider = args[1]
@@ -289,6 +293,13 @@ def main():
         print("Usage: tellurion local [--provider ollama|lmstudio|openai|apple] [--base URL] <model>", file=sys.stderr)
         return 2
     model = args[0].strip()
+    if helper:
+        try:
+            configure(provider, base)
+        except (OSError, ValueError, KeyError):
+            return 0
+        wait_then_unload(model)
+        return 0
     try:
         configure(provider, base)
     except (OSError, ValueError, KeyError):

@@ -753,9 +753,12 @@ private struct VerticalTabKindLabel: View {
     var body: some View {
         HStack(spacing: 5) {
             if let agent {
+                // Shortened in the middle when long (a local model's "publisher/model:tag"),
+                // so the row never grows wider than the sidebar.
                 Text(agent.name)
                     .foregroundColor(agent.kind == .claude && agent.localModel == nil ? Extreme.claude : Extreme.text.opacity(0.8))
-                    .fixedSize()
+                    .lineLimit(1)
+                    .truncationMode(.middle)
                 if agent.activity != .ready {
                     Text("·").fixedSize()
                     Text(agent.activity.label)
