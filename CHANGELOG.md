@@ -7,6 +7,7 @@ What changed in each Tellurion (formerly GhosttyEXTREME) release. Work in progre
 ## Unreleased
 
 - **A new About window.** Tellurion's About window now says what it is and what it does: mission control for your AI coding agents, with six highlights (every agent in one sidebar, the editor following each agent, answering from anywhere, undoing any turn, models on your Mac, and the layout), plus links to this version's release notes, the website and GitHub.
+- **Hugging Face in Local models.** The Local Models window has a **Hugging Face** section: the most downloaded models on Hugging Face that Ollama can run (GGUF), with filters for **Popular**, **Coding** and **Uncensored** and a search box. Each shows its size for a good default quality (Q4_K_M where there is one) and its downloads, marks the ones too big for your Mac, and downloads through Ollama with a progress bar. No account is needed; gated models, which need a Hugging Face account and an accepted license, link to their page instead. It searches when you open it, pick a filter, search or refresh, and never in the background.
 - **Fixed:** a local model with a long name (`publisher/model:tag`) made the sidebar's tab list wider than the sidebar, cutting off both sides. Long names are now shortened in the middle.
 - **Fixed:** newer Python versions printed a warning about `fork()` when a local chat started. The helper that frees the model's memory when the chat ends now starts as its own process.
 

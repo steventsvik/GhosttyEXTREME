@@ -131,6 +131,7 @@ struct ModelCatalogView: View {
                     ForEach(ModelCatalog.popular[tier] ?? []) { CatalogRow(model: $0, installed: isInstalled($0)) }
                 }
             }
+            HuggingFaceSection(installed: installed)
             VStack(alignment: .leading, spacing: 8) {
                 ExtremeSectionLabel("Uncensored") {
                     Button(showUncensored ? "Hide" : "Show") { showUncensored.toggle() }
