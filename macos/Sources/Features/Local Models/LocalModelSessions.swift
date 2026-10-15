@@ -2,30 +2,16 @@
 import AppKit
 import UniformTypeIdentifiers
 
-/// Claude Code running on a model on this Mac, served by Ollama.
-///
-/// Opening a model types `tellurion local <model>` into a shell: the same settings
-/// `ollama launch claude` uses, so Claude Code talks to Ollama instead of Anthropic. Its
-/// hooks report as usual, so the pane gets the sidebar status, alerts, undo and review of
-/// any Claude Code session; the sidebar names the model instead of Claude Code.
+/// A chat with a model on this Mac, through Ollama: `tellurion local <model>` typed into a
+/// shell runs Tellurion's own chat (agent-hooks/local-chat.py). Nothing leaves the Mac. The
+/// chat reports to the sidebar itself, naming its model, so the pane shows its status.
 @MainActor
 enum LocalModelSessions {
-    /// Panes Tellurion opened on a local model, until their session ends. Only touched on
-    /// the main thread (agent events arrive there too).
-    nonisolated(unsafe) private static let models = NSMapTable<Ghostty.SurfaceView, NSString>.weakToStrongObjects()
-
-    nonisolated static func model(on surface: Ghostty.SurfaceView) -> String? {
-        models.object(forKey: surface) as String?
-    }
-
-    nonisolated static func ended(on surface: Ghostty.SurfaceView) {
-        models.removeObject(forKey: surface)
-    }
-
-    /// What's typed into the shell.
+    /// What's typed into the shell: the screen is cleared first, so the pane starts with the
+    /// chat rather than the command line (the leading space keeps it out of shell history).
     static func command(_ model: String) -> String {
         let cli = HookInstaller.binFolder.appendingPathComponent("tellurion").path
-        return "\(AgentTools.shellQuote(cli)) local \(AgentTools.shellQuote(model))"
+        return " clear; \(AgentTools.shellQuote(cli)) local \(AgentTools.shellQuote(model))"
     }
 
     /// Opens it below the chat in front, or in a tab of its own when there's no chat there.
@@ -43,8 +29,7 @@ enum LocalModelSessions {
         var config = Ghostty.SurfaceConfiguration()
         config.workingDirectory = surface.pwd
         config.initialInput = command(model) + "\n"
-        guard let pane = controller.newSplit(at: surface, direction: .down, baseConfig: config) else { return }
-        models.setObject(model as NSString, forKey: pane)
+        controller.newSplit(at: surface, direction: .down, baseConfig: config)
     }
 
     static func openTab(_ model: String, from owner: TerminalController) {
@@ -52,9 +37,7 @@ enum LocalModelSessions {
         var config = Ghostty.SurfaceConfiguration()
         config.workingDirectory = owner.focusedSurface?.pwd
         config.initialInput = command(model) + "\n"
-        guard let controller = TerminalController.newTab(owner.ghostty, from: owner.window, withBaseConfig: config),
-              let pane = controller.surfaceTree.root?.leftmostLeaf() else { return }
-        models.setObject(model as NSString, forKey: pane)
+        _ = TerminalController.newTab(owner.ghostty, from: owner.window, withBaseConfig: config)
     }
 
     /// The `tellurion` command has to be installed (and current) to launch it.

@@ -72,7 +72,7 @@ enum ExtremeFeature: String, CaseIterable, Identifiable {
         case .skills: return "Every skill your agents have installed, with updates, and what's trending on skills.sh"
         case .environment: return "A folder's tool versions and variables (mise, direnv), your containers, and local models"
         case .phone: return "Use your terminal from your phone over your own private Tailscale network"
-        case .localModels: return "Run Claude Code on a model on this Mac (Ollama): open it from the sidebar, or drag it under a chat"
+        case .localModels: return "Chat with a model on this Mac (Ollama), offline: open it from the sidebar, or drag it under a chat"
         }
     }
 

@@ -35,6 +35,7 @@ enum HookInstaller {
             ("agent-event.py", hooksFolder),
             ("opencode-plugin.js", hooksFolder),
             ("amp-plugin.ts", hooksFolder),
+            ("local-chat.py", hooksFolder),
             ("localhost", binFolder),
             ("localhost-run", binFolder),
             ("tellurion", binFolder),
@@ -42,7 +43,7 @@ enum HookInstaller {
         ]
     }
 
-    private static let executables: Set<String> = ["agent-hook.sh", "agent-event.py", "localhost", "localhost-run", "tellurion", "ghostty-extreme"]
+    private static let executables: Set<String> = ["agent-hook.sh", "agent-event.py", "local-chat.py", "localhost", "localhost-run", "tellurion", "ghostty-extreme"]
 
     // MARK: Hook files
 

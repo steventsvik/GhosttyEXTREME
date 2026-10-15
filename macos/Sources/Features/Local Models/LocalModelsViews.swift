@@ -3,8 +3,8 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The Local Models window: the models Ollama has, each opened as a Claude Code session,
-/// and a few to download.
+/// The Local Models window: the models Ollama has, each opened as a chat on this Mac, and
+/// a few to download.
 enum LocalModelsWindow {
     static let windowID = "local-models"
 
@@ -22,7 +22,7 @@ enum LocalModelsWindow {
     }
 }
 
-/// Models worth starting with, smallest first. All of them can use tools, which Claude Code needs.
+/// Models worth starting with, smallest first.
 private struct SuggestedModel: Identifiable {
     let name: String
     let size: String
@@ -31,10 +31,10 @@ private struct SuggestedModel: Identifiable {
     var id: String { name }
 
     static let all = [
-        SuggestedModel(name: "qwen3:4b", size: "2.5 GB", bytes: 2_500_000_000, note: "Quick, for small edits and questions"),
+        SuggestedModel(name: "qwen3:4b", size: "2.5 GB", bytes: 2_500_000_000, note: "Quick answers"),
         SuggestedModel(name: "qwen3:8b", size: "5.2 GB", bytes: 5_200_000_000, note: "A good balance on 16 GB Macs"),
         SuggestedModel(name: "gpt-oss:20b", size: "14 GB", bytes: 14_000_000_000, note: "OpenAI's open model; needs 24 GB or more"),
-        SuggestedModel(name: "qwen3-coder:30b", size: "19 GB", bytes: 19_000_000_000, note: "Best for code; needs 32 GB or more"),
+        SuggestedModel(name: "qwen3-coder:30b", size: "19 GB", bytes: 19_000_000_000, note: "Best for code questions; needs 32 GB or more"),
     ]
 }
 
@@ -44,7 +44,7 @@ struct LocalModelsWindowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ExtremeWindowTitle(icon: .environment, title: "Local Models",
-                               subtitle: "Claude Code on a model on this Mac. Drag one from the sidebar under a chat.")
+                               subtitle: "Chat with a model on this Mac. Drag one from the sidebar under a chat.")
                 .padding(.horizontal, 20)
                 .padding(.top, 34)
                 .padding(.bottom, 14)
@@ -65,8 +65,8 @@ struct LocalModelsWindowView: View {
                     if case .running = models.ollama {
                         suggestions(installed: Set(installed.map(\.name)))
                     }
-                    Text("Each model runs Claude Code through Ollama, on this Mac: nothing is sent to Anthropic, "
-                         + "and it works offline. Small models are fast but make more mistakes.")
+                    Text("Each chat runs through Ollama on this Mac: nothing leaves it, and it works offline. "
+                         + "Small models answer faster but know less.")
                         .font(Extreme.font(11)).foregroundColor(Extreme.dim)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -150,7 +150,7 @@ private struct LocalModelWindowRow: View {
                     owner.window?.makeKeyAndOrderFront(nil)
                 }
                 .buttonStyle(ExtremeButtonStyle(prominent: true))
-                .help("Claude Code on \(item.name): below the chat in front, or in a new tab")
+                .help("Chat with \(item.name): below the chat in front, or in a new tab")
             }
         }
         .padding(.vertical, 3)
@@ -255,7 +255,7 @@ private struct LocalModelSidebarRow: View {
             }
             return provider
         }
-        .help("Click to open Claude Code on \(item.name) below the chat in front (or in a new tab).\n"
+        .help("Click to chat with \(item.name) below the chat in front (or in a new tab).\n"
               + "Drag it onto a chat to open it underneath that one.")
     }
 }

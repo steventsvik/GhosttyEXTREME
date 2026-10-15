@@ -50,7 +50,7 @@ struct VerticalTabAgentInfo: Equatable {
     var lastAction: String?
     /// Codex's exact session identity; prevents cross-talk between same-folder panes.
     var codexSessionID: String?
-    /// The local model it runs on, when Tellurion opened it on one ("qwen3:4b").
+    /// The model, for Tellurion's local chat ("qwen3:4b").
     var localModel: String?
 
     /// The local model's name, or the agent's.
@@ -154,7 +154,6 @@ final class VerticalTabsAgents {
         }
         if event.event == "session_end" {
             states.removeObject(forKey: surface)
-            LocalModelSessions.ended(on: surface)
             return
         }
         if event.event == "transcript" {
@@ -203,7 +202,8 @@ final class VerticalTabsAgents {
             codexSessionID: kind == .codex ? event.session ?? existing?.codexSessionID : nil)
 
         var labeled = info
-        labeled.localModel = LocalModelSessions.model(on: surface)
+        // Tellurion's local chat names its model.
+        labeled.localModel = event.agent == "local" ? event.session ?? existing?.localModel : nil
         if let box = states.object(forKey: surface) {
             box.info = labeled
         } else {
