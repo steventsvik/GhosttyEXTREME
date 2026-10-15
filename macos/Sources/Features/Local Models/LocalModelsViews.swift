@@ -209,20 +209,9 @@ private struct LocalModelSidebarRow: View {
         .padding(.vertical, 4)
         .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(hovering ? Extreme.raised : .clear))
         .contentShape(Rectangle())
-        .onHover { hovering = $0 }
-        .onTapGesture { LocalModelSessions.open(item, from: owner) }
-        .onDrag {
-            // Only our own type, so the terminal never pastes it as text.
-            let provider = NSItemProvider()
-            let name = item.host.rawValue + "\t" + item.name
-            provider.registerDataRepresentation(forTypeIdentifier: UTType.tellurionLocalModel.identifier, visibility: .ownProcess) { done in
-                done(Data(name.utf8), nil)
-                return nil
-            }
-            return provider
-        }
-        .help("Click to chat with \(item.name) below the chat in front (or in a new tab).\n"
-              + "Drag it onto a chat to open it underneath that one.")
+        .overlay(LocalModelDragSource(payload: item.host.rawValue + "\t" + item.name, title: item.name,
+                                      onClick: { LocalModelSessions.open(item, from: owner) },
+                                      onHover: { hovering = $0 }))
     }
 }
 #endif

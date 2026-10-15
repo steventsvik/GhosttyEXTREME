@@ -106,18 +106,19 @@ private struct TerminalSplitLeaf: View {
                 // it so that a released drop animates back to its source properly
                 // so it is a proper invalid drop zone.
                 if !isSelfDragging {
+                    // Tellurion: one drop area for both panes and local models (two would
+                    // shadow each other), each drag passed to its own handler.
                     Color.clear
-                        .onDrop(of: [.ghosttySurfaceId], delegate: SplitDropDelegate(
-                            dropState: $dropState,
-                            viewSize: geometry.size,
-                            destinationSurface: surfaceView,
-                            action: action
+                        .onDrop(of: [.ghosttySurfaceId, .tellurionLocalModel], delegate: PaneOrModelDropDelegate(
+                            pane: SplitDropDelegate(
+                                dropState: $dropState,
+                                viewSize: geometry.size,
+                                destinationSurface: surfaceView,
+                                action: action
+                            ),
+                            model: LocalModelDropDelegate(over: $localModelOver, surface: surfaceView)
                         ))
                 }
-            }
-            .background {
-                Color.clear
-                    .onDrop(of: [.tellurionLocalModel], delegate: LocalModelDropDelegate(over: $localModelOver, surface: surfaceView))
             }
             .overlay {
                 if !isSelfDragging, case .dropping(let zone) = dropState {
@@ -138,6 +139,20 @@ private struct TerminalSplitLeaf: View {
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Terminal pane")
         }
+    }
+
+    /// Tellurion: a pane goes to Ghostty's split handler, a local model to ours.
+    private struct PaneOrModelDropDelegate: DropDelegate {
+        let pane: SplitDropDelegate
+        let model: LocalModelDropDelegate
+
+        private func isModel(_ info: DropInfo) -> Bool { info.hasItemsConforming(to: [.tellurionLocalModel]) }
+
+        func validateDrop(info: DropInfo) -> Bool { isModel(info) ? model.validateDrop(info: info) : pane.validateDrop(info: info) }
+        func dropEntered(info: DropInfo) { isModel(info) ? model.dropEntered(info: info) : pane.dropEntered(info: info) }
+        func dropUpdated(info: DropInfo) -> DropProposal? { isModel(info) ? model.dropUpdated(info: info) : pane.dropUpdated(info: info) }
+        func dropExited(info: DropInfo) { isModel(info) ? model.dropExited(info: info) : pane.dropExited(info: info) }
+        func performDrop(info: DropInfo) -> Bool { isModel(info) ? model.performDrop(info: info) : pane.performDrop(info: info) }
     }
 
     private enum DropState: Equatable {
