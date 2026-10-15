@@ -50,6 +50,11 @@ struct VerticalTabAgentInfo: Equatable {
     var lastAction: String?
     /// Codex's exact session identity; prevents cross-talk between same-folder panes.
     var codexSessionID: String?
+    /// The model, for Tellurion's local chat ("qwen3:4b").
+    var localModel: String?
+
+    /// The local model's name, or the agent's.
+    var name: String { localModel ?? kind.displayName }
 }
 
 /// Receives agent status events and remembers the latest state per pane.
@@ -147,6 +152,10 @@ final class VerticalTabsAgents {
                 if box.info.transcriptPath == nil { box.info.transcriptPath = CodexTracking.reportedTranscript(session: session) }
             }
         }
+        // A local chat loads its model when it starts: the model list shows it loaded.
+        if event.agent == "local", event.event == "session_start" || event.event == "session_end" {
+            Task { @MainActor in LocalModelsModel.shared.load() }
+        }
         if event.event == "session_end" {
             states.removeObject(forKey: surface)
             return
@@ -196,10 +205,13 @@ final class VerticalTabsAgents {
             lastAction: lastAction,
             codexSessionID: kind == .codex ? event.session ?? existing?.codexSessionID : nil)
 
+        var labeled = info
+        // Tellurion's local chat names its model.
+        labeled.localModel = event.agent == "local" ? event.session ?? existing?.localModel : nil
         if let box = states.object(forKey: surface) {
-            box.info = info
+            box.info = labeled
         } else {
-            states.setObject(Box(info), forKey: surface)
+            states.setObject(Box(labeled), forKey: surface)
         }
     }
 

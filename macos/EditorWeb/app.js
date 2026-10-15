@@ -551,7 +551,26 @@ const AGENT_BRANDS = {
   claude: ['#D97757', 'claude.svg'], codex: ['#000000', 'openai.svg'], gemini: ['#4285F4', 'gemini_cli.svg'],
   opencode: ['#808080', 'opencode.svg'], amp: ['#F34E3F', 'amp.svg'], copilot: ['#8534F3', 'copilot.svg'],
   cursor: ['#26251E', 'cursor.svg'], droid: ['#FFFFFF', 'droid.svg'], goose: ['#101010', 'goose.svg'],
+  qwen: ['#615CED', 'qwen.svg'], kimi: ['#101010', 'kimi.svg'], mistral: ['#FA520F', 'mistral.svg'],
+  kiro: ['#7940FF', 'kiro.svg'], antigravity: ['#4285F4', 'antigravity.svg'], hermes: ['#7C3AED', 'hermes.png'],
+  aider: ['#14965A', null], crush: ['#6B50FF', null], local: ['#4EC9A0', null],
 };
+
+/** Another agent's color in a shared tab (its lane, comet and tags): its brand, lifted
+ *  when the brand is too dark to see on the editor's dark background. */
+function peerColor(kind) {
+  const hex = (AGENT_BRANDS[kind] || ['#9aa0a6'])[0];
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 70 ? '#9aa0a6' : hex;
+}
+
+/** The tag on a sub-agent's or another agent's item in the timeline. */
+function subTag(item) {
+  if (!item.peer) return Object.assign(el('span', 'sub-tag', `↳ ${item.sub}`), { title: `Sub-agent: ${item.sub}` });
+  const tag = Object.assign(el('span', 'sub-tag peer', `● ${item.sub}`), { title: `Another agent in this tab: ${item.peer}` });
+  tag.style.color = peerColor(item.peerKind);
+  return tag;
+}
 const agent = { status: null, tools: new Map(), follow: true, atBottom: true };
 
 function agentAbs(path) {
@@ -587,6 +606,7 @@ function renderItem(item) {
   const node = el('div', 'item ' + item.kind);
   if (item.kind === 'prompt') {
     if (!item.sub && item.time) node.dataset.time = Date.parse(item.time) || '';
+    if (item.peer) node.append(subTag(item));
     node.append(el('div', 'label', 'YOU'));
     const t = el('div', 'text');
     t.append(richText(item.text));
@@ -597,13 +617,13 @@ function renderItem(item) {
     t.onclick = () => node.classList.toggle('open');
     node.append(t);
   } else if (item.kind === 'message') {
-    if (item.sub) node.append(el('div', 'sub-tag', `↳ ${item.sub}`));
+    if (item.sub) node.append(subTag(item));
     const t = el('div', 'text'); t.append(richText(item.text)); node.append(t);
   } else if (item.kind === 'tool') {
     const [icon, verb, color] = ACTIONS[item.action] || ACTIONS.other;
     node.style.setProperty('--c', `var(${color})`);
     const head = el('div', 'head');
-    if (item.sub) head.append(Object.assign(el('span', 'sub-tag', `↳ ${item.sub}`), { title: `Sub-agent: ${item.sub}` }));
+    if (item.sub) head.append(subTag(item));
     const chip = el('span', 'chip');
     chip.append(el('i', `codicon codicon-${icon}`), verb || item.tool);
     head.append(chip);
@@ -1001,6 +1021,7 @@ function laneFor(item) {
   let lane = lanes.get(key);
   if (!lane) {
     lane = { key, label: item.sub || agentName(), color: LANE_COLORS[lanes.size % LANE_COLORS.length],
+             hex: item.peer && !item.sub.includes(' · ') ? peerColor(item.peerKind) : null,
              queue: [], busy: false, lastActive: 0, pending: new Map(), editing: new Map(), view: null };
     lanes.set(key, lane);
   }
@@ -1170,7 +1191,7 @@ function exitSplit(manual) {
 
 function addPane(lane) {
   const pane = el('div', 'agent-pane');
-  pane.style.setProperty('--c', `var(${lane.color})`);
+  pane.style.setProperty('--c', lane.hex || `var(${lane.color})`);
   const head = el('div', 'agent-pane-head');
   const dot = el('span', 'agent-pane-dot');
   const title = el('span', 'agent-pane-title', lane.key === 'main' ? agentName() : lane.label);

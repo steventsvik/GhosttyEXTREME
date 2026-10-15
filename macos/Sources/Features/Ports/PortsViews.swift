@@ -34,6 +34,8 @@ struct PortsSidebarSection: View {
         .padding(.bottom, dev.isEmpty && monitor.conflict == nil && !showOthers ? 0 : 6)
         // Stays mounted (empty) so the list keeps updating and appears when a server starts.
         .frame(maxWidth: .infinity, minHeight: 0, alignment: .leading)
+        // Keeps its height in a short window; the tab list above scrolls instead.
+        .fixedSize(horizontal: false, vertical: true)
         .onAppear { monitor.watch(true) }
         .onDisappear { monitor.watch(false) }
         .animation(.easeOut(duration: 0.18), value: dev.map(\.id))

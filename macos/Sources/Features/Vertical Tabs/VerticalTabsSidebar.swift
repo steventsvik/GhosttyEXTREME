@@ -497,6 +497,11 @@ struct VerticalTabsSidebar: View {
                 PortsSidebarSection(owner: owner)
             }
 
+            // Models on this Mac, to open or drag under a chat (only when Ollama has some).
+            if settings.isOn(.localModels) {
+                LocalModelsSidebarSection(owner: owner)
+            }
+
             // Localhost sessions stay in view, whatever else is open.
             if !localhostTabs.isEmpty {
                 Rectangle().fill(Extreme.line).frame(height: 1)
@@ -701,10 +706,18 @@ struct VerticalTabAvatar: View {
     /// Extra highlight on the row behind the avatar, so the badge ring matches it.
     var rowHighlight: Double = 0
     var size: CGFloat = 22
+    /// Running on a model on this Mac: a chip instead of the agent's critter.
+    var local = false
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            MoodSprite(kind: agent, mood: mood, pixel: size >= 22 ? 2 : 1.5)
+            Group {
+                if local {
+                    LocalModelSprite(pixel: size >= 22 ? 2 : 1.5)
+                } else {
+                    MoodSprite(kind: agent, mood: mood, pixel: size >= 22 ? 2 : 1.5)
+                }
+            }
                 .frame(width: size, height: size)
                 .background(Extreme.ink.opacity(0.6))
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Extreme.line, lineWidth: 1))
@@ -740,8 +753,8 @@ private struct VerticalTabKindLabel: View {
     var body: some View {
         HStack(spacing: 5) {
             if let agent {
-                Text(agent.kind.displayName)
-                    .foregroundColor(agent.kind == .claude ? Extreme.claude : Extreme.text.opacity(0.8))
+                Text(agent.name)
+                    .foregroundColor(agent.kind == .claude && agent.localModel == nil ? Extreme.claude : Extreme.text.opacity(0.8))
                     .fixedSize()
                 if agent.activity != .ready {
                     Text("·").fixedSize()
@@ -1076,7 +1089,8 @@ private struct VerticalTabPaneRow: View {
             badge: pane.badge,
             palette: palette,
             rowHighlight: isSelected ? 0.09 : (hovering ? 0.05 : 0),
-            size: condensed ? 18 : 22)
+            size: condensed ? 18 : 22,
+            local: pane.agent?.localModel != nil)
     }
 
     private var expandedBody: some View {
@@ -1190,7 +1204,8 @@ private struct VerticalTabPaneRow: View {
     @ViewBuilder
     private var primaryLine: some View {
         if let agent = pane.agent {
-            Text(agent.task ?? VerticalTabGroup.cleanTitle(pane.title))
+            // A local model's pane is titled by Claude Code; say where it runs instead.
+            Text(agent.task ?? (agent.localModel != nil ? "Running on this Mac" : VerticalTabGroup.cleanTitle(pane.title)))
                 .font(Extreme.font(11))
                 .foregroundColor(Extreme.muted)
                 .lineLimit(1)

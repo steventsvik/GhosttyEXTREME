@@ -16,6 +16,8 @@ import os
 import re
 import subprocess
 import sys
+import time
+import uuid
 
 # Agents that parse the hook's stdout as JSON; the rest get nothing.
 JSON_REPLY = {"gemini", "antigravity", "cursor", "qwen"}
@@ -125,6 +127,115 @@ def tty_path():
     return None
 
 
+# ---------- Live feed for the code editor ----------
+#
+# The editor shows an agent's prompts and tool calls live by reading its session transcript,
+# in Claude Code's format. These agents keep no such transcript (or one in their own
+# format), so each event is also appended to a small one of ours, with the same records,
+# under ~/.ghostty-extreme/feeds/. Old feeds are removed after a week.
+
+FEEDS = os.path.join(os.path.expanduser("~"), ".ghostty-extreme", "feeds")
+PATH_KEYS = ("file_path", "filePath", "absolute_path", "target_file", "path", "file", "notebook_path")
+
+
+def feed_path(agent, p, tty):
+    """One feed per session: the agent's session id, or else the pane it runs in."""
+    session = next((str(p[k]) for k in ("session_id", "sessionId", "conversation_id", "conversationId", "thread_id")
+                    if p.get(k)), "")
+    if not session and tty and tty != "/dev/tty":
+        session = os.path.basename(tty)
+    session = re.sub(r"[^A-Za-z0-9_.-]", "", session)[:64] or str(os.getppid())
+    return os.path.join(FEEDS, f"{agent}-{session}.jsonl")
+
+
+def claude_tool(name, arguments):
+    """The tool as Claude Code would name it, so the editor knows what it does."""
+    if isinstance(arguments, str):
+        try:
+            arguments = json.loads(arguments)
+        except ValueError:
+            arguments = {"command": arguments}
+    if not isinstance(arguments, dict):
+        arguments = {}
+    lowered = text(name).lower().split("__")[-1]
+    inputs = {}
+    path = next((arguments[k] for k in PATH_KEYS if isinstance(arguments.get(k), str) and arguments[k]), None)
+    if path:
+        inputs["file_path"] = path
+    for key, target in (("command", "command"), ("cmd", "command"), ("pattern", "pattern"), ("query", "query"),
+                        ("url", "url"), ("old_string", "old_string"), ("old_str", "old_string"),
+                        ("new_string", "new_string"), ("new_str", "new_string"), ("content", "content"),
+                        ("file_text", "content"), ("description", "description")):
+        if isinstance(arguments.get(key), str) and target not in inputs:
+            inputs[target] = arguments[key][:4000]
+    # Goose's text editor names its action in "command".
+    if lowered in ("text_editor", "str_replace_editor"):
+        action = text(arguments.get("command"))
+        inputs.pop("command", None)
+        return {"view": "Read", "write": "Write", "create": "Write"}.get(action, "Edit"), inputs
+    rules = (("TodoWrite", ("todo", "plan")),
+             ("Edit", ("edit", "replace", "patch", "str_replace", "multiedit")),
+             ("Write", ("write", "create", "save")),
+             ("Read", ("read", "view", "cat", "open")),
+             ("Bash", ("shell", "bash", "exec", "command", "terminal", "run")),
+             ("Grep", ("grep", "search", "glob", "find", "list", "ls")),
+             ("WebFetch", ("web", "fetch", "url", "browse")))
+    for claude, words in rules:
+        if any(word in lowered for word in words):
+            return claude, inputs
+    return text(name) or "Tool", inputs
+
+
+def feed_records(agent, event, p, name):
+    """The records this event adds to the feed, in Claude Code's transcript format."""
+    stamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()) + "Z"
+    if name == "prompt_submit":
+        prompt = text(p.get("prompt")) or (text(p.get("message")) if agent == "goose" else "") or os.environ.get("USER_PROMPT", "")
+        return [{"type": "user", "timestamp": stamp, "message": {"role": "user", "content": prompt[:8000]}}] if prompt else []
+    if name == "tool_complete":
+        tool = p.get("tool_name") or p.get("toolName") or (p.get("toolCall") or {}).get("name")
+        arguments = p.get("tool_input") or p.get("toolArgs") or p.get("toolInput") or (p.get("toolCall") or {}).get("args")
+        if event == "afterFileEdit":
+            tool, arguments = "Edit", {"file_path": p.get("file_path")}
+        elif event == "afterShellExecution":
+            tool, arguments = "Bash", {"command": p.get("command")}
+        if not tool:
+            return []
+        claude, inputs = claude_tool(tool, arguments)
+        call = "tool_" + uuid.uuid4().hex[:12]
+        output = p.get("tool_response") or p.get("tool_output") or p.get("toolResult") or ""
+        if not isinstance(output, str):
+            output = json.dumps(output)[:1500]
+        return [
+            {"type": "assistant", "timestamp": stamp,
+             "message": {"role": "assistant", "content": [{"type": "tool_use", "id": call, "name": claude, "input": inputs}]}},
+            {"type": "user", "timestamp": stamp,
+             "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": call, "content": output[:1500]}]}},
+        ]
+    if name in ("stop", "stop_failure"):
+        reply = text(p.get("last_assistant_message")) or text(p.get("response"))
+        return [{"type": "assistant", "timestamp": stamp,
+                 "message": {"role": "assistant", "content": [{"type": "text", "text": reply[:8000]}]}}] if reply else []
+    return []
+
+
+def write_feed(path, records):
+    os.makedirs(FEEDS, exist_ok=True)
+    fresh = not os.path.exists(path)
+    with open(path, "a", encoding="utf-8") as feed:
+        for record in records:
+            feed.write(json.dumps(record, ensure_ascii=False) + "\n")
+    if fresh:
+        week = time.time() - 7 * 86400
+        for old in os.listdir(FEEDS):
+            full = os.path.join(FEEDS, old)
+            try:
+                if os.path.getmtime(full) < week:
+                    os.remove(full)
+            except OSError:
+                pass
+
+
 def main():
     agent = sys.argv[1] if len(sys.argv) > 1 else ""
     event = sys.argv[2] if len(sys.argv) > 2 else ""
@@ -148,6 +259,19 @@ def main():
             status["detail"] = status["detail"][:-1]
         sequence = "\x1b]777;notify;ghostty-extreme://agent;" + json.dumps(status, ensure_ascii=True, separators=(",", ":")) + "\x07"
         tty = tty_path()
+        # The editor's live feed (OpenCode and Amp write theirs from their plugins).
+        if os.environ.get("GHOSTTY_EXTREME_AGENT_FEED", "1") != "0":
+            try:
+                path = feed_path(agent, payload, tty)
+                records = feed_records(agent, event, payload, name)
+                if records or not os.path.exists(path):
+                    write_feed(path, records)
+                if name in ("session_start", "prompt_submit") and len(path) < 160:
+                    where = {"agent": agent, "event": "transcript", "detail": path,
+                             "t": os.environ.get("GHOSTTY_EXTREME_EVENT_TOKEN", "")}
+                    sequence += "\x1b]777;notify;ghostty-extreme://agent;" + json.dumps(where, ensure_ascii=True, separators=(",", ":")) + "\x07"
+            except OSError:
+                pass
         if tty:
             # Never as a controlling terminal: the hook isn't the terminal's process.
             descriptor = os.open(tty, os.O_WRONLY | os.O_NOCTTY | os.O_NONBLOCK)

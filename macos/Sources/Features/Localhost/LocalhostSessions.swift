@@ -63,7 +63,7 @@ struct LocalhostOtherServer: Identifiable, Equatable {
         guard let cwd, cwd != NSHomeDirectory(), cwd != "/" else { return nil }
         return LocalhostProject(folder: cwd)
     }
-    /// The project, or else the program's name (`paperclipai run` -> "paperclipai").
+    /// The project, or else the program's name (`ngrok http 3000` -> "ngrok").
     var displayName: String {
         project?.name ?? (rootCommand.split(separator: " ").first.map { ($0 as NSString).lastPathComponent } ?? name)
     }

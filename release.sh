@@ -118,6 +118,9 @@ pass "core library"
 # from its compiled asset catalog, so the release starts from an empty app bundle and catalog.
 rm -rf macos/build/ReleaseLocal/Ghostty.app \
   ~/Library/Developer/Xcode/DerivedData/Ghostty-*/Build/Intermediates.noindex/Ghostty.build/ReleaseLocal/Ghostty.build/assetcatalog_output(N)
+# The hooks folder is copied into the app whole: Python's caches from running the scripts
+# locally (ignored by git) would ship, with home-folder paths in them.
+rm -rf agent-hooks/__pycache__
 (cd macos && xcodebuild -project Ghostty.xcodeproj -scheme Ghostty -configuration ReleaseLocal \
   SYMROOT="$PWD/build" ARCHS=arm64 ONLY_ACTIVE_ARCH=YES build > $OUT/xcode.log 2>&1) \
   || { grep -E "error:" $OUT/xcode.log | head -10; fail "app build failed (log: $OUT/xcode.log)"; }

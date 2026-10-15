@@ -4,7 +4,22 @@ import Combine
 
 /// A model on this Mac, from Ollama or LM Studio.
 struct LocalModel: Identifiable, Equatable {
-    enum Host: String { case ollama = "Ollama", lmStudio = "LM Studio" }
+    enum Host: String {
+        case ollama = "Ollama", lmStudio = "LM Studio", llamaCpp = "llama.cpp", mlx = "MLX", apple = "Apple"
+
+        /// How Tellurion's local chat reaches it (`tellurion local --provider …`).
+        var provider: String {
+            switch self {
+            case .ollama: return "ollama"
+            case .lmStudio: return "lmstudio"
+            case .llamaCpp, .mlx: return "openai"
+            case .apple: return "apple"
+            }
+        }
+
+        /// Its memory can be freed from here.
+        var canUnload: Bool { self == .ollama || self == .lmStudio }
+    }
 
     let host: Host
     let name: String
@@ -37,8 +52,26 @@ final class LocalModelsModel: ObservableObject {
     @Published private(set) var busy: Set<String> = []
     @Published var error: String?
 
-    private var timer: Timer?
+    /// The one the sidebar and the Local Models window share.
+    static let shared = LocalModelsModel()
+
+    /// Downloads in progress: model name → fraction done (nil until Ollama reports sizes).
+    @Published private(set) var downloads: [String: Double?] = [:]
+
     private var loading = false
+    private var watchers = 0
+    private var activation: NSObjectProtocol?
+
+    /// This Mac's memory, read once.
+    nonisolated static let memory = Int64(ProcessInfo.processInfo.physicalMemory)
+
+    /// Lists the models once when a view first shows them. No polling: the list is checked
+    /// again only when something can have changed it (a download or removal here, a local
+    /// chat starting or ending, or coming back to Tellurion from another app).
+    func watch(_ on: Bool) {
+        watchers = max(0, watchers + (on ? 1 : -1))
+        if on && watchers == 1 { start() } else if watchers == 0 { stop() }
+    }
 
     /// Ollama's address: OLLAMA_HOST like Ollama's own CLI, else its default.
     nonisolated static var ollamaBase: URL { ollamaURL(ProcessInfo.processInfo.environment["OLLAMA_HOST"]) }
@@ -79,18 +112,20 @@ final class LocalModelsModel: ObservableObject {
     /// Memory taken by loaded models, in bytes.
     var loadedMemory: Int64 { models.filter(\.loaded).compactMap(\.memory).reduce(0, +) }
 
+    /// One check now, and another each time Tellurion becomes the active app (a model
+    /// downloaded or removed in a terminal or Ollama's own app shows up then).
     func start() {
         load()
-        guard timer == nil else { return }
-        let timer = Timer(timeInterval: 5, repeats: true) { [weak self] _ in self?.load() }
-        timer.tolerance = 2
-        RunLoop.main.add(timer, forMode: .common)
-        self.timer = timer
+        guard activation == nil else { return }
+        activation = NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification,
+                                                            object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.load() }
+        }
     }
 
     func stop() {
-        timer?.invalidate()
-        timer = nil
+        if let activation { NotificationCenter.default.removeObserver(activation) }
+        activation = nil
     }
 
     func load() {
@@ -99,12 +134,13 @@ final class LocalModelsModel: ObservableObject {
         Task { [weak self] in
             async let ollama = Self.readOllama()
             async let studio = Self.readLMStudio()
+            async let server = Self.readModelServer()
             let (o, l) = await (ollama, studio)
             guard let self else { return }
             self.loading = false
             self.ollama = o.state
             self.lmStudio = l.state
-            let models = o.models + l.models
+            let models = o.models + l.models + (await server) + Self.appleModels
             if self.models != models { self.models = models }
         }
     }
@@ -143,13 +179,39 @@ final class LocalModelsModel: ObservableObject {
             return (installed ? .stopped : .notInstalled, [])
         }
         let models = (reply["data"] as? [[String: Any]] ?? []).compactMap { model -> LocalModel? in
-            guard let id = model["id"] as? String else { return nil }
-            let detail = [model["type"] as? String, model["quantization"] as? String].compactMap { $0 }.joined(separator: " · ")
+            // Only models that chat (not embedding models).
+            guard let id = model["id"] as? String, ["llm", "vlm"].contains(model["type"] as? String ?? "llm") else { return nil }
+            let detail = [model["type"] as? String == "vlm" ? "vision" : nil, model["quantization"] as? String]
+                .compactMap { $0 }.joined(separator: " · ")
             return LocalModel(host: .lmStudio, name: id, size: nil, detail: detail,
                               loaded: model["state"] as? String == "loaded", memory: nil, gpuShare: nil)
         }
         return (.running(version: nil), models.sorted { ($0.loaded ? 0 : 1, $0.name) < ($1.loaded ? 0 : 1, $1.name) })
     }
+
+    // MARK: llama.cpp, MLX and Apple
+
+    /// The address llama.cpp's `llama-server` and MLX's `mlx_lm.server` both use by default.
+    nonisolated static let modelServerBase = URL(string: "http://127.0.0.1:8080")!
+
+    /// What a llama.cpp or MLX server on 127.0.0.1:8080 is serving, if one is running.
+    nonisolated private static func readModelServer() async -> [LocalModel] {
+        guard let reply = await getJSON(modelServerBase.appendingPathComponent("v1/models")),
+              let data = reply["data"] as? [[String: Any]] else { return [] }
+        // llama.cpp answers /props; MLX's server doesn't.
+        let host: LocalModel.Host = await getJSON(modelServerBase.appendingPathComponent("props")) != nil ? .llamaCpp : .mlx
+        return data.compactMap { model in
+            guard let id = model["id"] as? String else { return nil }
+            return LocalModel(host: host, name: id, size: nil, detail: "\(host.rawValue) server · 127.0.0.1:8080",
+                              loaded: true, memory: nil, gpuShare: nil)
+        }
+    }
+
+    /// Apple's on-device model, on Macs with Apple Intelligence (checked once).
+    nonisolated static let appleModels: [LocalModel] = AppleModelServer.isAvailable
+        ? [LocalModel(host: .apple, name: "Apple on-device", size: nil, detail: "Apple Intelligence · built in, nothing to download",
+                      loaded: false, memory: nil, gpuShare: nil)]
+        : []
 
     // MARK: Actions
 
@@ -173,6 +235,8 @@ final class LocalModelsModel: ObservableObject {
                 } else {
                     failure = "Unload it in LM Studio (its lms command isn't installed)"
                 }
+            case .llamaCpp, .mlx, .apple:
+                break
             }
             let message = failure
             guard let self else { return }
@@ -189,6 +253,9 @@ final class LocalModelsModel: ObservableObject {
             SetupChecks.openTab(running: "\(Self.ollamaBinary.map(AgentTools.shellQuote) ?? "ollama") run \(AgentTools.shellQuote(model.name))")
         case .lmStudio:
             SetupChecks.openTab(running: "\(Self.lmsBinary.map(AgentTools.shellQuote) ?? "lms") chat \(AgentTools.shellQuote(model.name))")
+        case .llamaCpp, .mlx, .apple:
+            guard let owner = LocalModelsWindow.frontTerminal else { return }
+            LocalModelSessions.openTab(model, from: owner)
         }
     }
 
@@ -197,6 +264,43 @@ final class LocalModelsModel: ObservableObject {
         let name = name.trimmingCharacters(in: .whitespaces)
         guard !name.isEmpty else { return }
         SetupChecks.openTab(running: "\(Self.ollamaBinary.map(AgentTools.shellQuote) ?? "ollama") pull \(AgentTools.shellQuote(name))")
+    }
+
+    /// Downloads a model through Ollama's API, with its progress in `downloads`; the list is
+    /// checked again when it's done.
+    func download(_ name: String) {
+        guard downloads[name] == nil else { return }
+        downloads[name] = .some(nil)
+        error = nil
+        Task { [weak self] in
+            var request = URLRequest(url: Self.ollamaBase.appendingPathComponent("api/pull"), timeoutInterval: 3600)
+            request.httpMethod = "POST"
+            request.httpBody = try? JSONSerialization.data(withJSONObject: ["model": name, "stream": true])
+            var failure: String?
+            do {
+                let (bytes, _) = try await URLSession.shared.bytes(for: request)
+                var last = Date.distantPast
+                for try await line in bytes.lines {
+                    guard let event = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any] else { continue }
+                    if let message = event["error"] as? String { failure = message; break }
+                    let total = Self.int64(event["total"]), done = Self.int64(event["completed"])
+                    // A few updates a second is plenty for a progress bar.
+                    guard total > 0, Date().timeIntervalSince(last) > 0.25 else { continue }
+                    last = Date()
+                    let fraction = Double(done) / Double(total)
+                    await MainActor.run { self?.downloads[name] = fraction }
+                }
+            } catch {
+                failure = error.localizedDescription
+            }
+            let message = failure
+            await MainActor.run {
+                guard let self else { return }
+                self.downloads[name] = nil
+                if let message { self.error = "Couldn't download \(name): \(message)" }
+                self.load()
+            }
+        }
     }
 
     /// Deletes an Ollama model from disk.

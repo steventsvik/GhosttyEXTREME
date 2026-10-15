@@ -24,6 +24,7 @@ enum ExtremeFeature: String, CaseIterable, Identifiable {
     case skills
     case environment
     case phone
+    case localModels
 
     var id: String { rawValue }
 
@@ -47,6 +48,7 @@ enum ExtremeFeature: String, CaseIterable, Identifiable {
         case .skills: return "Skills"
         case .environment: return "Environment"
         case .phone: return "Phone"
+        case .localModels: return "Local models"
         }
     }
 
@@ -70,6 +72,7 @@ enum ExtremeFeature: String, CaseIterable, Identifiable {
         case .skills: return "Every skill your agents have installed, with updates, and what's trending on skills.sh"
         case .environment: return "A folder's tool versions and variables (mise, direnv), your containers, and local models"
         case .phone: return "Use your terminal from your phone over your own private Tailscale network"
+        case .localModels: return "Chat with a model on this Mac (Ollama), offline: open it from the sidebar, or drag it under a chat"
         }
     }
 
@@ -88,7 +91,7 @@ enum ExtremeFeature: String, CaseIterable, Identifiable {
         case .memory: return "Y"
         case .skills: return "U"
         case .environment: return "N"
-        case .undo, .usage, .ports, .git, .sharedMemory, .phone: return nil
+        case .undo, .usage, .ports, .git, .sharedMemory, .phone, .localModels: return nil
         }
     }
 
@@ -112,7 +115,7 @@ enum ExtremePreset: String, CaseIterable, Identifiable {
     var detail: String {
         switch self {
         case .everything: return "Every feature on"
-        case .essentials: return "Editor, Mission Control, review, undo, localhost, ports, git, memory, skills, environment, usage and phone"
+        case .essentials: return "Editor, Mission Control, review, undo, localhost, ports, git, memory, skills, environment, usage, phone and local models"
         case .sidebar: return "Vertical tabs with agent status, nothing else"
         }
     }
@@ -120,7 +123,7 @@ enum ExtremePreset: String, CaseIterable, Identifiable {
     var features: Set<ExtremeFeature> {
         switch self {
         case .everything: return Set(ExtremeFeature.allCases)
-        case .essentials: return [.editor, .missionControl, .localhost, .review, .undo, .usage, .ports, .git, .memory, .sharedMemory, .skills, .environment, .phone]
+        case .essentials: return [.editor, .missionControl, .localhost, .review, .undo, .usage, .ports, .git, .memory, .sharedMemory, .skills, .environment, .phone, .localModels]
         case .sidebar: return []
         }
     }
@@ -248,6 +251,8 @@ final class ExtremeSettings: ObservableObject {
         case .phone:
             AgentToolWindows.close(id: PhoneSetup.windowID)
             if PhoneServer.shared.running { PhoneServer.shared.turnOff() }
+        case .localModels:
+            AgentToolWindows.close(id: LocalModelsWindow.windowID)
         case .races, .undo, .usage, .git, .sharedMemory:
             break
         }

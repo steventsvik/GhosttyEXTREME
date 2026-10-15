@@ -406,7 +406,7 @@ private struct ModelsPane: View {
             hostRow("LM Studio", model.lmStudio, start: model.startLMStudio)
             if let error = model.error { banner(error, color: Extreme.danger) { EmptyView() } }
             if model.loadedMemory > 0 {
-                Text("Loaded models are using \(bytes(model.loadedMemory)) of this Mac's \(bytes(Int64(ProcessInfo.processInfo.physicalMemory))) memory.")
+                Text("Loaded models are using \(bytes(model.loadedMemory)) of this Mac's \(bytes(LocalModelsModel.memory)) memory.")
                     .font(Extreme.font(12)).foregroundColor(Extreme.muted)
             }
             ForEach([LocalModel.Host.ollama, .lmStudio], id: \.self) { host in

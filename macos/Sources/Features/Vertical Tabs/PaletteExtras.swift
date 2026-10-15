@@ -14,7 +14,7 @@ enum PaletteExtras {
                       AgentAlerts.isWaiting(info.activity) else { return nil }
                 let tab = controller.titleOverride ?? surface.pwd?.abbreviatedPath
                 return CommandOption(
-                    title: "Answer \(info.kind.displayName): \(info.detail ?? info.activity.label)",
+                    title: "Answer \(info.name): \(info.detail ?? info.activity.label)",
                     subtitle: [tab, info.task].compactMap { $0 }.joined(separator: " · "),
                     leadingIcon: info.activity == .needsPermission ? "hand.raised.fill" : "questionmark.bubble.fill",
                     leadingColor: info.kind.brandColor,
@@ -217,7 +217,7 @@ enum PaletteExtras {
     /// The pane's agent and what it's doing, for its "Focus:" entry.
     static func agentBadge(for surface: Ghostty.SurfaceView) -> String? {
         guard let info = VerticalTabsAgents.shared.info(for: surface), info.kind != .hermes else { return nil }
-        return info.activity == .ready ? info.kind.displayName : "\(info.kind.displayName) · \(info.activity.label)"
+        return info.activity == .ready ? info.name : "\(info.name) · \(info.activity.label)"
     }
 }
 #endif
