@@ -7,6 +7,8 @@ What changed in each Tellurion (formerly GhosttyEXTREME) release. Work in progre
 ## Unreleased
 
 - **A new About window.** Tellurion's About window now says what it is and what it does: mission control for your AI coding agents, with six highlights (every agent in one sidebar, the editor following each agent, answering from anywhere, undoing any turn, models on your Mac, and the layout), plus links to this version's release notes, the website and GitHub.
+- **Fixed:** a local model with a long name (`publisher/model:tag`) made the sidebar's tab list wider than the sidebar, cutting off both sides. Long names are now shortened in the middle.
+- **Fixed:** newer Python versions printed a warning about `fork()` when a local chat started. The helper that frees the model's memory when the chat ends now starts as its own process.
 
 ## 1.7.0
 
