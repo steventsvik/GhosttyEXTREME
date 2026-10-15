@@ -497,6 +497,11 @@ struct VerticalTabsSidebar: View {
                 PortsSidebarSection(owner: owner)
             }
 
+            // Models on this Mac, to open or drag under a chat (only when Ollama has some).
+            if settings.isOn(.localModels) {
+                LocalModelsSidebarSection(owner: owner)
+            }
+
             // Localhost sessions stay in view, whatever else is open.
             if !localhostTabs.isEmpty {
                 Rectangle().fill(Extreme.line).frame(height: 1)
@@ -740,8 +745,8 @@ private struct VerticalTabKindLabel: View {
     var body: some View {
         HStack(spacing: 5) {
             if let agent {
-                Text(agent.kind.displayName)
-                    .foregroundColor(agent.kind == .claude ? Extreme.claude : Extreme.text.opacity(0.8))
+                Text(agent.name)
+                    .foregroundColor(agent.kind == .claude && agent.localModel == nil ? Extreme.claude : Extreme.text.opacity(0.8))
                     .fixedSize()
                 if agent.activity != .ready {
                     Text("·").fixedSize()

@@ -93,6 +93,8 @@ private struct TerminalSplitLeaf: View {
 
     @State private var dropState: DropState = .idle
     @State private var isSelfDragging: Bool = false
+    /// Tellurion: a local model from the sidebar is over this pane; it opens underneath.
+    @State private var localModelOver = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -113,9 +115,17 @@ private struct TerminalSplitLeaf: View {
                         ))
                 }
             }
+            .background {
+                Color.clear
+                    .onDrop(of: [.tellurionLocalModel], delegate: LocalModelDropDelegate(over: $localModelOver, surface: surfaceView))
+            }
             .overlay {
                 if !isSelfDragging, case .dropping(let zone) = dropState {
                     zone.overlay(in: geometry)
+                        .allowsHitTesting(false)
+                }
+                if localModelOver {
+                    LocalModelDropPreview()
                         .allowsHitTesting(false)
                 }
             }

@@ -4,6 +4,7 @@
 #   tellurion doctor          check the agent status setup and send a live test event
 #   tellurion phone [status]  can your phone reach this Mac? (Tailscale), in one line
 #   tellurion phone setup     walk through the Tailscale steps, asking before each one
+#   tellurion local <model>   Claude Code on a local Ollama model (like `ollama launch claude`)
 #
 # Installed to ~/.ghostty-extreme/bin/ by the app (Setup Check, or the welcome window).
 # Paste `tellurion doctor` output into GitHub issues: it contains no personal data
@@ -281,8 +282,39 @@ phone_setup() {
   phone_status
 }
 
+# Claude Code on a model served by Ollama, through Ollama's Anthropic-compatible API.
+# The same settings `ollama launch claude --model <model>` uses; nothing is saved.
+local_model() {
+  local model=${1:-}
+  if [ -z "$model" ]; then
+    printf 'Usage: tellurion local <model> [claude options]\n' >&2
+    return 2
+  fi
+  shift
+  local host=${OLLAMA_HOST:-127.0.0.1:11434}
+  case "$host" in
+    http://*|https://*) ;;
+    :*) host="http://127.0.0.1$host" ;;
+    *) host="http://$host" ;;
+  esac
+  host=${host/0.0.0.0/127.0.0.1}
+  case "${host#*://}" in *:*) ;; *) host="$host:11434" ;; esac
+  if ! command -v claude >/dev/null 2>&1; then
+    printf 'Claude Code isn'"'"'t installed (the claude command). Install it, then try again.\n' >&2
+    return 1
+  fi
+  export TELLURION_LOCAL_MODEL="$model"
+  export ANTHROPIC_BASE_URL="$host" ANTHROPIC_AUTH_TOKEN=ollama ANTHROPIC_API_KEY=""
+  export ANTHROPIC_DEFAULT_OPUS_MODEL="$model" ANTHROPIC_DEFAULT_SONNET_MODEL="$model" ANTHROPIC_DEFAULT_HAIKU_MODEL="$model"
+  export CLAUDE_CODE_SUBAGENT_MODEL="$model" CLAUDE_CODE_ATTRIBUTION_HEADER=0
+  export DISABLE_ERROR_REPORTING=1 DISABLE_FEEDBACK_COMMAND=1 CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY=1
+  export CLAUDE_CODE_AUTO_MODE_SERVER=0 CLAUDE_CODE_TOTAL_TOKENS_REMINDER=off ENABLE_CLAUDEAI_MCP_SERVERS=false
+  exec claude --model "$model" "$@"
+}
+
 case "${1:-doctor}" in
   doctor) doctor ;;
+  local) shift; local_model "$@" ;;
   phone)
     case "${2:-status}" in
       status) phone_status ;;
@@ -290,11 +322,11 @@ case "${1:-doctor}" in
       *) printf 'Usage: tellurion phone [status|setup]\n' >&2; exit 2 ;;
     esac ;;
   -h|--help|help)
-    sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
     ;;
   *)
     printf 'Unknown command: %s\n' "$1" >&2
-    sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//' >&2
+    sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//' >&2
     exit 2
     ;;
 esac

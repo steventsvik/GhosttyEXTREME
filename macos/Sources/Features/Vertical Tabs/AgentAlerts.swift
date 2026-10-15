@@ -47,8 +47,8 @@ final class AgentAlerts {
 
     private func notify(_ info: VerticalTabAgentInfo, on surface: Ghostty.SurfaceView) {
         let title = info.activity == .needsPermission
-            ? "\(info.kind.displayName) needs your permission"
-            : "\(info.kind.displayName) has a question"
+            ? "\(info.name) needs your permission"
+            : "\(info.name) has a question"
         let body = info.detail ?? info.task ?? "Waiting for you"
         let center = UNUserNotificationCenter.current()
         center.requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in

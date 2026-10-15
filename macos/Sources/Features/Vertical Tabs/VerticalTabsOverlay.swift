@@ -212,7 +212,7 @@ private struct VerticalTabsHoverCard: View {
                 HStack(spacing: 6) {
                     VerticalTabAgentLogo(kind: agent.kind, tint: agent.kind.standaloneLogoColor)
                         .frame(width: 14, height: 14)
-                    Text(agent.kind.displayName)
+                    Text(agent.name)
                 }
                 .font(Extreme.font(12))
                 .foregroundColor(Extreme.muted)

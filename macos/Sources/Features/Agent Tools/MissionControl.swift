@@ -209,7 +209,7 @@ private struct MissionCardView: View {
             HStack(spacing: 9) {
                 avatar
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(card.agent?.kind.displayName ?? "Terminal").font(Extreme.font(13))
+                    Text(card.agent?.name ?? "Terminal").font(Extreme.font(13))
                     Text([card.tabTitle, card.folder].compactMap { $0 }.joined(separator: " · "))
                         .font(Extreme.font(11)).foregroundColor(Extreme.muted).lineLimit(1).truncationMode(.middle)
                 }

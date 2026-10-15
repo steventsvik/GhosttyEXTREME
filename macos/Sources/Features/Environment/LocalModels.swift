@@ -37,8 +37,18 @@ final class LocalModelsModel: ObservableObject {
     @Published private(set) var busy: Set<String> = []
     @Published var error: String?
 
+    /// The one the sidebar and the Local Models window share.
+    static let shared = LocalModelsModel()
+
     private var timer: Timer?
     private var loading = false
+    private var watchers = 0
+
+    /// Keeps the list fresh while at least one view shows it.
+    func watch(_ on: Bool) {
+        watchers = max(0, watchers + (on ? 1 : -1))
+        if watchers > 0 { start() } else { stop() }
+    }
 
     /// Ollama's address: OLLAMA_HOST like Ollama's own CLI, else its default.
     nonisolated static var ollamaBase: URL { ollamaURL(ProcessInfo.processInfo.environment["OLLAMA_HOST"]) }
