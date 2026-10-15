@@ -706,10 +706,18 @@ struct VerticalTabAvatar: View {
     /// Extra highlight on the row behind the avatar, so the badge ring matches it.
     var rowHighlight: Double = 0
     var size: CGFloat = 22
+    /// Running on a model on this Mac: a chip instead of the agent's critter.
+    var local = false
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            MoodSprite(kind: agent, mood: mood, pixel: size >= 22 ? 2 : 1.5)
+            Group {
+                if local {
+                    LocalModelSprite(pixel: size >= 22 ? 2 : 1.5)
+                } else {
+                    MoodSprite(kind: agent, mood: mood, pixel: size >= 22 ? 2 : 1.5)
+                }
+            }
                 .frame(width: size, height: size)
                 .background(Extreme.ink.opacity(0.6))
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous)).overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Extreme.line, lineWidth: 1))
@@ -1081,7 +1089,8 @@ private struct VerticalTabPaneRow: View {
             badge: pane.badge,
             palette: palette,
             rowHighlight: isSelected ? 0.09 : (hovering ? 0.05 : 0),
-            size: condensed ? 18 : 22)
+            size: condensed ? 18 : 22,
+            local: pane.agent?.localModel != nil)
     }
 
     private var expandedBody: some View {
@@ -1195,7 +1204,8 @@ private struct VerticalTabPaneRow: View {
     @ViewBuilder
     private var primaryLine: some View {
         if let agent = pane.agent {
-            Text(agent.task ?? VerticalTabGroup.cleanTitle(pane.title))
+            // A local model's pane is titled by Claude Code; say where it runs instead.
+            Text(agent.task ?? (agent.localModel != nil ? "Running on this Mac" : VerticalTabGroup.cleanTitle(pane.title)))
                 .font(Extreme.font(11))
                 .foregroundColor(Extreme.muted)
                 .lineLimit(1)

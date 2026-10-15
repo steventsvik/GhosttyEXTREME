@@ -229,6 +229,23 @@ struct AgentSprite: View {
     }
 }
 
+/// A model running on this Mac: a chip with its pins.
+struct LocalModelSprite: View {
+    var pixel: CGFloat = 2
+
+    var body: some View {
+        PixelBitmap(rows: [
+            ".o.o.o.o.",
+            "ooooooooo",
+            ".occccco.",
+            "oocc.ccoo",
+            ".occccco.",
+            "ooooooooo",
+            ".o.o.o.o.",
+        ], colors: ["o": Extreme.live, "c": Extreme.core], pixel: pixel * 0.8)
+    }
+}
+
 /// An agent's pixel sprite in a square cell, for lists and cards.
 struct AgentBadge: View {
     let kind: VerticalTabAgentKind?

@@ -340,6 +340,9 @@ for m in json.load(sys.stdin).get("models", []):
   # tool lists (often thousands of tokens), and Qwen 3's long thinking before each answer.
   local extra=(--strict-mcp-config --mcp-config '{"mcpServers":{}}')
   case "$model" in qwen3:*|qwen3-*) [[ $model == qwen3-coder* ]] || extra+=(--append-system-prompt "/no_think") ;; esac
+  # The tab is titled after the model, not "Claude Code".
+  export CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1
+  [ -t 1 ] && printf '\e]2;%s\a' "$model"
   exec claude --model "$model" "${extra[@]}" "$@"
 }
 
