@@ -42,7 +42,8 @@ def report(model, event, detail=""):
     """Tells Tellurion's sidebar what the chat is doing. Silent anywhere else."""
     if os.environ.get("GHOSTTY_EXTREME_AGENT_EVENTS") != "1":
         return
-    detail = " ".join("".join(c if c.isprintable() else " " for c in detail).split())[:48]
+    if event != "transcript":
+        detail = " ".join("".join(c if c.isprintable() else " " for c in detail).split())[:48]
     body = {"agent": "local", "event": event, "detail": detail, "session": model[:60],
             "t": os.environ.get("GHOSTTY_EXTREME_EVENT_TOKEN", "")}
     # The terminal caps notification bodies at 255 bytes.
@@ -51,6 +52,28 @@ def report(model, event, detail=""):
     try:
         with open("/dev/tty", "w") as tty:
             tty.write("\033]777;notify;ghostty-extreme://agent;" + json.dumps(body, separators=(",", ":")) + "\a")
+    except OSError:
+        pass
+
+
+FEED = os.path.join(os.path.expanduser("~"), ".ghostty-extreme", "feeds", f"local-{os.getpid()}.jsonl")
+
+
+def record(kind, content):
+    """Adds to the chat's feed, which Tellurion's code editor shows live (Claude Code's
+    transcript format, which it already reads)."""
+    if os.environ.get("GHOSTTY_EXTREME_AGENT_EVENTS") != "1" or not content:
+        return
+    stamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()) + "Z"
+    if kind == "prompt":
+        entry = {"type": "user", "timestamp": stamp, "message": {"role": "user", "content": content}}
+    else:
+        block = {"type": "thinking", "thinking": content} if kind == "thinking" else {"type": "text", "text": content}
+        entry = {"type": "assistant", "timestamp": stamp, "message": {"role": "assistant", "content": [block]}}
+    try:
+        os.makedirs(os.path.dirname(FEED), exist_ok=True)
+        with open(FEED, "a", encoding="utf-8") as feed:
+            feed.write(json.dumps(entry, ensure_ascii=False) + "\n")
     except OSError:
         pass
 
@@ -92,7 +115,7 @@ def reply(model, messages, show_reasoning, thinks):
     payload = {"model": model, "messages": messages, "stream": True, "keep_alive": "10m"}
     if thinks:
         payload["think"] = True
-    text, in_thinking, started, last = [], False, time.time(), 0.0
+    text, reasoning, in_thinking, started, last = [], [], False, time.time(), 0.0
     try:
         response = post("/api/chat", payload)
     except urllib.error.HTTPError as error:
@@ -108,6 +131,7 @@ def reply(model, messages, show_reasoning, thinks):
                 raise RuntimeError(chunk["error"])
             message = chunk.get("message") or {}
             if message.get("thinking"):
+                reasoning.append(message["thinking"])
                 if show_reasoning:
                     if not in_thinking:
                         sys.stdout.write(DIM)
@@ -126,6 +150,7 @@ def reply(model, messages, show_reasoning, thinks):
             if chunk.get("done"):
                 break
     sys.stdout.write(RESET + "\n")
+    record("thinking", "".join(reasoning).strip())
     return "".join(text)
 
 
@@ -142,6 +167,14 @@ def main():
         return 1
     print(f"{GOLD}{BOLD}{model}{RESET}{DIM} · on this Mac, through Ollama · /think shows reasoning · /clear · /exit · Ctrl-C stops a reply{RESET}\n")
     report(model, "session_start")
+    # Where the code editor finds this chat's live feed.
+    if os.environ.get("GHOSTTY_EXTREME_AGENT_EVENTS") == "1":
+        try:
+            os.makedirs(os.path.dirname(FEED), exist_ok=True)
+            open(FEED, "a").close()
+            report(model, "transcript", FEED)
+        except OSError:
+            pass
     try:
         import readline  # noqa: F401 - arrow keys and history in input()
     except ImportError:
@@ -171,6 +204,7 @@ def main():
                 print(f"{DIM}{'Showing' if show_reasoning else 'Hiding'} the model's reasoning.{RESET}\n")
                 continue
             messages.append({"role": "user", "content": prompt})
+            record("prompt", prompt)
             report(model, "prompt_submit", re.sub(r"\s+", " ", prompt))
             print()
             try:
@@ -180,6 +214,7 @@ def main():
                     thinks = False
                     answer = reply(model, messages, show_reasoning, thinks)
                 messages.append({"role": "assistant", "content": answer})
+                record("message", answer)
                 report(model, "stop")
             except KeyboardInterrupt:
                 sys.stdout.write(RESET + f"\n{DIM}Stopped.{RESET}\n")

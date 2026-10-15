@@ -55,7 +55,7 @@ final class LocalModelsModel: ObservableObject {
     /// chat starting or ending, or coming back to Tellurion from another app).
     func watch(_ on: Bool) {
         watchers = max(0, watchers + (on ? 1 : -1))
-        if on && watchers == 1 { start() }
+        if on && watchers == 1 { start() } else if watchers == 0 { stop() }
     }
 
     /// Ollama's address: OLLAMA_HOST like Ollama's own CLI, else its default.
