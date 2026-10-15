@@ -1,10 +1,12 @@
 import SwiftUI
 
+/// Tellurion's About window: what it is in one line, what it does in six, then the version
+/// and where to go next.
 struct AboutView: View {
     @Environment(\.openURL) var openURL
 
     private let githubURL = URL(string: "https://github.com/steventsvik/Tellurion")
-    private let docsURL = URL(string: "https://github.com/steventsvik/Tellurion#readme")
+    private let websiteURL = URL(string: "https://steventsvik.github.io/Tellurion/")
 
     /// Read the commit from the bundle.
     private var build: String? { Bundle.main.infoDictionary?["CFBundleVersion"] as? String }
@@ -12,136 +14,157 @@ struct AboutView: View {
     private var version: String? { Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String }
     private var copyright: String? { Bundle.main.infoDictionary?["NSHumanReadableCopyright"] as? String }
 
-    #if os(macOS)
-    // This creates a background style similar to the Apple "About My Mac" Window
-    private struct VisualEffectBackground: NSViewRepresentable {
-        let material: NSVisualEffectView.Material
-        let blendingMode: NSVisualEffectView.BlendingMode
-        let isEmphasized: Bool
-
-        init(material: NSVisualEffectView.Material,
-             blendingMode: NSVisualEffectView.BlendingMode = .behindWindow,
-             isEmphasized: Bool = false) {
-            self.material = material
-            self.blendingMode = blendingMode
-            self.isEmphasized = isEmphasized
-        }
-
-        func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
-            nsView.material = material
-            nsView.blendingMode = blendingMode
-            nsView.isEmphasized = isEmphasized
-        }
-
-        func makeNSView(context: Context) -> NSVisualEffectView {
-            let visualEffect = NSVisualEffectView()
-            visualEffect.autoresizingMask = [.width, .height]
-            return visualEffect
-        }
+    /// This version's release notes.
+    private var whatsNewURL: URL? {
+        guard let version else { return githubURL?.appendingPathComponent("releases") }
+        return githubURL?.appendingPathComponent("releases/tag/extreme-\(version)")
     }
-    #endif
+
+    private struct Highlight: Identifiable {
+        let symbol: String
+        let title: String
+        let detail: String
+        var id: String { title }
+    }
+
+    private let highlights = [
+        Highlight(symbol: "person.3.sequence.fill", title: "Every agent, one sidebar",
+                  detail: "Claude Code, Codex, Gemini and a dozen more, with live status. You know the second one needs you."),
+        Highlight(symbol: "chevron.left.forwardslash.chevron.right", title: "Watch the code change",
+                  detail: "The editor follows each agent as it reads and edits, side by side when several work at once."),
+        Highlight(symbol: "hand.raised.fill", title: "Answer from anywhere",
+                  detail: "Allow or deny from the sidebar, a notification, Mission Control or your phone."),
+        Highlight(symbol: "arrow.uturn.backward.circle.fill", title: "Undo any turn",
+                  detail: "A snapshot before every prompt, and a review inbox for each agent's finished work."),
+        Highlight(symbol: "cpu.fill", title: "Models on your Mac",
+                  detail: "Ollama, LM Studio, Apple's own model. Private, offline, no account."),
+        Highlight(symbol: "rectangle.split.3x1.fill", title: "Your window, your way",
+                  detail: "Drag the tabs, terminal and panels into place. Visual Fix, ports, skills and more are a click away."),
+    ]
 
     var body: some View {
-        VStack(alignment: .center) {
-            CyclingIconView()
-
-            VStack(alignment: .center, spacing: 32) {
-                VStack(alignment: .center, spacing: 8) {
-                    Text("Tellurion")
-                        .bold()
-                        .font(.title)
-                    Text("The macOS terminal built for coding agents.\nBased on Ghostty.")
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .font(.caption)
-                        .tint(.secondary)
-                        .opacity(0.8)
-                }
-                .textSelection(.enabled)
-
-                VStack(spacing: 2) {
-                    if let version {
-                        PropertyRow(label: "Version", text: version)
-                    }
-                    if let build {
-                        PropertyRow(label: "Build", text: build)
-                    }
-                    if let commit, commit != "",
-                       let url = githubURL?.appendingPathComponent("/commits/\(commit)") {
-                        PropertyRow(label: "Commit", text: commit, url: url)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-
-                HStack(spacing: 8) {
-                    if let url = docsURL {
-                        Button("Docs") {
-                            openURL(url)
-                        }
-                    }
-                    if let url = githubURL {
-                        Button("GitHub") {
-                            openURL(url)
-                        }
-                    }
-                }
-
-                if let copy = self.copyright {
-                    Text(copy)
-                        .font(.caption)
-                        .textSelection(.enabled)
-                        .tint(.secondary)
-                        .opacity(0.8)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
-                }
+        VStack(spacing: 0) {
+            header
+                .padding(.top, 40)
+                .padding(.bottom, 26)
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                ForEach(highlights) { HighlightCard(highlight: $0) }
             }
-            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 28)
+            footer
+                .padding(.top, 24)
+                .padding(.bottom, 26)
         }
-        .padding(.top, 8)
-        .padding(32)
-        .frame(minWidth: 256)
-        #if os(macOS)
-        .background(VisualEffectBackground(material: .underWindowBackground).ignoresSafeArea())
-        #endif
+        .frame(width: 600)
+        .background(background)
+        .environment(\.colorScheme, .dark)
     }
 
-    private struct PropertyRow: View {
-        private let label: String
-        private let text: String
-        private let url: URL?
-
-        init(label: String, text: String, url: URL? = nil) {
-            self.label = label
-            self.text = text
-            self.url = url
+    private var header: some View {
+        VStack(spacing: 14) {
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 96, height: 96)
+                .shadow(color: Extreme.core.opacity(0.25), radius: 18)
+                .accessibilityLabel("Tellurion")
+            Text("TELLURION")
+                .font(Extreme.font(13, weight: .semibold))
+                .kerning(5)
+                .foregroundColor(Extreme.gold)
+            Text("Mission control for your AI coding agents.")
+                .font(.system(size: 22, weight: .bold))
+                .foregroundColor(Extreme.text)
+                .multilineTextAlignment(.center)
+            Text("Run as many agents as you like and see everything they do, live.\nOne terminal, every agent, nothing hidden.")
+                .font(Extreme.font(12.5))
+                .foregroundColor(Extreme.muted)
+                .multilineTextAlignment(.center)
+                .lineSpacing(2)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(.horizontal, 32)
+        .textSelection(.enabled)
+    }
 
-        @ViewBuilder private var textView: some View {
-            Text(text)
-                .frame(width: 125, alignment: .leading)
-                .padding(.leading, 2)
-                .tint(.secondary)
-                .opacity(0.8)
-                .monospaced()
-        }
-
-        var body: some View {
-            HStack(spacing: 4) {
-                Text(label)
-                    .frame(width: 126, alignment: .trailing)
-                    .padding(.trailing, 2)
-                if let url {
-                    Link(destination: url) {
-                        textView
-                    }
-                } else {
-                    textView
+    private var footer: some View {
+        VStack(spacing: 14) {
+            HStack(spacing: 8) {
+                if let url = whatsNewURL {
+                    Button("What's new") { openURL(url) }.buttonStyle(ExtremeButtonStyle(prominent: true))
+                }
+                if let url = websiteURL {
+                    Button("Website") { openURL(url) }.buttonStyle(ExtremeButtonStyle())
+                }
+                if let url = githubURL {
+                    Button("GitHub") { openURL(url) }.buttonStyle(ExtremeButtonStyle())
                 }
             }
-            .font(.callout)
+            versionLine
+            VStack(spacing: 3) {
+                Text("Built on Ghostty by Mitchell Hashimoto and its contributors.")
+                if let copyright { Text(copyright) }
+            }
+            .font(Extreme.font(10.5))
+            .foregroundColor(Extreme.dim)
+            .multilineTextAlignment(.center)
             .textSelection(.enabled)
-            .frame(maxWidth: .infinity)
+        }
+    }
+
+    /// "Version 1.7.0 · build 12 · a1b2c3d", the commit linking to it on GitHub.
+    private var versionLine: some View {
+        HStack(spacing: 6) {
+            if let version { Text("Version \(version)") }
+            if let build, build != version { Text("·"); Text("build \(build)") }
+            if let commit, !commit.isEmpty, let url = githubURL?.appendingPathComponent("commits/\(commit)") {
+                Text("·")
+                Link(destination: url) { Text(String(commit.prefix(9))).font(Extreme.mono(10.5)) }
+            }
+        }
+        .font(Extreme.font(11))
+        .foregroundColor(Extreme.muted)
+        .textSelection(.enabled)
+    }
+
+    private var background: some View {
+        ZStack {
+            Extreme.ink
+            // A soft glow behind the icon, in the core's cyan.
+            RadialGradient(colors: [Extreme.core.opacity(0.10), .clear], center: .top, startRadius: 10, endRadius: 320)
+            LinearGradient(colors: [.clear, Extreme.gold.opacity(0.05)], startPoint: .top, endPoint: .bottom)
+        }
+        .ignoresSafeArea()
+    }
+
+    private struct HighlightCard: View {
+        let highlight: Highlight
+
+        var body: some View {
+            let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+            HStack(alignment: .top, spacing: 11) {
+                Image(systemName: highlight.symbol)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Extreme.gold)
+                    .frame(width: 30, height: 30)
+                    .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Extreme.ink))
+                    .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Extreme.line, lineWidth: 1))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(highlight.title)
+                        .font(Extreme.font(12.5, weight: .semibold))
+                        .foregroundColor(Extreme.text)
+                    Text(highlight.detail)
+                        .font(Extreme.font(11))
+                        .foregroundColor(Extreme.muted)
+                        .lineSpacing(1.5)
+                        .lineLimit(3)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(12)
+            // One height for every card, so the grid lines up.
+            .frame(maxWidth: .infinity, minHeight: 88, maxHeight: 88, alignment: .topLeading)
+            .background(shape.fill(Extreme.panel))
+            .overlay(shape.strokeBorder(Extreme.line, lineWidth: 1))
         }
     }
 }

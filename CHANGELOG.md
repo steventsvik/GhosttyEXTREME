@@ -4,6 +4,10 @@ What changed in each Tellurion (formerly GhosttyEXTREME) release. Work in progre
 **Unreleased**; at release time that heading becomes the version number, and
 `./release.sh` uses the section as the release notes.
 
+## Unreleased
+
+- **A new About window.** Tellurion's About window now says what it is and what it does: mission control for your AI coding agents, with six highlights (every agent in one sidebar, the editor following each agent, answering from anywhere, undoing any turn, models on your Mac, and the layout), plus links to this version's release notes, the website and GitHub.
+
 ## 1.7.0
 
 This is a big one. Tellurion now runs AI models on your own Mac, works with many more coding agents than Claude Code and Codex, and its code editor can follow several agents at once.

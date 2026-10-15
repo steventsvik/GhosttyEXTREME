@@ -5,21 +5,19 @@ import SwiftUI
 class AboutController: NSWindowController, NSWindowDelegate {
     static let shared: AboutController = AboutController()
 
-    private let viewModel = AboutViewModel()
     override var windowNibName: NSNib.Name? { "About" }
 
     override func windowDidLoad() {
         guard let window = window else { return }
         window.center()
         window.isMovableByWindowBackground = true
-        window.contentView = NSHostingView(rootView: AboutView().environmentObject(viewModel))
+        window.contentView = NSHostingView(rootView: AboutView())
     }
 
     // MARK: - Functions
 
     func show() {
         window?.makeKeyAndOrderFront(nil)
-        viewModel.startCyclingIcons()
     }
 
     func hide() {
@@ -41,7 +39,5 @@ class AboutController: NSWindowController, NSWindowDelegate {
         close()
     }
 
-    func windowWillClose(_ notification: Notification) {
-        viewModel.stopCyclingIcons()
-    }
+    func windowWillClose(_ notification: Notification) {}
 }
