@@ -179,6 +179,8 @@ struct LocalModelsSidebarSection: View {
         .padding(.bottom, list.isEmpty ? 0 : 6)
         // Stays mounted (empty) so it appears when a model is downloaded.
         .frame(maxWidth: .infinity, minHeight: 0, alignment: .leading)
+        // Keeps its height in a short window; the tab list above scrolls instead.
+        .fixedSize(horizontal: false, vertical: true)
         .onAppear { models.watch(true) }
         .onDisappear { models.watch(false) }
         .animation(.easeOut(duration: 0.18), value: list.map(\.id))
@@ -191,7 +193,8 @@ struct LocalModelsSidebarSection: View {
                     Image(systemName: collapsed ? "chevron.right" : "chevron.down")
                         .font(.system(size: 8, weight: .bold)).foregroundColor(Extreme.dim).frame(width: 8)
                     Text("LOCAL MODELS").font(Extreme.font(10.5, weight: .semibold)).kerning(1.1).foregroundColor(Extreme.muted)
-                    Text("\(count)").font(Extreme.font(10)).foregroundColor(Extreme.dim)
+                        .fixedSize()
+                    Text("\(count)").font(Extreme.font(10)).foregroundColor(Extreme.dim).fixedSize()
                 }
                 .contentShape(Rectangle())
             }
