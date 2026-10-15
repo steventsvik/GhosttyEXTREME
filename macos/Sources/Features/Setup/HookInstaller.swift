@@ -34,6 +34,7 @@ enum HookInstaller {
             ("memory_context.py", hooksFolder),
             ("agent-event.py", hooksFolder),
             ("opencode-plugin.js", hooksFolder),
+            ("amp-plugin.ts", hooksFolder),
             ("localhost", binFolder),
             ("localhost-run", binFolder),
             ("tellurion", binFolder),

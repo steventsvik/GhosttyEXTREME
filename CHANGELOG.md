@@ -7,6 +7,9 @@ What changed in each Tellurion (formerly GhosttyEXTREME) release. Work in progre
 ## Unreleased
 
 - **More in Tools, in sections.** The Tools list is now grouped: **This tab** (code editor, Visual Fix, command history), **Agents** (Mission Control, agent races, review, activity), **Project** (localhost, skills, project memory, environment), **This Mac** (background processes, phone) and **View** (Layout, condense, settings). New in the list: **Phone** (pair a phone and see which devices can reach this Mac), **Command history** (⌃⌘B) and **Agent races** (⌃⌘R).
+- **Live status for more agents.** Setup now offers to connect **Qwen Code**, **Kimi Code**, **Goose**, **Amp** and **Mistral Vibe**, so the sidebar shows when they're working and done, like Claude Code. Qwen Code and Kimi also say when they need your permission. Mistral Vibe shows as working from its first tool. Amp gets a small plugin, like OpenCode. Each one is optional and only observes; nothing is approved or changed.
+- **Fixed:** Cursor CLI showed **Ready** until its first tool ran, so the first change of each turn couldn't be undone. It now reports the moment you submit a prompt, and `agent` (Cursor's new command name) is recognized.
+- **Fixed:** **Remove hooks** in Settings now also removes the hooks for Gemini, Copilot and the other agents, not only Claude Code's and Codex's.
 
 ## 1.6.0
 

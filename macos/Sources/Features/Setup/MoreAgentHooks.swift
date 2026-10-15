@@ -7,9 +7,9 @@ import Foundation
 ///
 /// Where the agent reads a folder of hook files, Tellurion writes a file of its own
 /// there. Where hooks share a settings file with the user's, only our entries are added
-/// or removed, and the file is backed up first.
+/// or removed, and the file is backed up first. OpenCode and Amp take a plugin instead.
 enum MoreAgent: String, CaseIterable, Identifiable {
-    case copilot, droid, kiro, gemini, antigravity, cursor, opencode
+    case copilot, droid, kiro, gemini, antigravity, cursor, opencode, qwen, kimi, goose, amp, mistral
 
     var id: String { rawValue }
 
@@ -22,6 +22,11 @@ enum MoreAgent: String, CaseIterable, Identifiable {
         case .antigravity: return "Antigravity CLI"
         case .cursor: return "Cursor CLI"
         case .opencode: return "OpenCode"
+        case .qwen: return "Qwen Code"
+        case .kimi: return "Kimi Code"
+        case .goose: return "Goose"
+        case .amp: return "Amp"
+        case .mistral: return "Mistral Vibe"
         }
     }
 
@@ -33,17 +38,22 @@ enum MoreAgent: String, CaseIterable, Identifiable {
         case .kiro: return ["kiro-cli"]
         case .gemini: return ["gemini"]
         case .antigravity: return ["agy"]
-        case .cursor: return ["cursor-agent"]
+        case .cursor: return ["cursor-agent", "agent"]
         case .opencode: return ["opencode"]
+        case .qwen: return ["qwen"]
+        case .kimi: return ["kimi"]
+        case .goose: return ["goose"]
+        case .amp: return ["amp"]
+        case .mistral: return ["vibe"]
         }
     }
 
     /// What it can report: not every agent says when it's waiting for permission.
     var reports: String {
         switch self {
-        case .copilot, .droid, .gemini: return "working, needs permission, done"
-        case .kiro, .antigravity, .cursor: return "working and done (it doesn't report permission prompts)"
-        case .opencode: return "working, needs permission, done"
+        case .copilot, .droid, .gemini, .opencode, .qwen, .kimi: return "working, needs permission, done"
+        case .kiro, .antigravity, .cursor, .goose, .amp: return "working and done (it doesn't report permission prompts)"
+        case .mistral: return "working and done, from its first tool (it doesn't report prompts or permission)"
         }
     }
 
@@ -64,8 +74,19 @@ enum MoreAgent: String, CaseIterable, Identifiable {
         case .antigravity:
             return [("PreInvocation", nil), ("PostToolUse", "*"), ("Stop", nil)]
         case .cursor:
-            return [("sessionStart", nil), ("postToolUse", nil), ("afterFileEdit", nil), ("stop", nil), ("sessionEnd", nil)]
-        case .opencode:
+            return [("sessionStart", nil), ("beforeSubmitPrompt", nil), ("postToolUse", nil), ("afterFileEdit", nil),
+                    ("stop", nil), ("sessionEnd", nil)]
+        case .qwen:
+            return [("SessionStart", nil), ("UserPromptSubmit", nil), ("PostToolUse", "*"), ("Notification", nil),
+                    ("Stop", nil), ("StopFailure", nil), ("SessionEnd", nil)]
+        case .kimi:
+            return [("SessionStart", nil), ("UserPromptSubmit", nil), ("PostToolUse", nil), ("PermissionRequest", nil),
+                    ("PermissionResult", nil), ("Stop", nil), ("StopFailure", nil), ("Interrupt", nil), ("SessionEnd", nil)]
+        case .goose:
+            return [("SessionStart", nil), ("UserPromptSubmit", nil), ("PostToolUse", nil), ("Stop", nil), ("SessionEnd", nil)]
+        case .mistral:
+            return [("post_tool", nil), ("post_agent", nil)]
+        case .opencode, .amp:
             return []
         }
     }
@@ -83,12 +104,33 @@ enum MoreAgent: String, CaseIterable, Identifiable {
         case .antigravity: path = "/.gemini/config/hooks.json"
         case .cursor: path = "/.cursor/hooks.json"
         case .opencode: path = "/.config/opencode/plugins/ghostty-extreme.js"
+        case .qwen: path = "/.qwen/settings.json"
+        case .kimi:
+            // Kimi Code moved its folder from ~/.kimi; it migrates the old one itself.
+            let fm = FileManager.default
+            path = fm.fileExists(atPath: home + "/.kimi") && !fm.fileExists(atPath: home + "/.kimi-code")
+                ? "/.kimi/config.toml" : "/.kimi-code/config.toml"
+        case .goose: path = "/.agents/plugins/tellurion/hooks/hooks.json"
+        case .amp: path = "/.config/amp/plugins/tellurion.ts"
+        case .mistral: path = "/.vibe/hooks.toml"
         }
         return URL(fileURLWithPath: home + path)
     }
 
     /// The whole file is ours (deleted to disconnect), rather than entries in a shared one.
-    var ownsFile: Bool { [.copilot, .kiro, .opencode].contains(self) }
+    var ownsFile: Bool { [.copilot, .kiro, .opencode, .goose, .amp].contains(self) }
+
+    /// A plugin file copied as is from the app, instead of hook entries.
+    var plugin: String? {
+        switch self {
+        case .opencode: return "opencode-plugin.js"
+        case .amp: return "amp-plugin.ts"
+        default: return nil
+        }
+    }
+
+    /// Its hooks live in a TOML file shared with its other settings.
+    var isTOML: Bool { self == .kimi || self == .mistral }
 
     /// Signs of it on this Mac, besides its command.
     func isPresent(home: String, tools: [String: String]) -> Bool {
@@ -98,6 +140,11 @@ enum MoreAgent: String, CaseIterable, Identifiable {
         case .droid: return FileManager.default.fileExists(atPath: home + "/.factory")
         case .kiro: return FileManager.default.fileExists(atPath: home + "/.kiro")
         case .antigravity: return FileManager.default.fileExists(atPath: home + "/.gemini/antigravity-cli")
+        case .qwen: return FileManager.default.fileExists(atPath: home + "/.qwen")
+        case .kimi: return FileManager.default.fileExists(atPath: home + "/.kimi-code") || FileManager.default.fileExists(atPath: home + "/.kimi")
+        case .goose: return FileManager.default.fileExists(atPath: home + "/.config/goose")
+        case .amp: return FileManager.default.fileExists(atPath: home + "/.config/amp")
+        case .mistral: return FileManager.default.fileExists(atPath: home + "/.vibe")
         // Cursor's and Gemini's folders also belong to their apps; only the CLI counts.
         case .gemini, .cursor, .opencode: return false
         }
@@ -131,13 +178,19 @@ enum MoreAgentConfig {
                 ["name": "ghostty-extreme-\(event.name)", "trigger": event.name, "timeout": 5, "enabled": true,
                  "action": ["type": "command", "command": agent.command(script: script, event: event.name)]] as [String: Any]
             }]
-        case .droid, .gemini:
+        case .goose:
+            var hooks: [String: Any] = [:]
+            for event in agent.events {
+                hooks[event.name] = [["hooks": [["type": "command", "command": agent.command(script: script, event: event.name)]]]]
+            }
+            return ["hooks": hooks]
+        case .droid, .gemini, .qwen:
             let topLevel = eventsAtTop
             var hooks = topLevel ? config : config["hooks"] as? [String: Any] ?? [:]
             for event in agent.events {
                 var handler: [String: Any] = ["type": "command", "command": agent.command(script: script, event: event.name)]
-                // Gemini counts milliseconds.
-                handler["timeout"] = agent == .gemini ? 5000 : 5
+                // Gemini counts milliseconds; Qwen's unit isn't documented, so it keeps its default.
+                if agent != .qwen { handler["timeout"] = agent == .gemini ? 5000 : 5 }
                 if agent == .gemini { handler["name"] = "ghostty-extreme" }
                 var groups = hooks[event.name] as? [[String: Any]] ?? []
                 groups.append(["matcher": event.matcher ?? "", "hooks": [handler]])
@@ -168,7 +221,7 @@ enum MoreAgentConfig {
             }
             result["hooks"] = hooks
             return result
-        case .opencode:
+        case .opencode, .amp, .kimi, .mistral:
             return config
         }
     }
@@ -176,7 +229,7 @@ enum MoreAgentConfig {
     /// The config without our hooks; everything else as it was.
     static func disconnected(_ agent: MoreAgent, config: [String: Any], eventsAtTop: Bool = false) -> [String: Any] {
         switch agent {
-        case .copilot, .kiro, .opencode:
+        case .copilot, .kiro, .opencode, .goose, .amp, .kimi, .mistral:
             return [:]
         case .antigravity:
             var result = config
@@ -191,7 +244,7 @@ enum MoreAgentConfig {
             }
             result["hooks"] = hooks
             return result
-        case .droid, .gemini:
+        case .droid, .gemini, .qwen:
             let topLevel = eventsAtTop
             var hooks = topLevel ? config : config["hooks"] as? [String: Any] ?? [:]
             for (event, value) in hooks {
@@ -217,26 +270,94 @@ enum MoreAgentConfig {
     }
 }
 
+/// Kimi's and Mistral Vibe's hooks are `[[hooks]]` tables in a TOML file that also holds
+/// the user's settings. Ours go in one marked block at the end, so taking them out never
+/// touches anything else.
+enum MoreAgentTOML {
+    static let begin = "# >>> Tellurion agent status (added by Tellurion; remove in its Settings) >>>"
+    static let end = "# <<< Tellurion agent status <<<"
+
+    static func connected(_ agent: MoreAgent, text: String, script: String) -> String {
+        var lines = [begin]
+        for event in agent.events {
+            let command = tomlString(agent.command(script: script, event: event.name))
+            switch agent {
+            case .kimi:
+                lines += ["[[hooks]]", "event = \(tomlString(event.name))", "command = \(command)", "timeout = 5", ""]
+            default:
+                lines += ["[[hooks]]", "name = \(tomlString("tellurion-" + event.name))", "type = \(tomlString(event.name))",
+                          "command = \(command)", ""]
+            }
+        }
+        lines.removeLast()
+        lines.append(end)
+        var kept = disconnected(text)
+        if !kept.isEmpty && !kept.hasSuffix("\n") { kept += "\n" }
+        if !kept.isEmpty { kept += "\n" }
+        return kept + lines.joined(separator: "\n") + "\n"
+    }
+
+    static func disconnected(_ text: String) -> String {
+        guard let start = text.range(of: begin), let stop = text.range(of: end, range: start.upperBound..<text.endIndex) else { return text }
+        var before = String(text[..<start.lowerBound])
+        var after = String(text[stop.upperBound...])
+        if after.hasPrefix("\n") { after.removeFirst() }
+        while before.hasSuffix("\n\n") { before.removeLast() }
+        return before + after
+    }
+
+    static func isConnected(_ agent: MoreAgent, text: String) -> Bool {
+        text.contains(begin) && agent.events.allSatisfy { text.contains("agent-event.py \(agent.rawValue) \($0.name)") }
+    }
+
+    /// A TOML basic string.
+    private static func tomlString(_ value: String) -> String {
+        "\"" + value.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
+    }
+}
+
 extension HookInstaller {
     static var moreAgentScript: String { hooksFolder.appendingPathComponent("agent-event.py").path }
 
     static func isConnected(_ agent: MoreAgent) -> Bool {
         let url = agent.file(home: home)
-        if agent == .opencode { return FileManager.default.fileExists(atPath: url.path) }
+        if agent.plugin != nil { return FileManager.default.fileExists(atPath: url.path) }
+        if agent.isTOML {
+            guard let data = FileManager.default.contents(atPath: url.path) else { return false }
+            return MoreAgentTOML.isConnected(agent, text: (String(bytes: data, encoding: .utf8) ?? ""))
+        }
         guard let config = try? readJSON(url) else { return false }
         return MoreAgentConfig.isConnected(agent, config: config)
+    }
+
+    /// Whether any of our hooks is in its file, even if some were taken out by hand.
+    static func hasAnyHook(_ agent: MoreAgent) -> Bool {
+        let url = agent.file(home: home)
+        guard let data = FileManager.default.contents(atPath: url.path) else { return false }
+        return agent.ownsFile || (String(bytes: data, encoding: .utf8) ?? "").contains("agent-event.py \(agent.rawValue) ")
     }
 
     static func connect(_ agent: MoreAgent) throws {
         if filesState() != .current { try installFiles() }
         let url = agent.file(home: home)
-        if agent == .opencode {
-            guard let source = bundled?.appendingPathComponent("opencode-plugin.js") else {
-                throw Failure(message: "This build of Tellurion doesn't include the OpenCode plugin.")
+        if let plugin = agent.plugin {
+            guard let source = bundled?.appendingPathComponent(plugin) else {
+                throw Failure(message: "This build of Tellurion doesn't include the \(agent.title) plugin.")
             }
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try Data(contentsOf: source).write(to: url, options: .atomic)
             return
+        }
+        if agent.isTOML {
+            let text = FileManager.default.contents(atPath: url.path).flatMap { String(bytes: $0, encoding: .utf8) } ?? ""
+            try writeText(MoreAgentTOML.connected(agent, text: text, script: moreAgentScript), to: url)
+            return
+        }
+        if agent == .goose {
+            // A plugin folder of our own: its manifest, and the hooks beside it.
+            let manifest = url.deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("plugin.json")
+            try writeJSON(["name": "tellurion", "version": "1.0.0",
+                           "description": "Live agent status for Tellurion's sidebar. Only observes."], to: manifest)
         }
         let config = agent.ownsFile ? [:] : try readJSON(url)
         try writeJSON(MoreAgentConfig.connected(agent, config: config, script: moreAgentScript,
@@ -245,8 +366,18 @@ extension HookInstaller {
 
     static func disconnect(_ agent: MoreAgent) throws {
         let url = agent.file(home: home)
+        if agent == .goose {
+            let folder = url.deletingLastPathComponent().deletingLastPathComponent()
+            if FileManager.default.fileExists(atPath: folder.path) { try FileManager.default.removeItem(at: folder) }
+            return
+        }
         if agent.ownsFile {
             if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }
+            return
+        }
+        if agent.isTOML {
+            guard let data = FileManager.default.contents(atPath: url.path) else { return }
+            try writeText(MoreAgentTOML.disconnected((String(bytes: data, encoding: .utf8) ?? "")), to: url)
             return
         }
         let config = try readJSON(url)
@@ -264,6 +395,24 @@ extension HookInstaller {
             throw Failure(message: "\(display(url)) isn't valid JSON (or has comments), so it was left alone.")
         }
         return object
+    }
+
+    /// Writes a text config the same way as a JSON one: through a symlink, backed up first.
+    private static func writeText(_ text: String, to link: URL) throws {
+        let url = link.resolvingSymlinksInPath()
+        let fm = FileManager.default
+        do {
+            try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            if fm.fileExists(atPath: url.path) {
+                let backup = url.deletingLastPathComponent()
+                    .appendingPathComponent("\(url.lastPathComponent).ghostty-extreme-backup-\(AgentTools.timestamp())")
+                try? fm.removeItem(at: backup)
+                try fm.copyItem(at: url, to: backup)
+            }
+            try Data(text.utf8).write(to: url, options: .atomic)
+        } catch {
+            throw Failure(message: "Couldn't update \(display(link)): \((error as NSError).localizedFailureReason ?? error.localizedDescription)")
+        }
     }
 
     private static func writeJSON(_ config: [String: Any], to link: URL) throws {

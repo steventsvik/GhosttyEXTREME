@@ -35,6 +35,7 @@ typeset -gA _gc_agent_commands=(
   amp amp
   copilot copilot
   cursor-agent cursor
+  agent cursor
   droid droid
   goose goose
   hermes hermes

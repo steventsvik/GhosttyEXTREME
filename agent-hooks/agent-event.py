@@ -2,7 +2,7 @@
 """Live status from more coding agents, for Tellurion's sidebar.
 
 Usage (from an agent's hooks): agent-event.py <agent> <hook event>
-  agent: copilot | droid | kiro | gemini | antigravity | cursor | qwen | goose
+  agent: copilot | droid | kiro | gemini | antigravity | cursor | qwen | kimi | goose | mistral
 
 Reads the hook's JSON from stdin, turns the agent's own event into one of the sidebar's
 (session_start, prompt_submit, tool_complete, permission_request, input_needed, stop,
@@ -53,7 +53,8 @@ def translate(agent, event, p):
     tool = tool_detail(p.get("tool_name") or p.get("toolName") or (p.get("toolCall") or {}).get("name"),
                        p.get("tool_input") or p.get("toolArgs") or p.get("toolInput") or (p.get("toolCall") or {}).get("args"))
     kind = text(p.get("notification_type")) or text(p.get("notificationType"))
-    prompt = prompt_text(p.get("prompt") or os.environ.get("USER_PROMPT", ""))
+    # Goose sends the prompt as "message".
+    prompt = prompt_text(p.get("prompt") or (p.get("message") if agent == "goose" else "") or os.environ.get("USER_PROMPT", ""))
     common = {
         "session_start": ("session_start", ""), "sessionStart": ("session_start", ""), "SessionStart": ("session_start", ""),
         "session_end": ("session_end", ""), "sessionEnd": ("session_end", ""), "SessionEnd": ("session_end", ""),
@@ -64,6 +65,12 @@ def translate(agent, event, p):
         "afterShellExecution": ("tool_complete", tool_detail("Shell", {"command": p.get("command")})),
         "afterFileEdit": ("tool_complete", tool_detail("Edit", {"file_path": p.get("file_path")})),
         "Stop": ("stop", ""), "agentStop": ("stop", ""), "AfterAgent": ("stop", ""),
+        "StopFailure": ("stop_failure", text(p.get("error")) or text(p.get("message"))),
+        # Kimi: it says when it's asking (and when it got an answer) but can't be answered.
+        "PermissionRequest": ("permission_request", tool), "PermissionResult": ("tool_complete", ""),
+        "Interrupt": ("stop", ""),
+        # Mistral Vibe.
+        "post_tool": ("tool_complete", tool), "post_agent": ("stop", ""),
     }
     if event == "stop" and agent == "cursor":
         return ("stop_failure" if p.get("status") == "error" else "stop"), ""
@@ -151,7 +158,10 @@ def main():
     except Exception:  # noqa: BLE001 - observing must never break the agent
         pass
     finally:
-        if agent in JSON_REPLY:
+        if agent == "cursor" and event == "beforeSubmitPrompt":
+            # Cursor holds the prompt until this hook says it may go on.
+            print('{"continue": true}')
+        elif agent in JSON_REPLY:
             print("{}")
 
 

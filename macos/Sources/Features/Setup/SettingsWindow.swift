@@ -169,8 +169,8 @@ enum HookRemoval {
         let alert = NSAlert()
         alert.messageText = "Remove Tellurion's agent hooks?"
         alert.informativeText = """
-        This takes Tellurion's entries out of ~/.claude/settings.json, ~/.codex/hooks.json and \
-        ~/.zshrc (each is backed up first). Your other hooks stay. The sidebar will no longer show \
+        This takes Tellurion's entries out of ~/.claude/settings.json, ~/.codex/hooks.json, the \
+        other agents' hook files and ~/.zshrc (each is backed up first). Your other hooks stay. The sidebar will no longer show \
         what agents are doing until you set it up again.
         """
         alert.addButton(withTitle: "Remove")
@@ -183,6 +183,9 @@ enum HookRemoval {
         do {
             try HookInstaller.disconnect(.claude)
             try HookInstaller.disconnect(.codex)
+            for agent in MoreAgent.allCases where HookInstaller.hasAnyHook(agent) {
+                try HookInstaller.disconnect(agent)
+            }
             try HookInstaller.removeShellIntegration()
         } catch {
             SetupChecks.shared.fixError = error.localizedDescription
