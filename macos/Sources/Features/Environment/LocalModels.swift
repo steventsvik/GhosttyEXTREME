@@ -40,14 +40,22 @@ final class LocalModelsModel: ObservableObject {
     /// The one the sidebar and the Local Models window share.
     static let shared = LocalModelsModel()
 
-    private var timer: Timer?
+    /// Downloads in progress: model name → fraction done (nil until Ollama reports sizes).
+    @Published private(set) var downloads: [String: Double?] = [:]
+
     private var loading = false
     private var watchers = 0
+    private var activation: NSObjectProtocol?
 
-    /// Keeps the list fresh while at least one view shows it.
+    /// This Mac's memory, read once.
+    nonisolated static let memory = Int64(ProcessInfo.processInfo.physicalMemory)
+
+    /// Lists the models once when a view first shows them. No polling: the list is checked
+    /// again only when something can have changed it (a download or removal here, a local
+    /// chat starting or ending, or coming back to Tellurion from another app).
     func watch(_ on: Bool) {
         watchers = max(0, watchers + (on ? 1 : -1))
-        if watchers > 0 { start() } else { stop() }
+        if on && watchers == 1 { start() }
     }
 
     /// Ollama's address: OLLAMA_HOST like Ollama's own CLI, else its default.
@@ -89,18 +97,20 @@ final class LocalModelsModel: ObservableObject {
     /// Memory taken by loaded models, in bytes.
     var loadedMemory: Int64 { models.filter(\.loaded).compactMap(\.memory).reduce(0, +) }
 
+    /// One check now, and another each time Tellurion becomes the active app (a model
+    /// downloaded or removed in a terminal or Ollama's own app shows up then).
     func start() {
         load()
-        guard timer == nil else { return }
-        let timer = Timer(timeInterval: 5, repeats: true) { [weak self] _ in self?.load() }
-        timer.tolerance = 2
-        RunLoop.main.add(timer, forMode: .common)
-        self.timer = timer
+        guard activation == nil else { return }
+        activation = NotificationCenter.default.addObserver(forName: NSApplication.didBecomeActiveNotification,
+                                                            object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.load() }
+        }
     }
 
     func stop() {
-        timer?.invalidate()
-        timer = nil
+        if let activation { NotificationCenter.default.removeObserver(activation) }
+        activation = nil
     }
 
     func load() {
@@ -207,6 +217,43 @@ final class LocalModelsModel: ObservableObject {
         let name = name.trimmingCharacters(in: .whitespaces)
         guard !name.isEmpty else { return }
         SetupChecks.openTab(running: "\(Self.ollamaBinary.map(AgentTools.shellQuote) ?? "ollama") pull \(AgentTools.shellQuote(name))")
+    }
+
+    /// Downloads a model through Ollama's API, with its progress in `downloads`; the list is
+    /// checked again when it's done.
+    func download(_ name: String) {
+        guard downloads[name] == nil else { return }
+        downloads[name] = .some(nil)
+        error = nil
+        Task { [weak self] in
+            var request = URLRequest(url: Self.ollamaBase.appendingPathComponent("api/pull"), timeoutInterval: 3600)
+            request.httpMethod = "POST"
+            request.httpBody = try? JSONSerialization.data(withJSONObject: ["model": name, "stream": true])
+            var failure: String?
+            do {
+                let (bytes, _) = try await URLSession.shared.bytes(for: request)
+                var last = Date.distantPast
+                for try await line in bytes.lines {
+                    guard let event = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any] else { continue }
+                    if let message = event["error"] as? String { failure = message; break }
+                    let total = Self.int64(event["total"]), done = Self.int64(event["completed"])
+                    // A few updates a second is plenty for a progress bar.
+                    guard total > 0, Date().timeIntervalSince(last) > 0.25 else { continue }
+                    last = Date()
+                    let fraction = Double(done) / Double(total)
+                    await MainActor.run { self?.downloads[name] = fraction }
+                }
+            } catch {
+                failure = error.localizedDescription
+            }
+            let message = failure
+            await MainActor.run {
+                guard let self else { return }
+                self.downloads[name] = nil
+                if let message { self.error = "Couldn't download \(name): \(message)" }
+                self.load()
+            }
+        }
     }
 
     /// Deletes an Ollama model from disk.

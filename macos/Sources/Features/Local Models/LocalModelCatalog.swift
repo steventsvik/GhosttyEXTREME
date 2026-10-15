@@ -20,7 +20,7 @@ struct CatalogModel: Identifiable {
 
     /// Fits this Mac: the model, plus room for macOS and the apps already open.
     var fits: Bool {
-        gigabytes * 1.2 + 6 <= Double(ProcessInfo.processInfo.physicalMemory) / 1_000_000_000
+        gigabytes * 1.2 + 6 <= Double(LocalModelsModel.memory) / 1_000_000_000
     }
 }
 
@@ -96,16 +96,16 @@ enum ModelCatalog {
         CatalogModel(name: "huihui_ai/llama3.2-abliterate:3b", note: "Llama 3.2 small, abliterated", gigabytes: 2.2, downloads: "52K"),
     ]
 
-    /// The size that suits this Mac best, opened first.
-    static var bestTier: Tier {
-        let memory = Double(ProcessInfo.processInfo.physicalMemory) / 1_073_741_824
+    /// The size that suits this Mac best, opened first. Worked out once.
+    static let bestTier: Tier = {
+        let memory = Double(LocalModelsModel.memory) / 1_073_741_824
         switch memory {
         case ..<12: return .small
         case ..<24: return .medium
         case ..<48: return .large
         default: return .huge
         }
-    }
+    }()
 }
 
 /// The Download part of the Local Models window.
@@ -183,11 +183,17 @@ private struct CatalogRow: View {
             .frame(width: 96, alignment: .trailing)
             if installed {
                 Text("Downloaded").font(Extreme.font(11)).foregroundColor(Extreme.live).frame(width: 84)
+            } else if let progress = models.downloads[model.name] {
+                VStack(spacing: 2) {
+                    ProgressView(value: progress ?? 0).progressViewStyle(.linear).tint(Extreme.gold)
+                    Text(progress.map { "\(Int($0 * 100))%" } ?? "Starting…").font(Extreme.font(10)).foregroundColor(Extreme.dim)
+                }
+                .frame(width: 84)
             } else {
-                Button("Download") { models.pull(model.name) }
+                Button("Download") { models.download(model.name) }
                     .buttonStyle(ExtremeButtonStyle())
                     .frame(width: 84)
-                    .help(model.fits ? "ollama pull \(model.name), in a new tab" : "Probably too big for this Mac's memory")
+                    .help(model.fits ? "Download \(model.name) through Ollama" : "Probably too big for this Mac's memory")
             }
         }
         .padding(.horizontal, 8)

@@ -152,6 +152,10 @@ final class VerticalTabsAgents {
                 if box.info.transcriptPath == nil { box.info.transcriptPath = CodexTracking.reportedTranscript(session: session) }
             }
         }
+        // A local chat loads its model when it starts: the model list shows it loaded.
+        if event.agent == "local", event.event == "session_start" || event.event == "session_end" {
+            Task { @MainActor in LocalModelsModel.shared.load() }
+        }
         if event.event == "session_end" {
             states.removeObject(forKey: surface)
             return
