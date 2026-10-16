@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Tellurion</title>
-<meta name="description" content="Tellurion is a macOS terminal for running several AI coding agents at once — a Ghostty fork that shows what every agent is doing, live.">
+<meta name="description" content="Tellurion is a macOS terminal for running several AI coding agents at once — a Ghostty fork that shows what every agent is doing, live, and runs models on your own Mac.">
 <link rel="canonical" href="https://steventsvik.github.io/Tellurion/">
 <link rel="icon" type="image/png" sizes="128x128" href="assets/img/icon-128.png">
 <link rel="apple-touch-icon" href="assets/img/icon-256.png">
 <meta name="theme-color" content="#0B0A09">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Tellurion">
-<meta property="og:description" content="The macOS terminal where your coding agents are the main characters. Watch them work, live — and answer them from anywhere.">
+<meta property="og:description" content="The macOS terminal where your coding agents are the main characters. Watch them work, live, answer them from your phone, and run models on your own Mac.">
 <meta property="og:url" content="https://steventsvik.github.io/Tellurion/">
 <meta property="og:image" content="https://steventsvik.github.io/Tellurion/assets/img/og.jpg">
 <meta name="twitter:card" content="summary_large_image">
@@ -121,6 +121,13 @@ header.site nav a:hover { color: var(--text); text-decoration: none; }
 .install-line button:hover { background: rgba(222,184,110,.08); }
 .heroflags { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
 .heroflags span { font: 500 10.5px var(--mono); letter-spacing: .08em; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; background: rgba(16,14,12,.6); }
+.film { max-width: 1120px; margin: 44px auto 0; }
+.film video { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 14px; background: #000; border: 1px solid rgba(239,233,220,.1); box-shadow: 0 1px 2px rgba(0,0,0,.5), 0 14px 44px rgba(0,0,0,.55), 0 40px 120px -20px rgba(0,0,0,.7), 0 0 0 1px rgba(222,184,110,.06); cursor: pointer; }
+.film video:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
+.filmcap { margin: 14px 0 0; font: 500 11px var(--mono); letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
+.filmcap a { color: var(--gold); }
+.filmcap .pausehint { margin-left: 10px; opacity: .7; }
+.filmcap .pausehint::before { content: "·"; margin-right: 10px; }
 
 /* ---------- sections ---------- */
 section { padding-block: clamp(56px, 8vw, 104px); scroll-margin-top: 70px; position: relative; }
@@ -555,6 +562,22 @@ h3 { font-size: 22px; font-weight: 650; margin: 0 0 10px; color: #EDE3CD; }
 .st-env .chip b { color: var(--gold); font-weight: 600; }
 .st-env .chip i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--live); margin-right: 5px; }
 .live .st-env .chip.mdl { animation: skillupd 4s ease-in-out infinite; }
+.st-phone { flex-direction: column; }
+.st-phone .chip.need { border-color: rgba(222,184,110,.45); color: var(--text); }
+.st-phone .chip.need i { background: var(--gold); }
+.live .st-phone .chip.need i { animation: breathe 2s ease-in-out infinite; }
+.st-phone .keys { display: inline-flex; gap: 5px; }
+.st-phone .keys span { font: 600 10px var(--mono); color: var(--ink); background: var(--gold); border-radius: 5px; padding: 3px 7px; }
+.st-phone .keys span.esc { background: var(--raised); color: var(--muted); border: 1px solid var(--line); }
+.st-lay { gap: 6px; }
+.st-lay .box { display: inline-flex; align-items: center; justify-content: center; height: 46px; border: 1px solid var(--line); border-radius: 6px; background: var(--raised); font: 500 10px var(--mono); color: var(--muted); letter-spacing: .06em; }
+.st-lay .box.tabs { width: 54px; }
+.st-lay .box.term { width: 110px; color: var(--text); border-color: var(--strong); }
+.st-lay .box.ed { width: 76px; border-color: rgba(222,184,110,.5); color: var(--gold); }
+@keyframes layhop { 0%, 38% { transform: translateX(0); } 50%, 88% { transform: translateX(-116px); } 100% { transform: translateX(0); } }
+@keyframes layslide { 0%, 38% { transform: translateX(0); } 50%, 88% { transform: translateX(82px); } 100% { transform: translateX(0); } }
+.live .st-lay .box.ed { animation: layhop 4.4s ease-in-out infinite; }
+.live .st-lay .box.term { animation: layslide 4.4s ease-in-out infinite; }
 .st-upd { flex-direction: column; }
 .st-upd .bar { width: 160px; height: 6px; border-radius: 3px; background: #1b1710; overflow: hidden; }
 .st-upd .bar i { display: block; height: 100%; width: 100%; background: var(--gold); transform: scaleX(0); transform-origin: left; border-radius: 3px; }
@@ -732,6 +755,7 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
       <span class="words"><span class="l1">TELLURION</span><span class="l2">Α Ι · ΣΥΣΤΗΜΑ</span></span>
     </a>
     <nav aria-label="Site">
+      <a href="#film">Watch</a>
       <a href="#roster">Features</a>
       <a href="#story">Tour</a>
       <a href="#compare">VS mode</a>
@@ -751,8 +775,9 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
     <p class="arcane in1">Α Ι · Σ Υ Σ Τ Η Μ Α</p>
     <h1 class="gametitle"><span class="t2">TELLURION</span></h1>
     <p class="tag in2">The macOS terminal where your coding agents are the main characters.</p>
-    <p class="sub in2">Run Claude Code, Codex, Gemini, Copilot and friends the way you already do — and
-    <strong>watch them work, live</strong>. A fork of Ghostty, the fast native terminal.</p>
+    <p class="sub in2">Run Claude Code, Codex, Gemini, Copilot and a dozen more the way you already do,
+    <strong>watch them work, live</strong>, and chat with models on your own Mac. A fork of Ghostty,
+    the fast native terminal.</p>
 
     <div class="cta-row in3" id="download">
       <a class="btn-download" id="dl-btn" href="https://github.com/steventsvik/Tellurion/releases/latest">
@@ -761,7 +786,7 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
         </svg>
         Download for macOS
       </a>
-      <div class="dl-meta"><span class="ver" id="dl-ver">1.5.8</span> · free<br>Apple silicon · macOS 13+</div>
+      <div class="dl-meta"><span class="ver" id="dl-ver">1.7.1</span> · free<br>Apple silicon · macOS 13+</div>
     </div>
 
     <div class="install-line in4">
@@ -771,6 +796,11 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
     <div class="heroflags in4">
       <span>OPEN SOURCE · AGPL-3.0</span><span>NO ACCOUNT</span><span>NO TELEMETRY</span><span>YOUR GHOSTTY CONFIG WORKS AS-IS</span>
     </div>
+    <div class="film in4" id="film">
+      <video id="filmvid" src="assets/demo.mp4" poster="assets/img/demo-poster.webp" muted autoplay loop playsinline preload="metadata" tabindex="0"
+        aria-label="A 52-second tour: real Claude Code and Codex sessions in a floating window, the editor following the agent, Mission Control, the review inbox, Visual Fix, a local model chat through Ollama, an agent race, and undoing a turn"></video>
+      <p class="filmcap">52 seconds · real agents, real projects <span class="pausehint" id="pausehint">click to pause</span> <span class="pausehint"><a href="assets/demo.mp4">open the video</a></span></p>
+    </div>
   </div>
 </div>
 
@@ -779,15 +809,15 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
   <div class="wrap">
     <p class="eyebrow rv">FEATURE SELECT</p>
     <h2 class="rv">Pick a feature.</h2>
-    <p class="section-intro rv" style="--i:1; margin-bottom: 28px">Twenty-two of them, each built for
+    <p class="section-intro rv" style="--i:1; margin-bottom: 28px">Twenty-five of them, each built for
     running agents. <strong>Hover to preview. Click for the full details.</strong> Every one can
     be switched off in Settings, where it does no background work at all.</p>
     <div class="filters rv" style="--i:2" role="group" aria-label="Filter the features">
-      <button class="fbtn" data-t="all" aria-pressed="true">ALL<span class="n">22</span></button>
+      <button class="fbtn" data-t="all" aria-pressed="true">ALL<span class="n">25</span></button>
       <button class="fbtn" data-t="sight" aria-pressed="false">SEE<span class="n">6</span></button>
-      <button class="fbtn" data-t="command" aria-pressed="false">CONTROL<span class="n">4</span></button>
+      <button class="fbtn" data-t="command" aria-pressed="false">CONTROL<span class="n">5</span></button>
       <button class="fbtn" data-t="alliance" aria-pressed="false">TEAMWORK<span class="n">3</span></button>
-      <button class="fbtn" data-t="keep" aria-pressed="false">OPS<span class="n">9</span></button>
+      <button class="fbtn" data-t="keep" aria-pressed="false">OPS<span class="n">11</span></button>
     </div>
     <div class="selectstage rv" style="--i:3">
       <aside class="pvpanel">
@@ -1042,7 +1072,7 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
         <div class="winbar"><span class="tl" aria-hidden="true"><i></i><i></i><i></i></span><span class="wt">~ — zsh — 80×14</span></div>
         <div class="body">
           <div class="pr"><b>❯</b> <span class="cmdline" id="term-type"></span><span class="tcaret" id="term-caret"></span></div>
-          <div class="out" id="out-1">downloading Tellurion 1.5.8 … <b>done</b></div>
+          <div class="out" id="out-1">downloading Tellurion 1.7.1 … <b>done</b></div>
           <div class="out" id="out-2">verifying SHA-256 checksums … <b>ok</b></div>
           <div class="out" id="out-3"><b>✓</b> Tellurion.app installed — opening the welcome window</div>
         </div>
@@ -1156,10 +1186,11 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
     <li><strong>Alerts:</strong> a notification you can answer from and a Dock badge when an agent
     waits in a pane you aren’t looking at.</li>
     <li><strong>Every agent you run:</strong> Claude Code and Codex, plus GitHub Copilot CLI,
-    Droid, Gemini CLI, Antigravity, Kiro, Cursor CLI and OpenCode — Check Setup connects each
-    one it finds with a small observer hook that never approves, blocks or changes anything,
-    and backs up any settings file it touches. Amp, Goose, Hermes, Aider, Crush, Qwen Code,
-    Kimi and Mistral Vibe are recognized by name and logo too.</li>
+    Droid, Gemini CLI, Antigravity, Kiro, Cursor CLI, OpenCode, Qwen Code, Kimi Code, Goose,
+    Amp and Mistral Vibe — Check Setup connects each one it finds with a small observer hook
+    that never approves, blocks or changes anything, and backs up any settings file it touches.
+    Hermes, Aider and Crush are recognized by name and logo too, and local model chats get a
+    card of their own.</li>
     <li><strong>Usage meters</strong> for your Claude and ChatGPT plans, with graphs.</li>
   </ul>
   <div class="media"><figure><div class="shot"><img data-src="assets/img/allow.webp" alt="The sidebar: an agent waiting for permission, with Allow and Deny on its card, and a second project below" loading="lazy" decoding="async"></div>
@@ -1219,6 +1250,9 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
     <li><strong>Follow mode:</strong> the editor opens each file the agent reads and animates its
     edits in as they happen — even while closed, so opening it mid-task shows where the agent is
     right away.</li>
+    <li><strong>Every agent in the tab:</strong> with up to four agents in one tab’s splits, the
+    code view splits into a pane per agent, the map shows each as its own comet, and the timeline
+    tags every prompt and action with its agent’s name.</li>
     <li><strong>A VS Code–style editor per tab,</strong> on that tab’s folder, in your terminal
     theme.</li>
     <li><strong>Agent panel:</strong> prompts, thinking, messages, tool calls and results as a
@@ -1438,6 +1472,27 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
   </div></div>
 </template>
 
+<template data-f="phone">
+  <p class="power">Every terminal tab on your phone. Answer an agent from the couch.</p>
+  <ul>
+    <li><strong>Open your Mac’s address</strong> in the phone’s browser: every tab, grouped by
+    project, with the agents that need you at the top. Tap one to see its screen live, in color.</li>
+    <li><strong>Type to it:</strong> a text box that sends with Return, a key row (Esc, Tab, Ctrl,
+    arrows, Ctrl-C), and <b>1 / 2 / 3 / Esc</b> buttons while an agent asks for permission.
+    Keystrokes arrive as if you typed on the Mac, so vim, shells and agents behave.</li>
+    <li><strong>Your network only:</strong> it runs over your own private Tailscale network.
+    Nothing goes through a server of ours, Funnel is never turned on, and each phone is paired
+    once with a short code that expires in ten minutes.</li>
+    <li><strong>Feels like an app:</strong> tabs slide, swipe back, a banner when another agent
+    needs you. Add it to your Home Screen.</li>
+  </ul>
+  <div class="media"><div class="stage st-phone live" aria-hidden="true">
+    <span class="chip need"><i></i>acme-shop · Claude Code · <b>needs you</b></span>
+    <span class="chip">Run <b>npm test</b>? · <span class="keys"><span>1</span><span>2</span><span>3</span><span class="esc">Esc</span></span></span>
+    <span class="chip">over your tailnet · paired · K7QM-2XRD</span>
+  </div></div>
+</template>
+
 <template data-f="localhost">
   <p class="power">Dev servers that outlive the agent that started them.</p>
   <ul>
@@ -1566,7 +1621,8 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
     Compose project, with CPU, memory and ports — Start, Stop, Restart, Logs, a shell inside, and
     Remove.</li>
     <li><strong>Local Models:</strong> what’s in Ollama and LM Studio, which models are loaded and
-    how much memory and GPU they take — Unload, Run, Pull and Remove.</li>
+    how much memory and GPU they take — Unload, Run, Pull and Remove. Chatting with them is its
+    own feature, Local Models.</li>
   </ul>
   <div class="media"><div class="stage st-env live" aria-hidden="true">
     <span class="chip">node 22 · python 3.13 <b>missing</b></span>
@@ -1596,6 +1652,45 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
   </div></div>
 </template>
 
+<template data-f="local-models">
+  <p class="power">Chat with a model on your own Mac. Nothing leaves it.</p>
+  <ul>
+    <li><strong>Every model you already have:</strong> a Local models section in the sidebar lists
+    what Ollama, LM Studio, a llama.cpp or MLX server, and Apple’s on-device model can run, each
+    with the app that serves it. Click one to open a chat under the one you’re in, or in its own
+    tab; drag it onto any chat to open it underneath, in the same project.</li>
+    <li><strong>A chat that stays out of the way:</strong> replies stream in, a reasoning model
+    shows a one-line “Thinking… 12s”, and <code>/think</code>, <code>/clear</code> and
+    <code>/exit</code> do what they say. Closing the chat frees the model’s memory right away.</li>
+    <li><strong>Find and download:</strong> Tools → Local models lists the most popular models on
+    Ollama in five sizes, Tiny to Huge, opens on the one that suits your Mac, and marks the ones
+    too big for its memory. A Hugging Face section adds the most downloaded GGUF models with
+    Popular, Coding and Uncensored filters. Download runs right there, with a progress bar.</li>
+    <li><strong>Works offline,</strong> no account, no background polling. From a terminal:
+    <code>tellurion local &lt;model&gt;</code>.</li>
+  </ul>
+  <div class="media"><figure><div class="shot"><img data-src="assets/img/local-models.webp" alt="Local Models: Ollama running with three models, one loaded and using 885.7 MB, all on the GPU, with Unload, Run and Remove" loading="lazy" decoding="async"></div>
+  <figcaption>The Local Models window: what’s installed, what’s loaded, and where it runs.</figcaption></figure></div>
+</template>
+
+<template data-f="layout">
+  <p class="power">Arrange the window your way. Drag a box, every window follows.</p>
+  <ul>
+    <li><strong>Tools → Layout</strong> shows your window as boxes: the tabs, the terminal, the
+    code editor, Visual Fix and command history. Drag a box to a new spot and the others slide
+    aside; let go and every window rearranges. Right-click a box to move it one spot.</li>
+    <li><strong>Four templates:</strong> Classic (tabs, terminal, editor), Editor first, Tabs on
+    the right, and Mirrored. Reset goes back to Classic.</li>
+    <li><strong>The terminal stays put:</strong> opening a panel grows the window on that panel’s
+    side, resize handles face the terminal, and the tab hover card opens toward it.</li>
+    <li><strong>Tools, by name:</strong> the sidebar’s Tools button lists every tool with a line on
+    what it’s for and its shortcut, grouped by This tab, Agents, Project, This Mac and View.</li>
+  </ul>
+  <div class="media"><div class="stage st-lay live" aria-hidden="true">
+    <span class="box tabs">TABS</span><span class="box term">TERMINAL</span><span class="box ed">EDITOR</span>
+  </div></div>
+</template>
+
 <template data-f="updates">
   <p class="power">Updates itself, then puts every window back.</p>
   <ul>
@@ -1608,7 +1703,7 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
     <li><strong>Signed with this project’s key</strong> — nothing else is accepted.</li>
   </ul>
   <div class="media"><div class="stage st-upd live" aria-hidden="true">
-    <span>1.5.7 → 1.5.8 · signed · everything restored</span>
+    <span>1.7.0 → 1.7.1 · signed · everything restored</span>
     <span class="bar"><i></i></span>
   </div></div>
 </template>
@@ -1695,32 +1790,38 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
     history: ["gggggg..", "g....g..", "gggggg..", "........", "gggggg..", "g.r..g..", "gggggg.."],
     environment: ["...gg...", ".gg..gg.", "g..gg..g", "gg....gg", "g.gccg.g", "g.gccg.g", ".gg..gg.", "...gg..."],
     skills: ["....g....", "...ggg...", "ggggggggg", ".ggggggg.", "..ggggg..", ".ggg.ggg.", ".gg...gg.", "g.......g"],
-    updates: ["...gg...", "..gggg..", ".gggggg.", "ggg..ggg", "..g..g..", "..g..g..", "..gggg.."]
+    updates: ["...gg...", "..gggg..", ".gggggg.", "ggg..ggg", "..g..g..", "..g..g..", "..gggg.."],
+    phone: [".ggggg.", "g.....g", "g.ccc.g", "g.c.c.g", "g.ccc.g", "g.....g", "g..w..g", ".ggggg."],
+    "local-models": ["ggggggggg", "g.......g", "g..c.c..g", "g.ccccc.g", "g..c.c..g", "g.......g", "ggggggggg", "...ggg...", ".ggggggg."],
+    layout: ["gggggggggg", "g..g.....g", "g..g.....g", "g..g..gggg", "g..g..g..g", "g..g..g..g", "gggggggggg"]
   };
 
   /* ---------- the roster ---------- */
   var ROSTER = [
-    { id: "sidebar", name: "Agent Sidebar", cls: "LIVE AGENT STATUS", type: "sight", kbd: "⌃⌘S", line: "Live status for nine agents, every tab.", isNew: true },
+    { id: "sidebar", name: "Agent Sidebar", cls: "LIVE AGENT STATUS", type: "sight", kbd: "⌃⌘S", line: "Live status for fourteen agents, every tab." },
     { id: "mission-control", name: "Mission Control", cls: "ALL AGENTS, ONE SCREEN", type: "sight", kbd: "⌃⌘M", line: "Every agent in every window, one screen." },
-    { id: "editor", name: "Code Editor", cls: "FOLLOWS THE AGENT", type: "sight", kbd: "⌃⌘E", line: "Follows the agent, types its edits live." },
+    { id: "editor", name: "Code Editor", cls: "FOLLOWS EVERY AGENT", type: "sight", kbd: "⌃⌘E", line: "Follows every agent, types their edits live." },
     { id: "map", name: "Code Map", cls: "WHAT THE AGENT TOUCHED", type: "sight", kbd: "", line: "A star map of what the agent touched." },
     { id: "backend", name: "Backend View", cls: "YOUR STACK, MAPPED", type: "sight", kbd: "", line: "Cloudflare, Supabase, Vercel — x-rayed." },
     { id: "activity", name: "Agent Activity", cls: "TIME, DIFFS & TOKENS", type: "sight", kbd: "⌃⌘A", line: "Time, diffs and tokens, per agent." },
     { id: "review", name: "Review Changes", cls: "EVERY TURN, ONE INBOX", type: "command", kbd: "⌃⌘I", line: "Every turn lands in an inbox, full diff." },
     { id: "undo", name: "Undo a Turn", cls: "SNAPSHOT & RESTORE", type: "command", kbd: "", line: "Rewind any turn. Undo the undo too." },
     { id: "visualfix", name: "Visual Fix", cls: "POINT AT IT, FIX IT", type: "command", kbd: "⌃⌘V", line: "Point at your app, say the change." },
+    { id: "phone", name: "Phone", cls: "YOUR TABS, ON YOUR PHONE", type: "command", kbd: "", line: "Every tab on your phone. Answer from anywhere.", isNew: true },
     { id: "loops", name: "Review Loops", cls: "WRITER MEETS REVIEWER", type: "command", kbd: "", line: "One writes, one reviews, until approved." },
     { id: "memory", name: "Project Memory", cls: "NOTES BOTH AGENTS SHARE", type: "alliance", kbd: "⌃⌘Y", line: "What one agent learns, the next knows." },
     { id: "handoff", name: "Hand Off", cls: "PASS THE WORK ALONG", type: "alliance", kbd: "", line: "Pass the work — task, diff and notes." },
     { id: "races", name: "Agent Races", cls: "SAME TASK, IN PARALLEL", type: "alliance", kbd: "⌃⌘R", line: "Same quest, several agents. Keep the best." },
     { id: "localhost", name: "Localhost Sessions", cls: "DEV SERVERS, KEPT ALIVE", type: "keep", kbd: "⌃⌘L", line: "Dev servers that outlive their agent." },
     { id: "ports", name: "Ports", cls: "WHO HOLDS THE PORT", type: "keep", kbd: "", line: "Who's listening, who's hogging :3000." },
-    { id: "git", name: "Git Panel", cls: "GIT, JJ, GITBUTLER, GRAPHITE", type: "keep", kbd: "", line: "PR and checks. jj, GitButler, Graphite too.", isNew: true },
+    { id: "git", name: "Git Panel", cls: "GIT, JJ, GITBUTLER, GRAPHITE", type: "keep", kbd: "", line: "PR and checks. jj, GitButler, Graphite too." },
     { id: "isolated", name: "Isolated Sessions", cls: "A THROWAWAY SANDBOX", type: "keep", kbd: "", line: "Throwaway containers, home stays home." },
     { id: "background", name: "Background", cls: "FINDS WHAT'S LEFT RUNNING", type: "keep", kbd: "⌃⌘K", line: "Finds the stale, reaps it on command." },
     { id: "history", name: "Command History", cls: "EVERY COMMAND, A BLOCK", type: "keep", kbd: "⌃⌘B", line: "Every command a block. Failures fight back." },
-    { id: "environment", name: "Environment", cls: "FOLDER, CONTAINERS, MODELS", type: "keep", kbd: "⌃⌘N", line: "Tool versions, containers, local models.", isNew: true },
-    { id: "skills", name: "Skills", cls: "EVERY SKILL, EVERY AGENT", type: "keep", kbd: "⌃⌘U", line: "Every skill installed, updated, discovered.", isNew: true },
+    { id: "environment", name: "Environment", cls: "FOLDER, CONTAINERS, MODELS", type: "keep", kbd: "⌃⌘N", line: "Tool versions, containers, local models." },
+    { id: "local-models", name: "Local Models", cls: "MODELS ON YOUR OWN MAC", type: "keep", kbd: "", line: "Chat with a model on your Mac. Nothing leaves it.", isNew: true },
+    { id: "skills", name: "Skills", cls: "EVERY SKILL, EVERY AGENT", type: "keep", kbd: "⌃⌘U", line: "Every skill installed, updated, discovered." },
+    { id: "layout", name: "Layout", cls: "ARRANGE THE WINDOW", type: "keep", kbd: "", line: "Drag the panels where you want them.", isNew: true },
     { id: "updates", name: "Signed Updates", cls: "SIGNED & SELF-RESTORING", type: "keep", kbd: "", line: "Updates itself, restores every window." }
   ];
   var TYPELABEL = { sight: "SEE", command: "CONTROL", alliance: "TEAMWORK", keep: "OPS" };
@@ -1746,7 +1847,10 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
     history: { stage: '<div class="stage st-hist live"><span class="chip err"><i></i>pnpm test — exit 1</span><span class="chip fix">Fix with Claude</span></div>' },
     environment: { stage: '<div class="stage st-env live"><span class="chip">node 22 · python 3.13 <b>missing</b></span><span class="chip">postgres · api · <i></i>running</span><span class="chip mdl">llama3.1:8b · loaded · 5.1 GB</span></div>' },
     skills: { stage: '<div class="stage st-skill live"><span class="chip">grill-me · Claude Code, Codex</span><span class="chip upd"><i></i>reverse-engineer-anything · <b>update</b></span><span class="chip hot">▲ trending on skills.sh</span></div>' },
-    updates: { stage: '<div class="stage st-upd live"><span>1.5.7 → 1.5.8 · signed</span><span class="bar"><i></i></span></div>' }
+    phone: { stage: '<div class="stage st-phone live"><span class="chip need"><i></i>acme-shop · Claude Code · <b>needs you</b></span><span class="chip">Run <b>npm test</b>? · <span class="keys"><span>1</span><span>2</span><span>3</span><span class="esc">Esc</span></span></span><span class="chip">over your tailnet · paired</span></div>' },
+    "local-models": { img: "local-models.webp" },
+    layout: { stage: '<div class="stage st-lay live"><span class="box tabs">TABS</span><span class="box term">TERMINAL</span><span class="box ed">EDITOR</span></div>' },
+    updates: { stage: '<div class="stage st-upd live"><span>1.7.0 → 1.7.1 · signed</span><span class="bar"><i></i></span></div>' }
   };
   ROSTER.forEach(function (f, i) {
     var b = document.createElement("button");
@@ -2032,6 +2136,27 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
     return { stop: stop };
   }
   } catch (err) { if (window.console && console.error) console.error("select init:", err); }
+
+  /* ---------- the film ---------- */
+  try {
+    var film = document.getElementById("filmvid"), hint = document.getElementById("pausehint");
+    if (film) {
+      if (reduced) { film.removeAttribute("autoplay"); film.setAttribute("controls", ""); film.pause(); if (hint) hint.hidden = true; }
+      else {
+        var togglePlay = function () {
+          if (film.paused) { film.play(); if (hint) hint.textContent = "click to pause"; }
+          else { film.pause(); if (hint) hint.textContent = "paused · click to play"; }
+        };
+        film.addEventListener("click", togglePlay);
+        film.addEventListener("keydown", function (e) { if (e.key === " " || e.key === "Enter") { e.preventDefault(); togglePlay(); } });
+        if ("IntersectionObserver" in window) {
+          new IntersectionObserver(function (es) {
+            es.forEach(function (en) { if (!en.isIntersecting) film.pause(); else if (hint && hint.textContent === "click to pause") film.play().catch(function () {}); });
+          }, { threshold: .15 }).observe(film);
+        }
+      }
+    }
+  } catch (e) {}
 
   /* ---------- latest release ---------- */
   var btn = document.getElementById("dl-btn");
