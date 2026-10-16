@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/steventsvik/Tellurion/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/steventsvik/Tellurion?style=flat-square&color=deb86e&labelColor=17140f&label=release"></a>
-  <a href="https://github.com/steventsvik/Tellurion/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/steventsvik/Tellurion?style=flat-square&color=deb86e&labelColor=17140f&label=stars"></a>
+  <a href="https://github.com/steventsvik/Tellurion/releases/latest"><img alt="Latest release" src="https://badgen.net/github/release/steventsvik/Tellurion?style=flat&color=deb86e&labelColor=17140f&label=release"></a>
+  <a href="https://github.com/steventsvik/Tellurion/stargazers"><img alt="GitHub stars" src="https://badgen.net/github/stars/steventsvik/Tellurion?style=flat&color=deb86e&labelColor=17140f&label=stars"></a>
   <a href="https://github.com/steventsvik/Tellurion/releases"><img alt="Total downloads" src="https://img.shields.io/github/downloads/steventsvik/Tellurion/total?style=flat-square&color=deb86e&labelColor=17140f&label=downloads"></a>
   <img alt="macOS 13+" src="https://img.shields.io/badge/macOS-13%2B-deb86e?style=flat-square&labelColor=17140f&logo=apple&logoColor=deb86e">
   <img alt="Apple silicon" src="https://img.shields.io/badge/Apple%20silicon-arm64-deb86e?style=flat-square&labelColor=17140f">
