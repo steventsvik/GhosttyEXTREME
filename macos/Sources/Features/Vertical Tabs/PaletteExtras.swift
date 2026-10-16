@@ -181,6 +181,13 @@ enum PaletteExtras {
             LayoutWindow.show()
         })
         options.append(CommandOption(
+            title: "Design…",
+            description: "Terminal colors, chrome, font, window and logo: twenty templates or your own",
+            leadingIcon: PixelIcon.design.symbol
+        ) {
+            DesignWindow.show()
+        })
+        options.append(CommandOption(
             title: "Tellurion Settings",
             description: "Features, animation and the sidebar",
             symbols: ["⌃", "⌘", ","],

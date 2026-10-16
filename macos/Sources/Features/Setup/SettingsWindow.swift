@@ -38,6 +38,9 @@ private struct ExtremeSettingsView: View {
                     }
                     VStack(alignment: .leading, spacing: 10) {
                         ExtremeSectionLabel("Look")
+                        settingRow("Design", designDetail) {
+                            Button("Open Design…") { DesignWindow.show() }
+                        }
                         settingRow("Animation", "Status only keeps spinners and status lights, and stops the decoration") {
                             Picker("", selection: Binding(get: { settings.motion }, set: { settings.motion = $0 })) {
                                 ForEach(ExtremeMotionLevel.allCases) { Text($0.title).tag($0) }
@@ -78,6 +81,12 @@ private struct ExtremeSettingsView: View {
         }
         .extremeWindow()
         .onAppear { setup.refreshIfStale(60) }
+    }
+
+    private var designDetail: String {
+        let name = DesignStore.shared.design.name
+        return DesignStore.shared.design.isStandardLook ? "Tellurion as shipped; templates, your own colors, font, window and logo"
+            : "\(name): terminal colors, chrome, font, window and logo"
     }
 
     private var agentTitle: String {

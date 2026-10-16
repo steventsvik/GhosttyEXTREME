@@ -52,8 +52,8 @@ struct NewTabSplash: View {
     @State private var visible = true
 
     private static let duration: TimeInterval = 1.5
-    /// The sigil's pixels in a fixed shuffled order, so they appear scattered.
-    private static let order: [(x: Int, y: Int, c: Character)] = {
+    /// The logo's pixels in a fixed shuffled order, so they appear scattered.
+    private let order: [(x: Int, y: Int, c: Character)] = {
         var pixels: [(x: Int, y: Int, c: Character)] = []
         for (y, row) in ExtremeSigil.rows.enumerated() {
             for (x, c) in row.enumerated() where c != "." { pixels.append((x, y, c)) }
@@ -73,8 +73,8 @@ struct NewTabSplash: View {
                 VStack(spacing: 12) {
                     Canvas { gc, _ in
                         let px: CGFloat = 3
-                        let count = Int(Double(Self.order.count) * build)
-                        for pixel in Self.order.prefix(count) {
+                        let count = Int(Double(order.count) * build)
+                        for pixel in order.prefix(count) {
                             gc.fill(Path(CGRect(x: CGFloat(pixel.x) * px, y: CGFloat(pixel.y) * px, width: px, height: px)),
                                     with: .color(ExtremeSigil.colors[pixel.c] ?? Extreme.bronze))
                         }

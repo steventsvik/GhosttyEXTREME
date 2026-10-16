@@ -307,12 +307,13 @@ enum AgentToolWindows {
                               backing: .buffered, defer: false)
         window.title = title
         window.titlebarAppearsTransparent = true
-        window.appearance = NSAppearance(named: .darkAqua)
-        window.backgroundColor = NSColor(red: 0x0B / 255, green: 0x0A / 255, blue: 0x09 / 255, alpha: 1)
+        window.appearance = NSAppearance(named: Extreme.chrome.isLight ? .aqua : .darkAqua)
+        window.backgroundColor = Extreme.chrome.ink.nsColor
         window.isReleasedWhenClosed = false
         // Open over a full-screen terminal instead of switching to another Space.
         window.collectionBehavior = [.fullScreenAuxiliary, .moveToActiveSpace]
-        window.contentView = NSHostingView(rootView: content().extremeWindow())
+        let root = content()
+        window.contentView = NSHostingView(rootView: DesignRoot { root.extremeWindow() })
         window.center()
         windows[id] = window
         var observer: NSObjectProtocol?
@@ -327,6 +328,14 @@ enum AgentToolWindows {
 
     static func close(id: String) {
         windows[id]?.close()
+    }
+
+    /// The design changed: the open windows' backing color follows (their views rebuild themselves).
+    static func designDidChange() {
+        for window in windows.values {
+            window.appearance = NSAppearance(named: Extreme.chrome.isLight ? .aqua : .darkAqua)
+            window.backgroundColor = Extreme.chrome.ink.nsColor
+        }
     }
 
     static func isOpen(_ id: String) -> Bool {

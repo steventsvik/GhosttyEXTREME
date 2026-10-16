@@ -10,23 +10,30 @@ import SwiftUI
 enum Extreme {
     // MARK: Palette
 
-    static let ink = Color(rgb: 0x0B0A09)
-    static let panel = Color(rgb: 0x100E0C)
-    static let raised = Color(rgb: 0x17140F)
+    // The colors come from the design in use (Tools → Design); these are Tellurion's
+    // names for its roles. `DesignRoot` rebuilds a view tree when the design changes.
+    private static var c: ResolvedChrome { DesignStore.shared.chromeColors }
+
+    static var ink: Color { c.ink }
+    static var panel: Color { c.panel }
+    static var raised: Color { c.raised }
     /// Hairlines between and around panels.
-    static let line = Color(rgb: 0x2E271D)
-    static let lineStrong = Color(rgb: 0x4A3C28)
-    static let bronze = Color(rgb: 0x967446)
-    static let gold = Color(rgb: 0xDEB86E)
+    static var line: Color { c.line }
+    static var lineStrong: Color { c.lineStrong }
+    static var bronze: Color { c.bronze }
+    static var gold: Color { c.gold }
     /// The AI core: only for agents, the sigil's heart, and live activity.
-    static let core = Color(rgb: 0x78DCEB)
-    static let text = Color(rgb: 0xD8CFBF)
-    static let muted = Color(rgb: 0x8C8374)
-    static let dim = Color(rgb: 0x5C554A)
-    static let live = Color(rgb: 0x7FC98A)
-    static let warn = Color(rgb: 0xD9A55B)
-    static let danger = Color(rgb: 0xD0695E)
+    static var core: Color { c.core }
+    static var text: Color { c.text }
+    static var muted: Color { c.muted }
+    static var dim: Color { c.dim }
+    static var live: Color { c.live }
+    static var warn: Color { c.warn }
+    static var danger: Color { c.danger }
     static let claude = Color(rgb: 0xD97757)
+
+    /// The chrome's colors as values, for AppKit and for drawing with the design's logo.
+    static var chrome: ChromeColors { DesignStore.shared.chrome }
 
     // MARK: Type
 
@@ -101,44 +108,9 @@ struct ExtremeSigil: View {
     var alive = true
     @Environment(\.extremeMotion) private var motion
 
-    static let rows = [
-        "...............gg...............",
-        "..............bbbb..............",
-        "............bb....bb............",
-        "...........b........b...........",
-        ".........bb...dddd...bb.........",
-        "........b...dd....dd...b........",
-        "......bb..dd........dd..bb......",
-        "....bb..dd............dd..bb....",
-        "...g..dd..g..........g..dd..g...",
-        "...b.d....gggggggggggg....d.b...",
-        "...b.d....bbbbbbbbbbbb....d.b...",
-        "...b.d....g....bb....g....d.b...",
-        "...b.d.........bb.........d.b...",
-        "...b.d.........bb.........d.b...",
-        "...b.d.........cc.........d.b...",
-        "...b.d........cwwc........d.b...",
-        "...b.d........cwwc........d.b...",
-        "...b.d.........cc.........d.b...",
-        "...b.d.........bb.........d.b...",
-        "...b.d.........bb.........d.b...",
-        "...b.d.........bb.........d.b...",
-        "...b.d.........bb.........d.b...",
-        "...b.d.......gggggg.......d.b...",
-        "...g..d..................d..g...",
-        "....bb..dd............dd..bb....",
-        "......bb..dd........dd..bb......",
-        "........bb..dd....dd..bb........",
-        "..........bb..dddd..bb..........",
-        "............bb....bb............",
-        "..............bbbb..............",
-        "...............gg...............",
-    ]
-
-    static let colors: [Character: Color] = [
-        "d": Extreme.lineStrong, "b": Extreme.bronze, "g": Extreme.gold,
-        "c": Extreme.core, "w": Color(rgb: 0xEBFCFF),
-    ]
+    /// The logo's pixels: Tellurion's T, or the one drawn in the Design window.
+    static var rows: [String] { DesignStore.shared.logoRows }
+    static var colors: [Character: Color] { DesignStore.shared.logoColors }
 
     var body: some View {
         let pixel = size / 32
@@ -157,7 +129,7 @@ struct ExtremeSigil: View {
             }
             PixelBitmap(rows: Self.rows, colors: Self.colors, pixel: pixel)
         }
-        .frame(width: size, height: size * 31 / 32)
+        .frame(width: size, height: size)
     }
 }
 
@@ -264,7 +236,7 @@ struct AgentBadge: View {
 /// 9×9 pixel icons for the chrome.
 enum PixelIcon: String {
     case plus, globe, inbox, grid, condense, expand, close, restart, stop, play, eye, chevronDown, chevronRight, pin, bolt, more, branch, chart, code,
-         target, desktop, tablet, phone, memory, skills, environment, layout
+         target, desktop, tablet, phone, memory, skills, environment, layout, design
 
     var rows: [String] {
         switch self {
@@ -295,6 +267,7 @@ enum PixelIcon: String {
         case .environment: return ["..ooooo..", ".o.....o.", "ooooooooo", "o.......o", "ooooooooo", "o.......o", "ooooooooo", ".o.....o.", "..ooooo.."]
         case .bolt: return ["....oo...", "...oo....", "..oo.....", ".ooooo...", "...oo....", "..oo.....", ".oo......", "oo.......", "........."]
         case .layout: return ["ooooooooo", "o.o...o.o", "o.o...o.o", "o.o...o.o", "o.o...o.o", "o.o...o.o", "o.o...o.o", "o.o...o.o", "ooooooooo"]
+        case .design: return ["..ooooo..", ".o.o.o.o.", "o.o.o.o.o", "o.......o", "o.o...ooo", "o.o...o..", "o.....o..", ".o...o...", "..ooo...."]
         }
     }
 }
@@ -330,6 +303,7 @@ extension PixelIcon {
         case .skills: return "puzzlepiece.extension"
         case .environment: return "shippingbox"
         case .layout: return "rectangle.split.3x1"
+        case .design: return "paintpalette.fill"
         }
     }
 }
@@ -480,7 +454,7 @@ extension View {
             .background(Extreme.ink)
             .buttonStyle(ExtremeButtonStyle())
             .tint(Extreme.gold)
-            .environment(\.colorScheme, .dark)
+            .environment(\.colorScheme, Extreme.chrome.isLight ? .light : .dark)
             .onAppear { Extreme.registerFonts() }
     }
 }
