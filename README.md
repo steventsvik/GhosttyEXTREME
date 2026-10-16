@@ -24,10 +24,10 @@
 </p>
 
 <p align="center">
-  <a href="images/readme/demo.mp4"><img src="images/readme/demo.gif" alt="A live 45-second tour: Claude Code and Codex launched in real tabs, the editor following the agent as it writes a route and test, the command palette, Mission Control, the review inbox, Visual Fix on a running app, a chat with a local model through Ollama, an agent race, undoing an agent's turn, and a wall of nine live clips zooming out" width="100%"></a>
+  <a href="images/readme/demo.mp4"><img src="images/readme/demo.gif" alt="A 40-second tour: Claude Code and Codex working in three projects at once with the editor following along, a permission prompt answered from the sidebar, a dev server moved into its own tab, Visual Fix adding a button to a running app, Mission Control, the review inbox, a jj repository in the Git panel, the Environment window, Skills, and the Background window closing a stale server" width="100%"></a>
 </p>
 
-<p align="center"><sub>Real app, real agents, demo projects. Highlights above — <a href="images/readme/demo.mp4">watch the full tour</a>.</sub></p>
+<p align="center"><sub>Real app, real agents, demo projects. <a href="images/readme/demo.mp4">Watch in full quality</a>.</sub></p>
 
 **Tellurion is a macOS terminal for developers who run several AI coding agents,
 like Claude Code, Codex, Gemini CLI and Copilot CLI, across several projects at once.** It's a fork of
