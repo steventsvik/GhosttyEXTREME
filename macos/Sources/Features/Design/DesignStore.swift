@@ -240,8 +240,13 @@ enum GhosttyDesignConfig {
     static let includeLine = "config-file = ?\(fragmentName)"
     static let marker = "# Tellurion's Design window writes the file below; keep this line to use it."
 
-    /// The config file Ghostty reads, in its order of preference; created if there is none.
+    /// The config file Ghostty reads (`GHOSTTY_CONFIG_PATH` when set, as the app itself
+    /// honors it), else the default files in Ghostty's order of preference; created if
+    /// there is none.
     static var configFile: URL {
+        if let path = ProcessInfo.processInfo.environment["GHOSTTY_CONFIG_PATH"], !path.isEmpty {
+            return URL(fileURLWithPath: path)
+        }
         let home = URL(fileURLWithPath: NSHomeDirectory())
         let xdg = ProcessInfo.processInfo.environment["XDG_CONFIG_HOME"].map { URL(fileURLWithPath: $0) }
             ?? home.appendingPathComponent(".config", isDirectory: true)
