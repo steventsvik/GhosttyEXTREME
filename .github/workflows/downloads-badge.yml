@@ -26,9 +26,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          filter: tree:0
 
       - uses: actions/checkout@v4
         with:
@@ -48,7 +45,7 @@ jobs:
             --jq '[.[].assets[].download_count] | add // 0' | jq -s 'add // 0')
           stars=$(gh api "repos/${GITHUB_REPOSITORY}" --jq '.stargazers_count')
           release=$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.name // .tag_name')
-          upstream=$(git tag --merged HEAD --sort=-v:refname | grep -E '^v[0-9]' | head -1 | sed 's/^v//')
+          upstream=$(sed -n 's/^ *\.version = "\([^"]*\)".*/\1/p' build.zig.zon | head -1)
           {
             echo "downloads=$(short "$downloads")"
             echo "stars=$(short "$stars")"
