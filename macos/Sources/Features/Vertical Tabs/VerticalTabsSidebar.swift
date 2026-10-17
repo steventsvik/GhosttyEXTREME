@@ -582,11 +582,12 @@ struct VerticalTabsSidebar: View {
             onToggleCollapse: { collapse.toggle(entry.id) })
     }
 
-    /// The terminal's own background, a shade deeper.
+    /// The terminal's own background, a shade deeper (just a touch on a light design,
+    /// where a dark wash would gray it out).
     private var sidebarBackground: some View {
         ZStack {
             config.backgroundColor.opacity(config.backgroundOpacity)
-            Color.black.opacity(0.28)
+            Color.black.opacity(Extreme.chrome.isLight ? 0.05 : 0.28)
         }
     }
 

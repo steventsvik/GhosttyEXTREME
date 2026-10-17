@@ -115,7 +115,7 @@ private struct ToolsPanel: View {
             Tool(feature: nil, symbol: PixelIcon.layout.symbol, title: "Layout",
                  detail: "Move the tabs, terminal and panels around", action: LayoutWindow.show),
             Tool(feature: nil, symbol: PixelIcon.design.symbol, title: "Design",
-                 detail: "Colors, font, window and logo, from templates or your own", action: DesignWindow.show),
+                 detail: "Templates, your own colors and logo", action: DesignWindow.show),
             Tool(feature: nil, symbol: (condense ? PixelIcon.expand : .condense).symbol,
                  title: condense ? "Expand view" : "Condense view",
                  detail: condense ? "Show agent details on each tab" : "One line per tab") { condensed.toggle() },

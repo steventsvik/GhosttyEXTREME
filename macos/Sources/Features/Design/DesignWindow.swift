@@ -8,7 +8,7 @@ enum DesignWindow {
     static let windowID = "design"
 
     static func show() {
-        AgentToolWindows.show(id: windowID, title: "Design", size: NSSize(width: 1040, height: 720)) {
+        AgentToolWindows.show(id: windowID, title: "Design", size: NSSize(width: 1040, height: 720), followsDesign: false) {
             DesignWindowView()
         }
     }
@@ -28,6 +28,7 @@ struct DesignWindowView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center, spacing: 16) {
                 ExtremeWindowTitle(icon: nil, title: "Design", subtitle: subtitle, sigil: true)
+                    .id(store.revision)  // the sigil and colors follow the design
                 Spacer()
                 Picker("", selection: $mode) {
                     ForEach(DesignMode.allCases) { Text($0.title).tag($0) }
@@ -84,6 +85,7 @@ private struct DesignGallery: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(20)
+            .id(store.revision)  // the cards recolor; the scroll position stays
         }
     }
 }
@@ -112,7 +114,7 @@ private struct DesignCard: View {
                         }
                         Text(design.tagline.isEmpty ? "Your design" : design.tagline)
                             .font(Extreme.font(11, weight: .regular)).foregroundColor(Extreme.muted)
-                            .fixedSize(horizontal: false, vertical: true)
+                            .lineLimit(2, reservesSpace: true)
                             .multilineTextAlignment(.leading)
                     }
                     Spacer(minLength: 0)

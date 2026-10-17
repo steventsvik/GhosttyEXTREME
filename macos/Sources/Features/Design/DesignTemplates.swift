@@ -5,10 +5,7 @@ import Foundation
 /// window to match the vibe. The chrome follows the terminal's colors.
 enum DesignTemplates {
     static let all: [TellurionDesign] = [
-        TellurionDesign(
-            id: "tellurion", name: "Tellurion", tagline: "Ink and bronze, gold for what matters, cyan for the AI",
-            terminal: .custom(.tellurion), chrome: .fixed(.tellurion),
-            window: WindowLook(opacity: 1, blur: 0, padding: 10, cursor: .block), builtIn: true),
+        .standard,
         template("mocha", "Catppuccin Mocha", "Pastel night: soft lavender on a deep blue-black", theme: "Catppuccin Mocha",
                  accent: 0xCBA6F7, ai: 0x89DCEB, padding: 12),
         template("dracula", "Dracula", "The count's study: purple and pink on slate", theme: "Dracula",

@@ -32,7 +32,14 @@ final class DesignStore: ObservableObject {
     /// Whether the Dock shows the design's logo right now.
     private var dockIconShown = false
 
-    static var folder: URL { AgentTools.root }
+    /// Where `design.json` and `designs/` live. Test-only: `GHOSTTY_EXTREME_TEST_HOME`
+    /// moves them, so a test copy never changes the maintainer's design.
+    static var folder: URL {
+        if let home = ProcessInfo.processInfo.environment["GHOSTTY_EXTREME_TEST_HOME"], !home.isEmpty {
+            return URL(fileURLWithPath: home).appendingPathComponent(".ghostty-extreme", isDirectory: true)
+        }
+        return AgentTools.root
+    }
     static var file: URL { folder.appendingPathComponent("design.json") }
     static var mineFolder: URL { folder.appendingPathComponent("designs", isDirectory: true) }
 
@@ -94,7 +101,7 @@ final class DesignStore: ObservableObject {
 
     /// Resolves the terminal colors, the chrome and the logo from `design`; writes the
     /// Ghostty fragment and reloads when `reload`; tells the views when something they
-    /// draw changed (or always, after a reload).
+    /// draw changed.
     private func resolve(reload: Bool, notify: Bool = true) {
         let before = (chrome, logoRows)
         let live = (NSApp.delegate as? AppDelegate).flatMap { TerminalColors(config: $0.ghostty.config) }
@@ -116,7 +123,7 @@ final class DesignStore: ObservableObject {
         }
         guard notify else { return }
         applyDockIcon()
-        guard reload || before.0 != chrome || before.1 != logoRows else { return }
+        guard before.0 != chrome || before.1 != logoRows else { return }
         revision += 1
         AgentToolWindows.designDidChange()
         NotificationCenter.default.post(name: Self.didChange, object: nil)
@@ -230,6 +237,22 @@ struct DesignRoot<Content: View>: View {
     }
 }
 
+/// The tool-window styling (`extremeWindow()`) re-applied on every design change without
+/// rebuilding the content: for views that keep state while the design changes under them.
+struct DesignSkin<Content: View>: View {
+    @ObservedObject private var store = DesignStore.shared
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        content()
+            .background(store.chromeColors.ink)
+            .buttonStyle(ExtremeButtonStyle())
+            .tint(store.chromeColors.gold)
+            .environment(\.colorScheme, store.chrome.isLight ? .light : .dark)
+            .onAppear { Extreme.registerFonts() }
+    }
+}
+
 // MARK: - The Ghostty config
 
 /// The terminal's part of a design lives in `tellurion-design.ghostty` next to the Ghostty
@@ -240,17 +263,23 @@ enum GhosttyDesignConfig {
     static let includeLine = "config-file = ?\(fragmentName)"
     static let marker = "# Tellurion's Design window writes the file below; keep this line to use it."
 
-    /// The config file Ghostty reads (`GHOSTTY_CONFIG_PATH` when set, as the app itself
-    /// honors it), else the default files in Ghostty's order of preference; created if
-    /// there is none.
+    /// The config file Ghostty reads: the default files in Ghostty's order of
+    /// preference (created if there is none); in debug builds `GHOSTTY_CONFIG_PATH`,
+    /// which is the only build where the app itself honors it.
     static var configFile: URL {
+#if DEBUG
         if let path = ProcessInfo.processInfo.environment["GHOSTTY_CONFIG_PATH"], !path.isEmpty {
             return URL(fileURLWithPath: path)
         }
-        let home = URL(fileURLWithPath: NSHomeDirectory())
-        let xdg = ProcessInfo.processInfo.environment["XDG_CONFIG_HOME"].map { URL(fileURLWithPath: $0) }
+#endif
+        // Ghostty finds the XDG file from `$HOME` and the Application Support one from
+        // the account's home, so this does the same.
+        let env = ProcessInfo.processInfo.environment
+        let home = URL(fileURLWithPath: env["HOME"].flatMap { $0.isEmpty ? nil : $0 } ?? NSHomeDirectory())
+        let xdg = env["XDG_CONFIG_HOME"].flatMap { $0.isEmpty ? nil : URL(fileURLWithPath: $0) }
             ?? home.appendingPathComponent(".config", isDirectory: true)
-        let appSupport = home.appendingPathComponent("Library/Application Support/com.mitchellh.ghostty", isDirectory: true)
+        let appSupport = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Library/Application Support/com.mitchellh.ghostty", isDirectory: true)
         let candidates = [
             xdg.appendingPathComponent("ghostty/config.ghostty"),
             xdg.appendingPathComponent("ghostty/config"),

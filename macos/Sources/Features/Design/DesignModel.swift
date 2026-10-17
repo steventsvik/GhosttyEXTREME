@@ -184,6 +184,32 @@ enum TerminalColorSource: Codable, Equatable {
     case theme(String)
     /// Colors chosen in the Design window.
     case custom(TerminalColors)
+
+    // Saved as `{"source": "theme", "theme": "Nord"}` rather than Swift's synthesized shape.
+    private enum Keys: String, CodingKey { case source, theme, colors }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: Keys.self)
+        switch try c.decode(String.self, forKey: .source) {
+        case "theme": self = .theme(try c.decode(String.self, forKey: .theme))
+        case "custom": self = .custom(try c.decode(TerminalColors.self, forKey: .colors))
+        default: self = .mine
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: Keys.self)
+        switch self {
+        case .mine:
+            try c.encode("mine", forKey: .source)
+        case .theme(let name):
+            try c.encode("theme", forKey: .source)
+            try c.encode(name, forKey: .theme)
+        case .custom(let colors):
+            try c.encode("custom", forKey: .source)
+            try c.encode(colors, forKey: .colors)
+        }
+    }
 }
 
 enum DesignCursorStyle: String, Codable, CaseIterable, Identifiable {
@@ -303,6 +329,31 @@ enum ChromeSource: Codable, Equatable {
     case auto(accent: DesignColor?, ai: DesignColor?)
     /// Every color chosen by hand.
     case fixed(ChromeColors)
+
+    // Saved as `{"mode": "auto", "accent": "#…", "ai": "#…"}` or `{"mode": "fixed", "colors": {…}}`.
+    private enum Keys: String, CodingKey { case mode, accent, ai, colors }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: Keys.self)
+        switch try c.decode(String.self, forKey: .mode) {
+        case "fixed": self = .fixed(try c.decode(ChromeColors.self, forKey: .colors))
+        default: self = .auto(accent: try c.decodeIfPresent(DesignColor.self, forKey: .accent),
+                              ai: try c.decodeIfPresent(DesignColor.self, forKey: .ai))
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: Keys.self)
+        switch self {
+        case .auto(let accent, let ai):
+            try c.encode("auto", forKey: .mode)
+            try c.encodeIfPresent(accent, forKey: .accent)
+            try c.encodeIfPresent(ai, forKey: .ai)
+        case .fixed(let colors):
+            try c.encode("fixed", forKey: .mode)
+            try c.encode(colors, forKey: .colors)
+        }
+    }
 }
 
 // MARK: - The logo
@@ -495,7 +546,7 @@ struct TellurionDesign: Codable, Equatable, Identifiable {
     var builtIn = false
 
     /// What a fresh install looks like: Tellurion's chrome around whatever the Ghostty config says.
-    static let standard = TellurionDesign(id: "standard", name: "Tellurion", tagline: "Ink, bronze and gold around your own terminal colors",
+    static let standard = TellurionDesign(id: "tellurion", name: "Tellurion", tagline: "As shipped: ink, bronze and gold around your own terminal colors",
                                           terminal: .mine, chrome: .fixed(.tellurion), builtIn: true)
 
     /// Whether this design is the one Tellurion ships with, ignoring the name.

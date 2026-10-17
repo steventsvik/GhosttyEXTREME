@@ -67,7 +67,7 @@ struct LogoEditorView: View {
             }
             .padding(20)
         }
-        .frame(width: side + 300 + 60, height: side + 110)
+        .frame(width: side + 300 + 60, height: side + 200)  // the controls column is taller than the canvas
         .extremeWindow()
     }
 

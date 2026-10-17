@@ -297,7 +297,10 @@ final class AgentRaces: ObservableObject {
 enum AgentToolWindows {
     private static var windows: [String: NSWindow] = [:]
 
-    static func show<V: View>(id: String, title: String, size: NSSize, @ViewBuilder content: () -> V) {
+    /// `followsDesign`: the view is rebuilt whenever the design changes (and loses its
+    /// state). The Design window passes `false`: it recolors itself and keeps its state.
+    static func show<V: View>(id: String, title: String, size: NSSize, followsDesign: Bool = true,
+                              @ViewBuilder content: () -> V) {
         if let window = windows[id] {
             window.makeKeyAndOrderFront(nil)
             return
@@ -313,7 +316,13 @@ enum AgentToolWindows {
         // Open over a full-screen terminal instead of switching to another Space.
         window.collectionBehavior = [.fullScreenAuxiliary, .moveToActiveSpace]
         let root = content()
-        window.contentView = NSHostingView(rootView: DesignRoot { root.extremeWindow() })
+        if followsDesign {
+            window.contentView = NSHostingView(rootView: DesignRoot { root.extremeWindow() })
+        } else {
+            let hosting = NSHostingView(rootView: DesignSkin { root })
+            hosting.sizingOptions = []  // the window keeps its size; the content scrolls
+            window.contentView = hosting
+        }
         window.center()
         windows[id] = window
         var observer: NSObjectProtocol?
