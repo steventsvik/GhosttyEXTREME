@@ -17,6 +17,7 @@ struct VerticalTabsLayout<Content: View>: View {
     /// Pauses the chrome's animations while this window (tab) isn't on screen.
     @StateObject private var motion = WindowMotion()
     @ObservedObject private var settings = ExtremeSettings.shared
+    @ObservedObject private var design = DesignStore.shared
     @AppStorage(EditorPanel.widthKey) private var editorWidth: Double = EditorPanel.defaultWidth
     @AppStorage(VisualFixPanel.widthKey) private var visualFixWidth: Double = VisualFixPanel.defaultWidth
     @AppStorage(AgentAurora.enabledKey) private var aurora = false
@@ -78,6 +79,7 @@ struct VerticalTabsLayout<Content: View>: View {
                     palette: VerticalTabsPalette(config: ghostty.config),
                     sidebarFrame: sidebarFrame,
                     sidebarOnLeft: layout.isLeftOfTerminal(.tabs))
+                .id(design.revision)
             }
         }
         .onChange(of: visible) { _ in overlay.dismissAll() }
@@ -101,6 +103,7 @@ struct VerticalTabsLayout<Content: View>: View {
                                                 range: VerticalTabs.widthRange, onTrailingEdge: left)
                 if !left { handle }
                 VerticalTabsSidebar(model: model, owner: controller, config: ghostty.config)
+                    .id(design.revision)
                     .frame(width: width)
                     .environmentObject(overlay)
                     .background(
@@ -126,8 +129,11 @@ struct VerticalTabsLayout<Content: View>: View {
                 LocalhostToastLayer(controller: controller)
                 // Branding: pixel corner brackets (a traveling light while an agent works)
                 // and the sigil assembling when the tab opens.
-                TerminalFrameOverlay(controller: controller)
-                NewTabSplash()
+                Group {
+                    TerminalFrameOverlay(controller: controller)
+                    NewTabSplash()
+                }
+                .id(design.revision)
             }
         case .editor:
             // Each tab has its own editor.
@@ -576,11 +582,12 @@ struct VerticalTabsSidebar: View {
             onToggleCollapse: { collapse.toggle(entry.id) })
     }
 
-    /// The terminal's own background, a shade deeper.
+    /// The terminal's own background, a shade deeper (just a touch on a light design,
+    /// where a dark wash would gray it out).
     private var sidebarBackground: some View {
         ZStack {
             config.backgroundColor.opacity(config.backgroundOpacity)
-            Color.black.opacity(0.28)
+            Color.black.opacity(Extreme.chrome.isLight ? 0.05 : 0.28)
         }
     }
 

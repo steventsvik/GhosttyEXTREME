@@ -128,7 +128,7 @@ and logo when you start them.
 <tr>
 <td valign="top"><b><a href="#environment">Environment</a></b><br><sub>Tool versions, containers and local models</sub></td>
 <td valign="top"><b><a href="#skills">Skills</a></b><br><sub>Every agent's skills, kept up to date, and what's trending</sub></td>
-<td valign="top"></td>
+<td valign="top"><b><a href="#design">Design</a></b><br><sub>Twenty templates, your own colors, and a logo you draw</sub></td>
 </tr>
 </table>
 
@@ -526,6 +526,44 @@ current project's own.
 - **Updates** appear as a card at the top of the sidebar, checked shortly after launch and
   every hour. They're signed with this project's key (nothing else is accepted), and after
   the update your windows, tabs, splits, agent sessions and localhost servers come back.
+
+### Design
+
+<p align="center">
+  <img src="images/readme/design-templates.png" alt="The Design window: twenty template cards, each a small Tellurion window in that design's colors, with Tellurion marked in use" width="100%">
+</p>
+
+Tellurion ships in ink and bronze around whatever terminal colors you already use. **Design**
+(Tools → Design, or "Design…" in the command palette) changes that, live.
+
+- **Twenty templates,** each a vibe: Catppuccin Mocha and Latte, Dracula, Nord, Gruvbox dark
+  and light, Tokyo Night, Rosé Pine and Dawn, Kanagawa, Everforest, Solarized, Synthwave,
+  Matrix, Cyberpunk, Monokai Pro, GitHub Dark, Oxocarbon and Flexoki. Click one and the
+  terminal's colors, the sidebar and panels, the window and the cursor change at once.
+- **Customize:** keep your own terminal colors, pick any of Ghostty's built-in themes (with
+  search), or set the background, text, cursor, selection and sixteen ANSI colors by hand.
+  The chrome around the terminal follows those colors on its own, with an accent and an AI
+  color of your choosing, or every chrome color set one by one. Then the font and size, the
+  window's opacity, blur and padding, and the cursor's shape and blink.
+- **Draw your own logo:** a 32×32 pixel editor with mirror painting, undo and starting
+  shapes. Pixels are color roles, so the logo recolors with the design. It replaces the T in
+  the new-tab splash and the tool windows, and can be the Dock icon while Tellurion runs.
+- **Save it** under Templates → Yours. **Reset** returns to Tellurion as shipped.
+- Your Ghostty config stays yours. The terminal's part of a design goes into
+  `tellurion-design.ghostty` beside it, included by one `config-file` line; delete that line
+  to stop using it.
+
+<p align="center">
+  <img src="images/readme/design-looks.png" alt="Four Tellurion windows in four templates: Catppuccin Mocha, Gruvbox, Nord and Rosé Pine Dawn" width="100%">
+</p>
+
+<p align="center">
+  <img src="images/readme/design-customize.png" alt="Customize: the live preview and logo on the left; terminal colors from a theme list, the chrome's accent and AI colors, font, and window settings on the right" width="100%">
+</p>
+
+<p align="center">
+  <img src="images/readme/design-logo.png" alt="The logo editor: a 32 by 32 pixel canvas with the Tellurion mark, color roles to paint with, mirror and eraser, and previews at three sizes plus the Dock icon" width="100%">
+</p>
 
 ### Everything Ghostty already does
 

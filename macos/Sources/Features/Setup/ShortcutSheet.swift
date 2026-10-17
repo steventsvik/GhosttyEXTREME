@@ -72,7 +72,7 @@ final class ShortcutSheet {
 
     func show(sticky: Bool) {
         self.sticky = sticky
-        let view = ShortcutSheetView(groups: Self.collect(), sticky: sticky)
+        let view = DesignRoot { ShortcutSheetView(groups: Self.collect(), sticky: sticky) }
         let hosting = NSHostingView(rootView: view)
         let size = hosting.fittingSize
         let panel = self.panel ?? Self.makePanel()

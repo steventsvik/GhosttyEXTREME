@@ -933,15 +933,15 @@ footer.site nav a { color: var(--text); font-size: 14.5px; }
   <div class="wrap">
     <p class="eyebrow rv">FEATURE SELECT</p>
     <h2 class="rv">Pick a feature.</h2>
-    <p class="section-intro rv" style="--i:1; margin-bottom: 28px">Twenty-five of them, each built for
+    <p class="section-intro rv" style="--i:1; margin-bottom: 28px">Twenty-six of them, each built for
     running agents. <strong>Hover to preview. Click for the full details.</strong> Every one can
     be switched off in Settings, where it does no background work at all.</p>
     <div class="filters rv" style="--i:2" role="group" aria-label="Filter the features">
-      <button class="fbtn" data-t="all" aria-pressed="true">ALL<span class="n">25</span></button>
+      <button class="fbtn" data-t="all" aria-pressed="true">ALL<span class="n">26</span></button>
       <button class="fbtn" data-t="sight" aria-pressed="false">SEE<span class="n">6</span></button>
       <button class="fbtn" data-t="command" aria-pressed="false">CONTROL<span class="n">5</span></button>
       <button class="fbtn" data-t="alliance" aria-pressed="false">TEAMWORK<span class="n">3</span></button>
-      <button class="fbtn" data-t="keep" aria-pressed="false">OPS<span class="n">11</span></button>
+      <button class="fbtn" data-t="keep" aria-pressed="false">OPS<span class="n">12</span></button>
     </div>
     <div class="selectstage rv" style="--i:3">
       <aside class="pvpanel">
@@ -2007,6 +2007,29 @@ Running the tests…
   </div></div>
 </template>
 
+<template data-f="design">
+  <p class="power">Twenty looks to pick from. Or your own colors, and a logo you draw.</p>
+  <ul>
+    <li><strong>Templates:</strong> Catppuccin Mocha and Latte, Dracula, Nord, Gruvbox dark and
+    light, Tokyo Night, Rosé Pine and Dawn, Kanagawa, Everforest, Solarized, Synthwave, Matrix,
+    Cyberpunk, Monokai Pro, GitHub Dark, Oxocarbon and Flexoki. Click one and the terminal’s
+    colors, the sidebar and panels, the window and the cursor change at once.</li>
+    <li><strong>Customize:</strong> keep your own terminal colors, pick any of Ghostty’s built-in
+    themes, or set every color by hand. The chrome follows those colors on its own, with an
+    accent and an AI color of your choosing. Then the font, the window’s opacity, blur and
+    padding, and the cursor.</li>
+    <li><strong>Draw your logo:</strong> a 32×32 pixel editor with mirror painting and undo.
+    Pixels are color roles, so the logo recolors with the design; it can be the Dock icon too.</li>
+    <li><strong>Your config stays yours:</strong> the design is written to
+    <code>tellurion-design.ghostty</code> beside it, included by one line. Save designs under
+    Yours; Reset goes back to Tellurion as shipped.</li>
+  </ul>
+  <div class="media"><figure><div class="shot"><img data-src="assets/img/design-templates.webp" alt="The Design window: twenty template cards, each a small Tellurion window in that design’s colors" loading="lazy" decoding="async"></div>
+  <figcaption>Tools → Design: pick a card and the whole window follows.</figcaption></figure></div>
+  <div class="media"><figure><div class="shot"><img data-src="assets/img/design-logo.webp" alt="The logo editor: a pixel canvas with the Tellurion mark, color roles to paint with, and previews at three sizes" loading="lazy" decoding="async"></div>
+  <figcaption>The logo editor. Pixels are roles, so a logo recolors with every design.</figcaption></figure></div>
+</template>
+
 <template data-f="updates">
   <p class="power">Updates itself, then puts every window back.</p>
   <ul>
@@ -2109,7 +2132,8 @@ Running the tests…
     updates: ["...gg...", "..gggg..", ".gggggg.", "ggg..ggg", "..g..g..", "..g..g..", "..gggg.."],
     phone: [".ggggg.", "g.....g", "g.ccc.g", "g.c.c.g", "g.ccc.g", "g.....g", "g..w..g", ".ggggg."],
     "local-models": ["ggggggggg", "g.......g", "g..c.c..g", "g.ccccc.g", "g..c.c..g", "g.......g", "ggggggggg", "...ggg...", ".ggggggg."],
-    layout: ["gggggggggg", "g..g.....g", "g..g.....g", "g..g..gggg", "g..g..g..g", "g..g..g..g", "gggggggggg"]
+    layout: ["gggggggggg", "g..g.....g", "g..g.....g", "g..g..gggg", "g..g..g..g", "g..g..g..g", "gggggggggg"],
+    design: ["..ggggg..", ".g.....g.", "g.r.l.c.g", "g.......g", "g.o...w.g", ".g...gg..", "..gggg..."]
   };
 
   /* ---------- the roster ---------- */
@@ -2138,6 +2162,7 @@ Running the tests…
     { id: "local-models", name: "Local Models", cls: "MODELS ON YOUR OWN MAC", type: "keep", kbd: "", line: "Chat with a model on your Mac. Nothing leaves it.", isNew: true },
     { id: "skills", name: "Skills", cls: "EVERY SKILL, EVERY AGENT", type: "keep", kbd: "⌃⌘U", line: "Every skill installed, updated, discovered." },
     { id: "layout", name: "Layout", cls: "ARRANGE THE WINDOW", type: "keep", kbd: "", line: "Drag the panels where you want them.", isNew: true },
+    { id: "design", name: "Design", cls: "YOUR COLORS, YOUR LOGO", type: "keep", kbd: "", line: "Twenty templates, or colors and a logo of your own.", isNew: true },
     { id: "updates", name: "Signed Updates", cls: "SIGNED & SELF-RESTORING", type: "keep", kbd: "", line: "Updates itself, restores every window." }
   ];
   var TYPELABEL = { sight: "SEE", command: "CONTROL", alliance: "TEAMWORK", keep: "OPS" };
@@ -2166,6 +2191,7 @@ Running the tests…
     phone: { stage: '<div class="stage st-phone live"><span class="chip need"><i></i>acme-shop · Claude Code · <b>needs you</b></span><span class="chip">Run <b>npm test</b>? · <span class="keys"><span>1</span><span>2</span><span>3</span><span class="esc">Esc</span></span></span><span class="chip">over your tailnet · paired</span></div>' },
     "local-models": { img: "local-models.webp" },
     layout: { stage: '<div class="stage st-lay live"><span class="box tabs">TABS</span><span class="box term">TERMINAL</span><span class="box ed">EDITOR</span></div>' },
+    design: { img: "design-looks.webp" },
     updates: { stage: '<div class="stage st-upd live"><span>1.7.0 → 1.7.1 · signed</span><span class="bar"><i></i></span></div>' }
   };
   ROSTER.forEach(function (f, i) {

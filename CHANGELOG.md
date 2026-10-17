@@ -4,6 +4,15 @@ What changed in each Tellurion (formerly GhosttyEXTREME) release. Work in progre
 **Unreleased**; at release time that heading becomes the version number, and
 `./release.sh` uses the section as the release notes.
 
+## Unreleased
+
+- **Design.** A new **Design** window (Tools → Design, or "Design…" in the command palette) changes how Tellurion looks, live.
+  - **Twenty templates**, each a vibe: Tellurion as shipped (ink and bronze around your own terminal colors), Catppuccin Mocha and Latte, Dracula, Nord, Gruvbox dark and light, Tokyo Night, Rosé Pine and Dawn, Kanagawa, Everforest, Solarized, Synthwave (a little see-through), Matrix, Cyberpunk, Monokai Pro, GitHub Dark, Oxocarbon and Flexoki. Click one and the terminal's colors, the sidebar and panels, the window and the cursor change at once.
+  - **Customize** makes it yours: keep your own terminal colors, pick any of Ghostty's built-in themes (with search), or set the background, text, cursor, selection and sixteen ANSI colors by hand. The chrome around the terminal follows those colors on its own, with an **accent** and an **AI color** of your choosing, or every chrome color set one by one. Choose the terminal font and size, the window's opacity, blur and padding, and the cursor's shape and blink.
+  - **Draw your own logo.** A 32×32 pixel editor with mirror painting, undo and starting shapes. Pixels are color roles (gold, AI, text…), so the logo recolors with the design. It replaces Tellurion's T in the new-tab splash and the tool windows, and can be the Dock icon while Tellurion runs.
+  - **Save it** under Templates → Yours, and come back to it any time. **Reset** returns to Tellurion as shipped.
+  - The terminal's part of a design is written to `tellurion-design.ghostty` beside your Ghostty config, which gets one `config-file` line to include it. Your config is otherwise untouched; delete that line to stop using it.
+
 ## 1.7.1
 
 - **A new About window.** Tellurion's About window now says what it is and what it does: mission control for your AI coding agents, with six highlights (every agent in one sidebar, the editor following each agent, answering from anywhere, undoing any turn, models on your Mac, and the layout), plus links to this version's release notes, the website and GitHub.
