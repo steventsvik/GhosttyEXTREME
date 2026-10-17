@@ -136,6 +136,9 @@ step "Package"
 APP=$OUT/Tellurion.app
 rm -rf $APP $OUT/Tellurion-agent-hooks $OUT/*.zip(N)
 ditto macos/build/ReleaseLocal/Ghostty.app $APP
+# Files built under ~/Desktop carry com.apple.provenance; dropped here, and the archives below
+# are made without extended attributes, so no `._` AppleDouble files ride along.
+xattr -cr $APP 2>/dev/null || true
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" -c "Set :CFBundleVersion $VERSION" $APP/Contents/Info.plist
 # Only release builds check for updates by themselves (see AppDelegate).
 /usr/libexec/PlistBuddy -c "Delete :GhosttyExtremeRelease" $APP/Contents/Info.plist 2>/dev/null
@@ -233,7 +236,7 @@ pass "launched and stayed up (idle CPU ${CPU}%%), no crash report"
 # ── Notarize ────────────────────────────────────────────────────────────
 if [[ $SIGNED == 1 ]]; then
   step "Notarize (Apple scans the app; usually a few minutes)"
-  ditto -c -k --keepParent $APP $OUT/notarize.zip
+  ditto -c -k --keepParent --norsrc --noextattr $APP $OUT/notarize.zip
   xcrun notarytool submit $OUT/notarize.zip --keychain-profile $NOTARY_PROFILE --wait --timeout 30m > $OUT/notarize.log 2>&1
   SUBMISSION=$(awk '/^  id:/ {print $2; exit}' $OUT/notarize.log)
   rm -f $OUT/notarize.zip
@@ -261,7 +264,21 @@ fi
 step "Archives"
 APPZIP=Tellurion-$VERSION-macos-arm64.zip
 HOOKZIP=Tellurion-$VERSION-agent-hooks.zip
-(cd $OUT && ditto -c -k --keepParent Tellurion.app $APPZIP && ditto -c -k --keepParent Tellurion-agent-hooks $HOOKZIP)
+# --norsrc --noextattr: a zip with AppleDouble (`._`) entries opens fine in Archive Utility, but
+# other unarchivers (The Unarchiver, Keka, unzip) leave them inside the bundle, which breaks the
+# signature, and macOS then refuses the app as unverifiable. 1.7.1 shipped that way.
+(cd $OUT && ditto -c -k --keepParent --norsrc --noextattr Tellurion.app $APPZIP && ditto -c -k --keepParent --norsrc --noextattr Tellurion-agent-hooks $HOOKZIP)
+! unzip -l $OUT/$APPZIP | grep -q '/\._' || fail "the app zip carries AppleDouble files; third-party unarchivers would break the signature"
+if [[ $SIGNED == 1 ]]; then
+  # What a third-party unarchiver produces: a plain unzip, quarantined, judged by Gatekeeper.
+  GK=$OUT/gatekeeper-unzip && rm -rf $GK && mkdir -p $GK && (cd $GK && unzip -q $OUT/$APPZIP)
+  xattr -w com.apple.quarantine "0081;$(printf %x $(date +%s));Safari;" $GK/Tellurion.app
+  codesign --verify --deep --strict $GK/Tellurion.app 2>/dev/null || fail "the app zip, unpacked with unzip, has a broken signature"
+  spctl --assess --type execute -vv $GK/Tellurion.app 2>&1 | grep -q 'source=Notarized Developer ID' \
+    || { spctl --assess --type execute -vv $GK/Tellurion.app; fail "Gatekeeper wouldn't open the zip as a third-party unarchiver unpacks it"; }
+  rm -rf $GK
+  pass "the zip opens whichever unarchiver unpacks it (no AppleDouble files, Notarized Developer ID)"
+fi
 APPSHA=$(shasum -a 256 $OUT/$APPZIP | cut -d' ' -f1)
 HOOKSHA=$(shasum -a 256 $OUT/$HOOKZIP | cut -d' ' -f1)
 (cd $OUT && shasum -a 256 $APPZIP $HOOKZIP > SHA256SUMS)
