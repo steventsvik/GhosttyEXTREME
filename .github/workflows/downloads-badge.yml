@@ -1,66 +1,81 @@
-# Counts every release asset download and publishes it as a badge, so the README's
-# downloads badge does not depend on a badge service's own GitHub access (which
-# has shown "invalid" during outages). The number lands in downloads.json on the
-# `badges` branch; shields.io only renders that file.
-name: Downloads badge
+# Renders the README badges itself and publishes them as SVGs on the `badges` branch, so
+# the README depends on GitHub alone. Badge services (shields.io, badgen.net) have shown
+# "invalid" or failed outright during their outages, and GitHub's image proxy then caches
+# the broken image for hours. The counts come straight from the GitHub API here.
+name: Badges
 
 on:
   schedule:
     - cron: "17 * * * *"
   release:
     types: [published, edited, deleted]
+  push:
+    branches: [custom]
+    paths: [".github/badges/**", ".github/workflows/downloads-badge.yml"]
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: downloads-badge
+  group: badges
   cancel-in-progress: true
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Count release downloads
-        id: count
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          total=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/releases" \
-            --jq '[.[].assets[].download_count] | add // 0' | jq -s 'add // 0')
-          label=$(awk -v n="$total" 'BEGIN {
-            if (n >= 1000000) printf "%.1fM", n / 1000000;
-            else if (n >= 1000) printf "%.1fk", n / 1000;
-            else printf "%d", n }')
-          echo "total=$total" >> "$GITHUB_OUTPUT"
-          echo "label=$label" >> "$GITHUB_OUTPUT"
-          echo "Release downloads: $total ($label)"
+      - uses: actions/checkout@v4
 
       - uses: actions/checkout@v4
         with:
           ref: badges
           path: badges
 
-      - name: Publish downloads.json
+      - name: Read the numbers
+        id: facts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          short() { awk -v n="$1" 'BEGIN {
+            if (n >= 1000000) printf "%.1fM", n / 1000000;
+            else if (n >= 1000) printf "%.1fk", n / 1000;
+            else printf "%d", n }'; }
+          downloads=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/releases" \
+            --jq '[.[].assets[].download_count] | add // 0' | jq -s 'add // 0')
+          stars=$(gh api "repos/${GITHUB_REPOSITORY}" --jq '.stargazers_count')
+          release=$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.name // .tag_name')
+          upstream=$(sed -n 's/^ *\.version = "\([^"]*\)".*/\1/p' build.zig.zon | head -1)
+          {
+            echo "downloads=$(short "$downloads")"
+            echo "stars=$(short "$stars")"
+            echo "release=$release"
+            echo "upstream=${upstream:-unknown}"
+          } | tee -a "$GITHUB_OUTPUT"
+
+      - name: Render the badges
+        working-directory: badges
+        env:
+          R: ../.github/badges/render.py
+        run: |
+          python3 "$R" release.svg   release        "${{ steps.facts.outputs.release }}"
+          python3 "$R" stars.svg     stars          "${{ steps.facts.outputs.stars }}"
+          python3 "$R" downloads.svg downloads      "${{ steps.facts.outputs.downloads }}"
+          python3 "$R" macos.svg     macOS          "13+" --logo apple
+          python3 "$R" arm64.svg     "Apple silicon" arm64
+          python3 "$R" license.svg   license        "AGPL-3.0"
+          python3 "$R" ghostty.svg   "based on"     "Ghostty ${{ steps.facts.outputs.upstream }}" --color 78dceb
+          rm -f downloads.json
+
+      - name: Publish
         working-directory: badges
         run: |
-          cat > downloads.json <<JSON
-          {
-            "schemaVersion": 1,
-            "label": "downloads",
-            "message": "${{ steps.count.outputs.label }}",
-            "color": "deb86e",
-            "labelColor": "17140f",
-            "cacheSeconds": 1800
-          }
-          JSON
-          if git diff --quiet -- downloads.json; then
+          git add -A
+          if git diff --cached --quiet; then
             echo "Unchanged."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add downloads.json
-          git commit -q -m "downloads: ${{ steps.count.outputs.label }} (${{ steps.count.outputs.total }})"
+          git commit -q -m "badges: ${{ steps.facts.outputs.release }}, ${{ steps.facts.outputs.stars }} stars, ${{ steps.facts.outputs.downloads }} downloads"
           git push -q origin badges
