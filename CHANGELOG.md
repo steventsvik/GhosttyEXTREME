@@ -4,7 +4,7 @@ What changed in each Tellurion (formerly GhosttyEXTREME) release. Work in progre
 **Unreleased**; at release time that heading becomes the version number, and
 `./release.sh` uses the section as the release notes.
 
-## Unreleased
+## 1.7.2
 
 - **Fixed:** the README badges are now rendered by the repo's own hourly workflow and served from GitHub, so a badge service outage can no longer leave them "invalid" or broken.
 - **Fixed:** the downloaded zip could be refused by macOS ("could not verify that it is free of malware") when it was unpacked by something other than Archive Utility, such as The Unarchiver, Keka or `unzip`. The zip carried metadata files that those tools put inside the app, which broke its signature. Release zips are now made without them, and the release check unpacks the zip the plain way and runs it past Gatekeeper before anything is published.
