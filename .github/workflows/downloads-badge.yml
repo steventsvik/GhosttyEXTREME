@@ -1,0 +1,66 @@
+# Counts every release asset download and publishes it as a badge, so the README's
+# downloads badge does not depend on a badge service's own GitHub access (which
+# has shown "invalid" during outages). The number lands in downloads.json on the
+# `badges` branch; shields.io only renders that file.
+name: Downloads badge
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  release:
+    types: [published, edited, deleted]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: downloads-badge
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Count release downloads
+        id: count
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          total=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/releases" \
+            --jq '[.[].assets[].download_count] | add // 0' | jq -s 'add // 0')
+          label=$(awk -v n="$total" 'BEGIN {
+            if (n >= 1000000) printf "%.1fM", n / 1000000;
+            else if (n >= 1000) printf "%.1fk", n / 1000;
+            else printf "%d", n }')
+          echo "total=$total" >> "$GITHUB_OUTPUT"
+          echo "label=$label" >> "$GITHUB_OUTPUT"
+          echo "Release downloads: $total ($label)"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: badges
+          path: badges
+
+      - name: Publish downloads.json
+        working-directory: badges
+        run: |
+          cat > downloads.json <<JSON
+          {
+            "schemaVersion": 1,
+            "label": "downloads",
+            "message": "${{ steps.count.outputs.label }}",
+            "color": "deb86e",
+            "labelColor": "17140f",
+            "cacheSeconds": 1800
+          }
+          JSON
+          if git diff --quiet -- downloads.json; then
+            echo "Unchanged."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add downloads.json
+          git commit -q -m "downloads: ${{ steps.count.outputs.label }} (${{ steps.count.outputs.total }})"
+          git push -q origin badges
